@@ -4,7 +4,8 @@ import numpy.fft
 
 class State(object):
     def __init__(self, Nxy=(32, 32), Lxy=(10., 10.), 
-                 healing_length=1.0, r0=1.0, V0=-1.0):
+                 healing_length=1.0, r0=1.0, V0=-1.0, 
+                 cooling_phase=1.0+0.001j):
         g = hbar = m = 1.0
         self.g = g
         self.hbar = hbar
@@ -27,8 +28,11 @@ class State(object):
         n0 = hbar**2/2.0/healing_length**2/g
         self.mu = g*n0
         self.data = np.ones(Nxy, dtype=complex) * np.sqrt(n0)
+        self._N = self.get_density().sum()
         
         self.x0 = self.y0 = 0
+        
+        self._phase = -1j/self.hbar/cooling_phase
 
     def get_density(self):
         return abs(self.data)**2
@@ -50,13 +54,14 @@ class State(object):
     
     def apply_expK(self, dt, factor=1.0):
         y = self.data
-        self.data[...] = self.ifft(np.exp(-1j*dt*self.K*factor/self.hbar) * self.fft(y))
+        self.data[...] = self.ifft(np.exp(self._phase*dt*self.K*factor) * self.fft(y))
     
     def apply_expV(self, dt, factor=1.0):
         y = self.data
         n = self.get_density()
         V = self.get_Vext() + self.g*n - self.mu
-        self.data[...] = np.exp(-1j*dt*V*factor/self.hbar) * y
+        self.data[...] = np.exp(self._phase*dt*V*factor) * y
+        self.data *= np.sqrt(self._N/n.sum())
     
     def step(self, N, dt):
         self.apply_expK(dt=dt, factor=0.5)
