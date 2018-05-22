@@ -1,7 +1,3 @@
-# healing length = 1.0
-# hbar = m = g = 1
-%pylab inline --no-import-all
-
 import numpy as np
 import numpy.fft
 
@@ -41,12 +37,6 @@ class State(object):
         self.x0 = x0
         self.y0 = y0
         
-    def plot(self):
-        n = self.get_density()
-        x, y = self.xy
-        plt.pcolormesh(x.ravel(), y.ravel(), n)
-        plt.colorbar()
-        
     def fft(self, y):
         return np.fft.fftn(y)
 
@@ -74,3 +64,10 @@ class State(object):
             self.apply_expV(dt=dt, factor=1.0)
             self.apply_expK(dt=dt, factor=1.0)
         self.apply_expK(dt=dt, factor=-0.5)
+        
+    def plot(self):
+        from matplotlib import pyplot as plt
+        n = self.get_density()
+        x, y = self.xy
+        plt.pcolormesh(x.ravel(), y.ravel(), n)
+        plt.colorbar()        
