@@ -1,0 +1,15 @@
+#:kivy 1.10.0
+
+<Display>:
+    canvas:
+        Rectangle:
+            texture: root.get_texture()
+            pos: self.pos
+            size: self.size
+    Slider:
+        id: my_slider
+        size_hint: .05,.4
+        orientation: 'vertical'
+        min: -1
+        max: 1
+        on_value: root.scroll_values(*args)
