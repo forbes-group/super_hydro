@@ -14,7 +14,9 @@ class State(object):
     """
     def __init__(self, Nxy=(32, 32), Lxy=(10., 10.),
                  healing_length=1.0, r0=1.0, V0=0.1,
-                 cooling_phase=1.0+0.01j):
+                 cooling_phase=1.0+0.01j,
+                 cooling_steps=100,
+                 test_finger=False):
         g = hbar = m = 1.0
         self.g = g
         self.hbar = hbar
@@ -23,7 +25,7 @@ class State(object):
         self.V0 = V0
         self.Nxy = Nx, Ny = Nxy
         self.Lxy = Lx, Ly = Lxy
-        dxy = dx, dy = np.divide(Lxy, Nxy)
+        dx, dy = np.divide(Lxy, Nxy)
         x = (np.arange(Nx)*dx - Lx/2.0)[:, None]
         y = (np.arange(Ny)*dy - Ly/2.0)[None, :]
         self.xy = (x, y)
@@ -43,7 +45,8 @@ class State(object):
         self.data = np.ones(Nxy, dtype=complex) * np.sqrt(n0)
         self._N = self.get_density().sum()
 
-        self._z_finger = 0 + 0j
+        self.test_finger = test_finger
+        self.z_finger = 0 + 0j
         self.k_m_pot = 0.01
         self.z_pot = 0 + 0j
         self.v_pot = 0 + 0j
@@ -52,25 +55,30 @@ class State(object):
         self.t = -10000
 
         self._phase = -1.0/self.hbar
-        self.step(10000, dt=0.05)
+        self.step(cooling_steps, dt=0.05)
         self.t = 0
         self._phase = -1j/self.hbar/cooling_phase
-
-        
 
     def get_density(self):
         return abs(self.data)**2
 
     def set_xy0(self, x0, y0):
-        self._z_finger = x0 + 1j*y0
+        self.z_finger = x0 + 1j*y0
 
     @property
     def z_finger(self):
-        if self.t >=0:
-            return 3.0*np.exp(1j*self.t/10)
+        if self.test_finger:
+            if self.t >= 0:
+                return 3.0*np.exp(1j*self.t/10)
+            else:
+                return 3.0
         else:
-            return 3.0
-        
+            return self._z_finger
+
+    @z_finger.setter
+    def z_finger(self, z_finger):
+        self._z_finger = z_finger
+
     def fft(self, y):
         return np.fft.fftn(y)
 
@@ -113,14 +121,14 @@ class State(object):
             self.v_pot += dt * a_pot
             if abs(self.v_pot) > self.v_max:
                 self.v_pot *= self.v_max/abs(self.v_pot)
-                
+
             self.z_pot = self.mod(self.z_pot)
             self.apply_expV(dt=dt, factor=1.0)
             self.apply_expK(dt=dt, factor=1.0)
             self.t += dt
         self.apply_expK(dt=dt, factor=-0.5)
         self.t -= dt/2.0
-                
+
     def plot(self):
         from matplotlib import pyplot as plt
         n = self.get_density()
@@ -129,4 +137,5 @@ class State(object):
         plt.gca().set_aspect(1)
         plt.plot([self.z_pot.real], [self.z_pot.imag], 'ro')
         plt.plot([self.z_finger.real], [self.z_finger.imag], 'go')
+        plt.title("{:.2f}".format(self.t))
         plt.colorbar()
