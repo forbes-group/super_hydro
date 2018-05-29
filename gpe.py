@@ -4,7 +4,7 @@ import numpy.fft
 
 class State(object):
     """
-    
+
     Parameters
     ----------
     V0 : float
@@ -78,7 +78,7 @@ class State(object):
     @z_finger.setter
     def z_finger(self, z_finger):
         self._z_finger = z_finger
-    
+
     def fft(self, y):
         return np.fft.fftn(y)
 

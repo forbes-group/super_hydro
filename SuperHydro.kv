@@ -6,6 +6,32 @@
             texture: root.get_texture()
             pos: self.pos
             size: self.size
+    Marker:
+        id: finger
+        center: [root.center_x,root.center_y]
+
+    Marker:
+        id: potential
+        source: 'Marker2.png'
+        center: [root.center_x, root.center_y]
+        #on_center: force.ids.rotation.angle()
+    Arrow:
+        id: force
+        pos: root.center
+        canvas.before:
+            PushMatrix
+            Rotate:
+                angle: root.angle
+                origin: self.pos
+    #    canvas:
+    #        Rotate:
+    #            angle: root.angle
+    #            origin: self.pos
+        canvas.after:
+            PopMatrix
+    #        Rotate:
+    #            angle: root.angle
+    #            origin: self.pos
     Slider:
         id: my_slider
         size_hint: .05,.4
@@ -13,3 +39,27 @@
         min: -1
         max: 1
         on_value: root.scroll_values(*args)
+
+<Marker>:
+    source: 'Marker1.png'
+    size: 80,80
+    canvas:
+        Color:
+            rgba: 1,1,1,.7
+        Ellipse:
+            id: finger
+            pos: self.pos
+            size: 80,80
+            source: self.source
+
+<Arrow>:
+    source: 'Arrow.png'
+    size: 100,100
+    pos: 20,20
+    canvas:
+        Color:
+            rgba:1,1,1,.8
+        Rectangle:
+            size: 100,100
+            source: self.source
+            pos: self.pos
