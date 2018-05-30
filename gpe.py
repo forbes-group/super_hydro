@@ -4,7 +4,7 @@ import numpy.fft
 
 class State(object):
     """
-
+    
     Parameters
     ----------
     V0 : float
@@ -15,7 +15,7 @@ class State(object):
     def __init__(self, Nxy=(32, 32), Lxy=(10., 10.),
                  healing_length=1.0, r0=1.0, V0=0.1,
                  cooling_phase=1.0+0.01j,
-                 cooling_steps=100,
+                 cooling_steps=100, disp=None,
                  test_finger=False):
         g = hbar = m = 1.0
         self.g = g
@@ -23,8 +23,10 @@ class State(object):
         self.m = m
         self.r0 = r0
         self.V0 = V0
+        self.disp = disp
         self.Nxy = Nx, Ny = Nxy
         self.Lxy = Lx, Ly = Lxy
+        self.healing_length = healing_length
         dx, dy = np.divide(Lxy, Nxy)
         x = (np.arange(Nx)*dx - Lx/2.0)[:, None]
         y = (np.arange(Ny)*dy - Ly/2.0)[None, :]
@@ -33,9 +35,14 @@ class State(object):
         kx = 2*np.pi * np.fft.fftfreq(Nx, dx)[:, None]
         ky = 2*np.pi * np.fft.fftfreq(Ny, dy)[None, :]
         self.kxy = (kx, ky)
-
-        self.K = hbar**2*(kx**2 + ky**2)/2.0/m
-
+        
+        if disp is None:
+            self.K = hbar**2*(kx**2 + ky**2)/2.0/m
+        if disp is 'SOC':
+            _Kx = get_SOC_disp_x(self, k=self.kxy[0],d=0,
+                                 delta=0.2, omega=1.0)
+            self.K = _Kx + hbar**2*(ky**2)/2.0/m
+        
         self.n0 = n0 = hbar**2/2.0/healing_length**2/g
         self.mu = g*n0
         mu_min = max(0, min(self.mu, self.mu - self.V0))
@@ -78,7 +85,7 @@ class State(object):
     @z_finger.setter
     def z_finger(self, z_finger):
         self._z_finger = z_finger
-
+    
     def fft(self, y):
         return np.fft.fftn(y)
 
@@ -93,7 +100,27 @@ class State(object):
         y = (y - y0 + Ly/2) % Ly - Ly/2
         r2 = x**2 + y**2
         return self.V0*np.exp(-r2/2.0/self.r0**2)
-
+    
+    def get_SOC_disp_x(self, k, d=0, delta=0.2, omega=1.0):
+        #set k_r to be a little bit bigger than k_healing
+        #must check that both are much larger than 2pi/L
+        k_r = 2.1 / self.healing_length
+        E_r = (self.hbar * k_r)**2 / 2. / self.m
+        
+        ks = k / k_r
+        D = np.sqrt((ks - delta)**2 + omega**2)
+        if d == 0:
+            res = (ks**2 + 1)/2.0 - D
+        elif d == 1:
+            res = ks - (ks - delta) / D
+        elif d == 2:
+            #print omega**2 /D**3
+            res = 1.0 - omega**2 / D**3
+        else:
+            raise NotImplementedError("Only d=0, 1, or 2 supported. (got d={})"
+                                      .format(d))
+        return np.asarray(res) * E_r
+    
     def apply_expK(self, dt, factor=1.0):
         y = self.data
         self.data[...] = self.ifft(np.exp(self._phase*dt*self.K*factor)
