@@ -10,15 +10,17 @@ import time
 from kivy.app import App
 from kivy.core.window import Window
 from kivy.graphics.texture import Texture
-from kivy.properties import ObjectProperty, NumericProperty
+from kivy.properties import ObjectProperty, NumericProperty, ListProperty
 from kivy.uix.widget import Widget
 from kivy.uix.floatlayout import FloatLayout
 from kivy.uix.slider import Slider
 from kivy.clock import Clock
 
 #create a texture to draw the data on
-Nxy = (64*2, 64*2)
-texture = Texture.create(size = Nxy, colorfmt='rgba')
+Nxy = (32, 64)#This is (y,x)
+ratio = Nxy[1]/Nxy[0]#window width = ratio * height
+Window.size = (1000,1000/ratio)#windows aspect ratio the same as the grid
+texture = Texture.create(size = (Nxy[1],Nxy[0]), colorfmt='rgba')
 
 healing_length = 0.1
 dt_t_scale = 1.0
@@ -29,17 +31,7 @@ Winx = Window.width
 Winy = Window.height
 
 class Arrow(Widget):
-    """def __init__(self,**kwargs):
-        with self.canvas.before:
-            PushMatrix
-            self.rotation = Rotate(self.force_angle(), self.pos)
-        with self.canvas.after:
-            PopMatrix
-        super().__init__(**kwargs)
-        """
-    def force_angle(self):
-        print("THis is is the Arrow class")
-        return 45
+    pass#class for displaying a vector between the markers
 
 class Marker(Widget):
     #class for displaying finger and potential markers
@@ -49,14 +41,15 @@ class Marker(Widget):
 class Display(FloatLayout):
     potential = 0
     angle = NumericProperty(0)
+    arrow_size = ListProperty(0)
 
     s = gpe.State(Nxy=Nxy, V0_mu=0.5, test_finger=False,
                   healing_length=healing_length, dt_t_scale=dt_t_scale)
-    finger = ObjectProperty(None)
 
     def __init__(self, **kwargs):
         self.push_to_texture()
         self.angle = 45
+        self.arrow_size = (0,0)
         super().__init__(**kwargs)
 
     def push_to_texture(self):
@@ -76,19 +69,20 @@ class Display(FloatLayout):
     def scroll_values(self, *args):
         self.s.V0_mu = args[1]
 
-    def force_angle(self):
+    def force_angle(self):#point the arrow towards the finger
         dist_x = self.ids.finger.pos[0] - self.ids.potential.pos[0]
         dist_y = self.ids.finger.pos[1] - self.ids.potential.pos[1]
+
+        #dynamically scale the arrow
+        self.arrow_size = (.4 * np.sqrt(dist_x**2 + dist_y**2),
+                            .4 * np.sqrt(dist_x**2 + dist_y**2))
+
         if dist_x != 0:
             radians = np.arctan(dist_y / dist_x)
             if dist_x >= 0:
-                print("radians:", radians)
                 self.angle = int(np.degrees(radians) - 45)
-                #print("degrees:", np.degrees(radians) - 45)
-                #print("angle:", self.angle)
             else:
                 self.angle = int(np.degrees(radians) + 135)
-                #print("degrees: ", int(np.degrees(radians))+ 135)
         else:
             self.angle = -45
 
@@ -121,8 +115,6 @@ class Display(FloatLayout):
         self.force_angle()
 
     def update(self, dt):
-        #time1, time2, delta = 0.0,0.0,0.0
-        #time1 = time.time()
         potential = self.ids.potential
         force = self.ids.force
 
@@ -138,12 +130,9 @@ class Display(FloatLayout):
         potential.pos = [x -(Marker().size[0]/2),
                         y -(Marker().size[1]/2)]
         force.pos = [x,y]
-        #self.force_angle()
+        self.force_angle()
         self.push_to_texture()
         self.canvas.ask_update()
-        #time2 = time.time()
-        #delta = float(time2-time1)
-        #print("update duration:",delta)
 
 class SuperHydroApp(App):
     Title = 'Super Hydro'

@@ -18,20 +18,21 @@
     Arrow:
         id: force
         pos: root.center
+        size_hint: None, None
         canvas.before:
             PushMatrix
             Rotate:
                 angle: root.angle
                 origin: self.pos
-    #    canvas:
-    #        Rotate:
-    #            angle: root.angle
-    #            origin: self.pos
+            Rectangle:
+                size: root.arrow_size
+                source: self.source
+                pos: self.pos
+        canvas:
+            Color:
+                rgba:1,1,1,.6
         canvas.after:
             PopMatrix
-    #        Rotate:
-    #            angle: root.angle
-    #            origin: self.pos
     Slider:
         id: my_slider
         size_hint: .05,.4
@@ -55,11 +56,3 @@
 <Arrow>:
     source: 'Arrow.png'
     size: 100,100
-    pos: 20,20
-    canvas:
-        Color:
-            rgba:1,1,1,.8
-        Rectangle:
-            size: 100,100
-            source: self.source
-            pos: self.pos
