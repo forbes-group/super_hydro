@@ -19,7 +19,7 @@ from kivy.clock import Clock
 #create a texture to draw the data on
 Nxy = (32, 64)#This is (y,x)
 ratio = Nxy[1]/Nxy[0]#window width = ratio * height
-Window.size = (1000,1000/ratio)#windows aspect ratio the same as the grid
+Window.size = (1000, 1000/ratio)#windows aspect ratio the same as the grid
 texture = Texture.create(size = (Nxy[1],Nxy[0]), colorfmt='rgba')
 
 healing_length = 0.1
@@ -92,27 +92,29 @@ class Display(FloatLayout):
         return texture
 
     def on_touch_move(self,touch):
-        self.s.set_xy0(-(touch.y - (Winy/2)) * (self.s.Lxy[0]/Winy),  # align touch with screen
-                       (touch.x - (Winx/2)) * (self.s.Lxy[1]/Winx))
-        finger = self.ids.finger
-        potential = self.ids.potential
-        force = self.ids.force
+        scroll = self.ids.my_slider
+        if scroll.collide_point(touch.x,touch.y) is False:
+            self.s.set_xy0(-(touch.y - (Winy/2)) * (self.s.Lxy[0]/Winy),  # align touch with screen
+                           (touch.x - (Winx/2)) * (self.s.Lxy[1]/Winx))
+            finger = self.ids.finger
+            potential = self.ids.potential
+            force = self.ids.force
 
-        if self.s.V0_mu >= 0:#adjust for V0 scroll bar
-            Vpos = unravel_index(self.s.get_Vext().argmax(),
+            if self.s.V0_mu >= 0:#adjust for V0 scroll bar
+                Vpos = unravel_index(self.s.get_Vext().argmax(),
+                                    self.s.get_Vext().shape)
+            else:
+                Vpos = unravel_index(self.s.get_Vext().argmin(),
                                 self.s.get_Vext().shape)
-        else:
-            Vpos = unravel_index(self.s.get_Vext().argmin(),
-                            self.s.get_Vext().shape)
 
-        y = float(Winy - (Vpos[0]*Winy/Nxy[0]))
-        x = float(Vpos[1]*Winx/Nxy[1])
+            y = float(Winy - (Vpos[0]*Winy/Nxy[0]))
+            x = float(Vpos[1]*Winx/Nxy[1])
 
-        finger.pos = (touch.x-(Marker().size[0]/2),
-                        touch.y-(Marker().size[1]/2))
-        potential.pos = [x-(Marker().size[0]/2),y-(Marker().size[1]/2)]
-        force.pos = [x,y]
-        self.force_angle()
+            finger.pos = (touch.x-(Marker().size[0]/2),
+                            touch.y-(Marker().size[1]/2))
+            potential.pos = [x-(Marker().size[0]/2),y-(Marker().size[1]/2)]
+            force.pos = [x,y]
+            self.force_angle()
 
     def update(self, dt):
         potential = self.ids.potential
