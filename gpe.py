@@ -1,31 +1,88 @@
+import attr
+
 import numpy as np
 import numpy.fft
 
 
+@attr.s
+class Dispersion(object):
+    """Tools for computing porperties of the lower band dispersion.
+
+    Everything is expressed in dimensionless units with $k/k_r$,
+    $d=\delta/4E_R$, $w=\Omega/4E_R$, and $E_\pm/2E_R$.
+
+    Examples
+    --------
+    >>> E = Dispersion(w=1.5/4, d=0.543/4)
+    >>> ks = np.linspace(-3, 3, 500)
+    >>> ks_ = (ks[1:] + ks[:-1])/2.0
+    >>> ks__ = ks[1:-1]
+    >>> Es = E(ks).T
+    >>> dEs = E(ks, d=1).T
+    >>> ddEs = E(ks, d=2).T
+    >>> dEs_ = np.diff(Es, axis=0)/np.diff(ks)[:, None]
+    >>> ddEs__ = np.diff(dEs_, axis=0)/np.diff(ks_)[:, None]
+    >>> np.allclose((dEs[1:] + dEs[:-1])/2, dEs_, rtol=0.01)
+    True
+    >>> np.allclose(ddEs[1:-1], ddEs__, rtol=0.04)
+    True
+    """
+    d = attr.ib()
+    w = attr.ib()
+
+    def Es(self, k, d=0):
+        D = np.sqrt((k-self.d)**2 + self.w**2)
+        if d == 0:
+            res = (k**2 + 1)/2.0 - D, (k**2 + 1)/2.0 + D
+        elif d == 1:
+            res = k - (k-self.d)/D, k + (k-self.d)/D
+        elif d == 2:
+            res = 1.0 - self.w**2/D**3, 1.0 + self.w**2/D**3
+        else:
+            raise NotImplementedError("Only d=0, 1, or 2 supported. (got d={})"
+                                      .format(d))
+        return np.asarray(res)
+    
+    __call__ = Es
+
+    def newton(self, k):
+        return k - self.Es(k, d=1)[0]/self.Es(k, d=2)[0]
+    
+    def get_k0(self, N=5):
+        """Return the minimum of the lower dispersion branch."""
+        # Note that sign(k_0) = -sign(d) for the lower minimum
+        k0 = -np.sign(self.d)/2.0
+        for n in range(N):
+            k0 = self.newton(k0)
+        return k0    
+
+
 class State(object):
     """
-    
+
     Parameters
     ----------
-    V0 : float
-       Potential strength
+    V0_mu : float
+       Potential strength in units of mu
     healing_length
 
     """
-    def __init__(self, Nxy=(32, 32), Lxy=(10., 10.),
-                 healing_length=1.0, r0=1.0, V0=0.1,
+    def __init__(self, Nxy=(32, 32), dx=0.1,
+                 healing_length=1.0, r0=1.0, V0_mu=0.5,
                  cooling_phase=1.0+0.01j,
-                 cooling_steps=100, disp=None,
+                 cooling_steps=100, dt_t_scale=0.1,
+                 soc=True, 
+                 soc_d=0.1, soc_w=0.5,
                  test_finger=False):
         g = hbar = m = 1.0
         self.g = g
         self.hbar = hbar
         self.m = m
         self.r0 = r0
-        self.V0 = V0
-        self.disp = disp
+        self.V0_mu = V0_mu
         self.Nxy = Nx, Ny = Nxy
-        self.Lxy = Lx, Ly = Lxy
+        self.dx = dx
+        self.Lxy = Lx, Ly = Lxy = np.asarray(Nxy)*dx
         self.healing_length = healing_length
         dx, dy = np.divide(Lxy, Nxy)
         x = (np.arange(Nx)*dx - Lx/2.0)[:, None]
@@ -36,35 +93,44 @@ class State(object):
         ky = 2*np.pi * np.fft.fftfreq(Ny, dy)[None, :]
         self.kxy = (kx, ky)
         
-        if disp is None:
-            self.K = hbar**2*(kx**2 + ky**2)/2.0/m
-        if disp is 'SOC':
-            _Kx = get_SOC_disp_x(self, k=self.kxy[0],d=0,
-                                 delta=0.2, omega=1.0)
-            self.K = _Kx + hbar**2*(ky**2)/2.0/m
+        if soc:
+            self._dispersion = Dispersion(d=soc_d, w=soc_w)
+            kR = 3 / self.healing_length
+            k0 = self._dispersion.get_k0()
+            E0 = self._dispersion(k0)[0]
+            kx2 = 2*kR**2 * (self._dispersion(kx/kR + k0) - E0)[0]
+        else:
+            kx2 = kx**2
+        self._kx2 = kx2
+        self.K = hbar**2*(kx2 + ky**2)/2.0/self.m
         
         self.n0 = n0 = hbar**2/2.0/healing_length**2/g
         self.mu = g*n0
-        mu_min = max(0, min(self.mu, self.mu - self.V0))
+        mu_min = max(0, min(self.mu, self.mu*(1-self.V0_mu)))
         self.c_s = np.sqrt(self.mu/self.m)
         self.c_min = np.sqrt(mu_min/self.m)
-        self.v_max = 4*self.c_s
+        self.v_max = 1.1*self.c_min
         self.data = np.ones(Nxy, dtype=complex) * np.sqrt(n0)
         self._N = self.get_density().sum()
 
+        
         self.test_finger = test_finger
         self.z_finger = 0 + 0j
-        self.pot_k_m = 1.0
+        self.pot_k_m = 10.0
         self.pot_z = 0 + 0j
         self.pot_v = 0 + 0j
         self.pot_damp = 4.0
-
+        
         self.t = -10000
-
+        self.dt = dt_t_scale*self.t_scale
         self._phase = -1.0/self.hbar
-        self.step(cooling_steps, dt=0.05)
+        self.step(cooling_steps)
         self.t = 0
         self._phase = -1j/self.hbar/cooling_phase
+        self.dt = dt_t_scale*self.t_scale
+        self.c_s = np.sqrt(self.mu/self.m)
+        self.c_min = np.sqrt(self.g*self.get_density().min()/self.m)
+        self.v_max = 0.8*self.c_min
 
     def get_density(self):
         return abs(self.data)**2
@@ -72,6 +138,10 @@ class State(object):
     def set_xy0(self, x0, y0):
         self.z_finger = x0 + 1j*y0
 
+    @property
+    def t_scale(self):
+        return self.hbar/self.K.max()
+    
     @property
     def z_finger(self):
         if self.test_finger:
@@ -85,7 +155,7 @@ class State(object):
     @z_finger.setter
     def z_finger(self, z_finger):
         self._z_finger = z_finger
-    
+
     def fft(self, y):
         return np.fft.fftn(y)
 
@@ -99,28 +169,8 @@ class State(object):
         x = (x - x0 + Lx/2) % Lx - Lx/2
         y = (y - y0 + Ly/2) % Ly - Ly/2
         r2 = x**2 + y**2
-        return self.V0*np.exp(-r2/2.0/self.r0**2)
-    
-    def get_SOC_disp_x(self, k, d=0, delta=0.2, omega=1.0):
-        #set k_r to be a little bit bigger than k_healing
-        #must check that both are much larger than 2pi/L
-        k_r = 2.1 / self.healing_length
-        E_r = (self.hbar * k_r)**2 / 2. / self.m
-        
-        ks = k / k_r
-        D = np.sqrt((ks - delta)**2 + omega**2)
-        if d == 0:
-            res = (ks**2 + 1)/2.0 - D
-        elif d == 1:
-            res = ks - (ks - delta) / D
-        elif d == 2:
-            #print omega**2 /D**3
-            res = 1.0 - omega**2 / D**3
-        else:
-            raise NotImplementedError("Only d=0, 1, or 2 supported. (got d={})"
-                                      .format(d))
-        return np.asarray(res) * E_r
-    
+        return self.V0_mu*self.mu * np.exp(-r2/2.0/self.r0**2)
+
     def apply_expK(self, dt, factor=1.0):
         y = self.data
         self.data[...] = self.ifft(np.exp(self._phase*dt*self.K*factor)
@@ -138,7 +188,8 @@ class State(object):
         return complex(*[(_x + _L/2) % (_L) - _L/2
                          for _x, _L in zip((z.real, z.imag), self.Lxy)])
 
-    def step(self, N, dt):
+    def step(self, N):
+        dt = self.dt
         self.apply_expK(dt=dt, factor=0.5)
         self.t += dt/2.0
         for n in range(N):

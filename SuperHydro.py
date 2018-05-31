@@ -17,8 +17,12 @@ from kivy.uix.slider import Slider
 from kivy.clock import Clock
 
 #create a texture to draw the data on
-Nxy = (64,64)
+Nxy = (64*2, 64*2)
 texture = Texture.create(size = Nxy, colorfmt='rgba')
+
+healing_length = 0.1
+dt_t_scale = 1.0
+steps = 20
 
 #For scaling data
 Winx = Window.width
@@ -46,7 +50,8 @@ class Display(FloatLayout):
     potential = 0
     angle = NumericProperty(0)
 
-    s = gpe.State(Nxy=Nxy, V0 = 1.)
+    s = gpe.State(Nxy=Nxy, V0_mu=0.5, test_finger=False,
+                  healing_length=healing_length, dt_t_scale=dt_t_scale)
     finger = ObjectProperty(None)
 
     def __init__(self, **kwargs):
@@ -56,9 +61,10 @@ class Display(FloatLayout):
 
     def push_to_texture(self):
         ##viridis is the color map I need to display in
-        self.s.step(20,.02)
+        self.s.step(steps)
         n = self.s.get_density()
-        array = cm.viridis((n/self.s.n0))#((n-n.min())/(n.max()-n.min()))
+        #array = cm.viridis((n/self.s.n0))#((n-n.min())/(n.max()-n.min()))
+        array = cm.viridis((n-n.min())/(n.max()-n.min()))
         array *= int(255/array.max())#normalize values
         data = array.astype(dtype = 'uint8')
         data = data.tobytes()
@@ -68,7 +74,7 @@ class Display(FloatLayout):
         texture.flip_vertical()#kivy has y going up, not down
 
     def scroll_values(self, *args):
-        self.s.V0 = args[1]
+        self.s.V0_mu = args[1]
 
     def force_angle(self):
         dist_x = self.ids.finger.pos[0] - self.ids.potential.pos[0]
@@ -78,11 +84,11 @@ class Display(FloatLayout):
             if dist_x >= 0:
                 print("radians:", radians)
                 self.angle = int(np.degrees(radians) - 45)
-                print("degrees:", np.degrees(radians) - 45)
-                print("angle:", self.angle)
+                #print("degrees:", np.degrees(radians) - 45)
+                #print("angle:", self.angle)
             else:
                 self.angle = int(np.degrees(radians) + 135)
-                print("degrees: ", int(np.degrees(radians))+ 135)
+                #print("degrees: ", int(np.degrees(radians))+ 135)
         else:
             self.angle = -45
 
@@ -98,7 +104,7 @@ class Display(FloatLayout):
         potential = self.ids.potential
         force = self.ids.force
 
-        if self.s.V0 >= 0:#adjust for V0 scroll bar
+        if self.s.V0_mu >= 0:#adjust for V0 scroll bar
             Vpos = unravel_index(self.s.get_Vext().argmax(),
                                 self.s.get_Vext().shape)
         else:
@@ -120,7 +126,7 @@ class Display(FloatLayout):
         potential = self.ids.potential
         force = self.ids.force
 
-        if self.s.V0 >= 0:#pot marker always goes to finger
+        if self.s.V0_mu >= 0:#pot marker always goes to finger
             Vpos = unravel_index(self.s.get_Vext().argmax(),
                                 self.s.get_Vext().shape)
         else:
