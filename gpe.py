@@ -42,19 +42,19 @@ class Dispersion(object):
             raise NotImplementedError("Only d=0, 1, or 2 supported. (got d={})"
                                       .format(d))
         return np.asarray(res)
-    
+
     __call__ = Es
 
     def newton(self, k):
         return k - self.Es(k, d=1)[0]/self.Es(k, d=2)[0]
-    
+
     def get_k0(self, N=5):
         """Return the minimum of the lower dispersion branch."""
         # Note that sign(k_0) = -sign(d) for the lower minimum
         k0 = -np.sign(self.d)/2.0
         for n in range(N):
             k0 = self.newton(k0)
-        return k0    
+        return k0
 
 
 class State(object):
@@ -71,7 +71,7 @@ class State(object):
                  healing_length=1.0, r0=1.0, V0_mu=0.5,
                  cooling_phase=1.0+0.01j,
                  cooling_steps=100, dt_t_scale=0.1,
-                 soc=True, 
+                 soc=True,
                  soc_d=0.1, soc_w=0.5,
                  test_finger=False):
         g = hbar = m = 1.0
@@ -84,6 +84,7 @@ class State(object):
         self.dx = dx
         self.Lxy = Lx, Ly = Lxy = np.asarray(Nxy)*dx
         self.healing_length = healing_length
+        self.cooling_phase = cooling_phase
         dx, dy = np.divide(Lxy, Nxy)
         x = (np.arange(Nx)*dx - Lx/2.0)[:, None]
         y = (np.arange(Ny)*dy - Ly/2.0)[None, :]
@@ -92,7 +93,7 @@ class State(object):
         kx = 2*np.pi * np.fft.fftfreq(Nx, dx)[:, None]
         ky = 2*np.pi * np.fft.fftfreq(Ny, dy)[None, :]
         self.kxy = (kx, ky)
-        
+
         if soc:
             self._dispersion = Dispersion(d=soc_d, w=soc_w)
             kR = 3 / self.healing_length
@@ -103,7 +104,7 @@ class State(object):
             kx2 = kx**2
         self._kx2 = kx2
         self.K = hbar**2*(kx2 + ky**2)/2.0/self.m
-        
+
         self.n0 = n0 = hbar**2/2.0/healing_length**2/g
         self.mu = g*n0
         mu_min = max(0, min(self.mu, self.mu*(1-self.V0_mu)))
@@ -113,14 +114,14 @@ class State(object):
         self.data = np.ones(Nxy, dtype=complex) * np.sqrt(n0)
         self._N = self.get_density().sum()
 
-        
+
         self.test_finger = test_finger
         self.z_finger = 0 + 0j
         self.pot_k_m = 10.0
         self.pot_z = 0 + 0j
         self.pot_v = 0 + 0j
         self.pot_damp = 4.0
-        
+
         self.t = -10000
         self.dt = dt_t_scale*self.t_scale
         self._phase = -1.0/self.hbar
@@ -141,7 +142,7 @@ class State(object):
     @property
     def t_scale(self):
         return self.hbar/self.K.max()
-    
+
     @property
     def z_finger(self):
         if self.test_finger:
