@@ -1,5 +1,6 @@
 # To Do:
 # Start -> Resume when running.
+# Prevent aspect-ratio skew.
 
 import sys
 
@@ -59,8 +60,12 @@ class Display(FloatLayout):
         app = App.get_running_app()
         state = app.state
         state.step(app.params.steps)
-        n = state.get_density()
-        array = cm.viridis((n-n.min())/(n.max()-n.min()))
+
+        # The array must be reshaped so that it forms an appropriate
+        # data-buffer for blit_buffer.  Both the simulation and
+        # display have x increasing to the right and y increasing up.
+        n_ = state.get_density().T
+        array = cm.viridis((n_-n_.min())/(n_.max()-n_.min()))
         array *= int(255/array.max())  # normalize values
         data = array.astype(dtype='uint8')
         data = data.tobytes()
@@ -68,7 +73,6 @@ class Display(FloatLayout):
         # blit_buffer takes the data and put it onto my texture
         self.get_texture().blit_buffer(data, bufferfmt='ubyte',
                                        colorfmt='rgba')
-        self.get_texture().flip_vertical()  # kivy has y going up, not down
 
     def scroll_values(self, *args):
         app = App.get_running_app()
@@ -85,14 +89,11 @@ class Display(FloatLayout):
         else:
             self.arrow_size = (0, 0)
 
-        if dist_x != 0:
-            radians = np.arctan(dist_y / dist_x)
-            if dist_x >= 0:
-                self.angle = int(np.degrees(radians) - 45)
-            else:
-                self.angle = int(np.degrees(radians) + 135)
-        else:
-            self.angle = -45
+        radians = np.arctan2(dist_y, dist_x)
+
+        # Rotate by -45deg here because the png for the arrow points
+        # to the upper right.
+        self.angle = int(np.degrees(radians) - 45)
 
     def on_checkbox_active(self, value):
         self.arrow_visible = value
@@ -126,8 +127,9 @@ class Display(FloatLayout):
 
         if self.no_collision(touch) is False:
             # align touch with screen
-            state.set_xy0(-(touch.y - (Winy/2)) * (state.Lxy[0]/Winy),
-                           (touch.x - (Winx/2)) * (state.Lxy[1]/Winx))
+            Lx, Ly = state.Lxy
+            state.set_xy0((touch.x - (Winx/2)) * (Lx/Winx),
+                          (touch.y - (Winy/2)) * (Ly/Winy))
             finger = self.ids.finger
             potential = self.ids.potential
             force = self.ids.force
@@ -141,10 +143,12 @@ class Display(FloatLayout):
                                      state.get_Vext().shape)
 
             app = App.get_running_app()
-            Nxy = (app.params.Ny, app.params.Nx)
-            y = float(Winy - (Vpos[0]*Winy/Nxy[0]))
-            x = float(Vpos[1]*Winx/Nxy[1])
+            Nx = app.params.Nx
+            Ny = app.params.Ny
 
+            Vx, Vy = Vpos
+            x = float(Vx*Winx/Nx)
+            y = float(Vy*Winy/Ny)
             finger.pos = (touch.x-(Marker().size[0]/2),
                           touch.y-(Marker().size[1]/2))
             potential.pos = [x-(Marker().size[0]/2),
@@ -172,9 +176,12 @@ class Display(FloatLayout):
                                  state.get_Vext().shape)
 
         app = App.get_running_app()
-        Nxy = (app.params.Ny, app.params.Nx)
-        y = float(Winy - (Vpos[0]*Winy/Nxy[0]))
-        x = float(Vpos[1]*Winx/Nxy[1])
+        Nx = app.params.Nx
+        Ny = app.params.Ny
+
+        Vx, Vy = Vpos
+        x = float(Vx*Winx/Nx)
+        y = float(Vy*Winy/Ny)
         potential.pos = [x - (Marker().size[0]/2),
                          y - (Marker().size[1]/2)]
         force.pos = [x, y]
@@ -209,7 +216,7 @@ class StartScreen(Screen):
 
     def reset_game(self):
         app = App.get_running_app()
-        app.state = gpe.State(Nxy=(params.Ny, params.Nx),
+        app.state = gpe.State(Nxy=(params.Nx, params.Ny),
                               V0_mu=0.5, test_finger=False,
                               healing_length=params.healing_length,
                               dt_t_scale=params.dt_t_scale)
@@ -236,7 +243,7 @@ class SuperHydroApp(App):
 
     def __init__(self, *v,  **kw):
         self.params = kw.pop('params')
-        self.state = gpe.State(Nxy=(params.Ny, params.Nx),
+        self.state = gpe.State(Nxy=(params.Nx, params.Ny),
                                V0_mu=0.5, test_finger=False,
                                healing_length=params.healing_length,
                                dt_t_scale=params.dt_t_scale)
