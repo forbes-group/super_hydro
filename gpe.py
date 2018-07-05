@@ -114,7 +114,6 @@ class State(object):
         self.data = np.ones(Nxy, dtype=complex) * np.sqrt(n0)
         self._N = self.get_density().sum()
 
-
         self.test_finger = test_finger
         self.z_finger = 0 + 0j
         self.pot_k_m = 10.0
