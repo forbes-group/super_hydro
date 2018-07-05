@@ -1,9 +1,10 @@
+# To Do:
+# Start -> Resume when running.
+
 import sys
 
 import attr
 
-import matplotlib
-import matplotlib.pyplot as plt
 from matplotlib import cm
 
 import numpy as np
@@ -13,14 +14,10 @@ import gpe
 from kivy.app import App
 from kivy.core.window import Window
 from kivy.graphics.texture import Texture
-from kivy.properties import ObjectProperty, NumericProperty, ListProperty
+from kivy.properties import NumericProperty, ListProperty
 from kivy.uix.screenmanager import ScreenManager, Screen
 from kivy.uix.widget import Widget
 from kivy.uix.floatlayout import FloatLayout
-from kivy.uix.button import Button
-from kivy.uix.slider import Slider
-from kivy.uix.label import Label
-from kivy.uix.checkbox import CheckBox
 from kivy.clock import Clock
 
 
@@ -36,16 +33,6 @@ class Parameters(object):
     @property
     def window_size(self):
         return (self.window_width, self.window_width*self.Ny/self.Nx)
-
-#Nxy = (64//2, 128//2)#This is (y,x)
-#ratio = Nxy[1]/Nxy[0]#window width = ratio * height
-#Window.size = (1000, 1000/ratio)#windows aspect ratio the same as the grid
-#create a texture to draw the data on
-#texture = Texture.create(size = (Nxy[1],Nxy[0]), colorfmt='rgba')
-
-#For scaling data
-Winx = Window.width
-Winy = Window.height
 
 
 class Display(FloatLayout):
@@ -68,7 +55,7 @@ class Display(FloatLayout):
         super().__init__(**kwargs)
 
     def push_to_texture(self):
-        ## viridis is the color map I need to display in
+        # viridis is the color map I need to display in
         app = App.get_running_app()
         state = app.state
         state.step(app.params.steps)
@@ -132,6 +119,11 @@ class Display(FloatLayout):
     def on_touch_move(self, touch):
         app = App.get_running_app()
         state = app.state
+
+        # For scaling data
+        Winx = Window.width
+        Winy = Window.height
+
         if self.no_collision(touch) is False:
             # align touch with screen
             state.set_xy0(-(touch.y - (Winy/2)) * (state.Lxy[0]/Winy),
@@ -166,6 +158,10 @@ class Display(FloatLayout):
         state = app.state
         potential = self.ids.potential
         force = self.ids.force
+
+        # For scaling data
+        Winx = Window.width
+        Winy = Window.height
 
         # pot marker always goes to finger
         if state.V0_mu >= 0:
