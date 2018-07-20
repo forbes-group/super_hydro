@@ -10,7 +10,7 @@ from matplotlib import cm
 
 import numpy as np
 from numpy import unravel_index
-import gpe
+import gpe2
 
 from kivy.app import App
 from kivy.core.window import Window
@@ -24,8 +24,8 @@ from kivy.clock import Clock
 
 @attr.s
 class Parameters(object):
-    Nx = attr.ib(default=128*2)
-    Ny = attr.ib(default=64*2)
+    Nx = attr.ib(default=128)
+    Ny = attr.ib(default=64)
     window_width = attr.ib(default=1000)
     healing_length = attr.ib(default=0.1)
     dt_t_scale = attr.ib(default=1.0)
@@ -64,9 +64,19 @@ class Display(FloatLayout):
         # The array must be reshaped so that it forms an appropriate
         # data-buffer for blit_buffer.  Both the simulation and
         # display have x increasing to the right and y increasing up.
-        n_ = state.get_density().T
-        array = cm.viridis((n_-n_.min())/(n_.max()-n_.min()))
-        array = cm.viridis(n_/n_.max())
+        na_, nb_ = state.get_densities()
+        na_, nb_ = na_.T, nb_.T
+        n_ = na_ + nb_
+        
+        # array = cm.viridis((n_-n_.min())/(n_.max()-n_.min()))
+        # array = cm.viridis(n_/n_.max())
+
+        Nx, Ny = na_.shape
+        array = np.zeros((Nx, Ny, 4))
+        array[..., 0] = (na_/n_.max())  # Red
+        array[..., 2] = (nb_/n_.max())  # Blue
+        array[..., 3] = 1.0               # Alpha
+        
         array *= int(255/array.max())  # normalize values
         data = array.astype(dtype='uint8')
         data = data.tobytes()
@@ -217,10 +227,10 @@ class StartScreen(Screen):
 
     def reset_game(self):
         app = App.get_running_app()
-        app.state = gpe.State(Nxy=(params.Nx, params.Ny),
-                              V0_mu=0.5, test_finger=False,
-                              healing_length=params.healing_length,
-                              dt_t_scale=params.dt_t_scale)
+        app.state = gpe2.State(Nxy=(params.Nx, params.Ny),
+                               V0_mu=0.5, test_finger=False,
+                               healing_length=params.healing_length,
+                               dt_t_scale=params.dt_t_scale)
 
 
 class ScreenMng(ScreenManager):
@@ -244,10 +254,10 @@ class SuperHydroApp(App):
 
     def __init__(self, *v,  **kw):
         self.params = kw.pop('params')
-        self.state = gpe.State(Nxy=(params.Nx, params.Ny),
-                               V0_mu=0.5, test_finger=False,
-                               healing_length=params.healing_length,
-                               dt_t_scale=params.dt_t_scale)
+        self.state = gpe2.State(Nxy=(params.Nx, params.Ny),
+                                V0_mu=0.5, test_finger=False,
+                                healing_length=params.healing_length,
+                                dt_t_scale=params.dt_t_scale)
         App.__init__(self, *v, **kw)
 
     def build(self):

@@ -1,2 +1,4 @@
 attrs
 matplotlib
+numpy
+scipy
