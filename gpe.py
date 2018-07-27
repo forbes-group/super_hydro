@@ -133,7 +133,7 @@ class State(object):
 
     @property
     def v_max(self):
-        c_min = np.sqrt(self.g*self.get_density().min()/self.m)
+        c_min = 0.8*np.sqrt(self.g*self.get_density().min()/self.m)
         return c_min
 
     def get_density(self):

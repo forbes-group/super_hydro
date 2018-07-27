@@ -1,3 +1,4 @@
+
 """Two-component systems.
 
 Here we model two-component systems with spin-orbit coupling along the
@@ -110,7 +111,7 @@ class State(object):
                  cooling_steps=100, dt_t_scale=0.1,
                  g=1.0, m=1.0, hbar=1.0,
                  #k_R=2.0, soc_d=0.05, soc_w=0.5,
-                 k_R=5.0, soc_d=0.0001, soc_w=0.9,
+                 k_R=5.0, soc_d=0.5/4.0, soc_w=0.25,
                  test_finger=False):
         self.g = g
         self.hbar = hbar
@@ -129,8 +130,8 @@ class State(object):
         y = (np.arange(Ny)*dy - Ly/2.0)[None, :]
         self.xy = (x, y)
 
-        kx = 2*np.pi * np.fft.fftfreq(Nx, dx)[:, None]
-        ky = 2*np.pi * np.fft.fftfreq(Ny, dy)[None, :]
+        kx = 2*np.pi * np.fft.fftfreq(Nx, dy)[:, None]
+        ky = 2*np.pi * np.fft.fftfreq(Ny, dx)[None, :]
         self.kxy = (kx, ky)
         self.K = hbar**2*(kx**2 + ky**2)/2.0/self.m
 
@@ -160,6 +161,7 @@ class State(object):
                                abs(kb - kx_).min()])
 
         phase = np.exp(1j*np.array([ka, kb])[self.bcast]*(x + 0*y))
+        #phase = 1.0
         self.data = (np.ones(Nxy, dtype=complex)[None, ...]
                      * np.sqrt(n0) * psi_ab * phase)
         self._N = self.get_density().sum()

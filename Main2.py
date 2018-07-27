@@ -217,6 +217,7 @@ class StartScreen(Screen):
         app = App.get_running_app()
         state = app.state
         state.cooling_phase = complex(1, 10**int(args[1]))
+        #state.cooling_phase = 1j
         self.ids.cooling_val.text = str(state.cooling_phase)
 
     def Nxy_values(self, *args):
@@ -230,6 +231,7 @@ class StartScreen(Screen):
         app.state = gpe2.State(Nxy=(params.Nx, params.Ny),
                                V0_mu=0.5, test_finger=False,
                                healing_length=params.healing_length,
+                               #cooling_phase=1j,
                                dt_t_scale=params.dt_t_scale)
 
 
@@ -256,6 +258,7 @@ class SuperHydroApp(App):
         self.params = kw.pop('params')
         self.state = gpe2.State(Nxy=(params.Nx, params.Ny),
                                 V0_mu=0.5, test_finger=False,
+                                #cooling_phase=1j,
                                 healing_length=params.healing_length,
                                 dt_t_scale=params.dt_t_scale)
         App.__init__(self, *v, **kw)
