@@ -170,6 +170,8 @@ class State(object):
         x, y = self.xy
         x0, y0 = self.pot_z.real, self.pot_z.imag
         Lx, Ly = self.Lxy
+
+        # Wrap displaced x and y in periodic box.
         x = (x - x0 + Lx/2) % Lx - Lx/2
         y = (y - y0 + Ly/2) % Ly - Ly/2
         r2 = x**2 + y**2
