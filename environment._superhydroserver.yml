@@ -1,12 +1,10 @@
-name: kivy3
+name: _superhydroserver
 channels:
   - defaults
   - conda-forge
 dependencies:
   - python>=3
-  #- cython
   - scipy
   - matplotlib
   - pip:
-    - kivy
     - attrs
