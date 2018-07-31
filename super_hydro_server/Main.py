@@ -8,7 +8,7 @@ import numpy as np
 from numpy import unravel_index
 
 host = "127.0.0.1"
-port = 8888
+port = 19873
 
 @attr.s
 class Parameters(object):
@@ -102,7 +102,7 @@ class Server():
             Vpos = unravel_index(self.state.get_Vext().argmin(),
                                  self.state.get_Vext().shape)
         #print("Vpos:", Vpos)
-        self.conn.send(np.array(Vpos))
+        self.conn.send(np.array(Vpos, dtype='int'))
 
     def on_touch(self):
         #print("touched")

@@ -5,8 +5,6 @@ import attr
 from matplotlib import cm
 
 import numpy as np
-from numpy import unravel_index
-import gpe
 
 from kivy.app import App
 from kivy.core.window import Window
@@ -169,7 +167,7 @@ class Display(FloatLayout):
         sock.send("Vpos".encode())
         #Vpos returns an array [Vx,0,Vy,0] - fix in the future
         Vpos = np.frombuffer(sock.recv(128), dtype='int')
-        Vx, Vy = Vpos[0], Vpos[2]
+        Vx, Vy = Vpos[0], Vpos[1]
 
         x = float(Vx*Winx/self.Nx)
         y = float(Vy*Winy/self.Ny)
@@ -267,7 +265,7 @@ class SuperHydroApp(App):
 
 if __name__ == "__main__":
     host = '127.0.0.1'
-    port = 8888
+    port = 19873
     sock = socket.socket()
     sock.connect((host,port))
 
