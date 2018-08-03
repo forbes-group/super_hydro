@@ -1,8 +1,7 @@
 import sys
 import socket
 import attr
-
-from matplotlib import cm
+import json
 
 import numpy as np
 
@@ -43,38 +42,19 @@ class Display(FloatLayout):
     def get_texture(self):
         if self.texture is None:
             sock.send("Texture".encode())
-            Nxy = np.frombuffer(sock.recv(128), dtype='int')
-            print("Nxy:" , Nxy)
-            self.Nx, self.Ny = Nxy[0], Nxy[1]
+            Nxy = sock.recv(128).decode()
+            N = json.loads(Nxy)
+            self.Nx, self.Ny = int(N[0]), int(N[1])
             self.texture = Texture.create(size=(self.Nx, self.Ny),
-                                          colorfmt='rgba')
-            self.texture.add_reload_observer(self.new_texture)
+                                            colorfmt='rgba')
         return self.texture
 
-    def new_texture(self, texture):
-        sock.send("Texture".encode())
-        Nxy = np.frombuffer(sock.recv(128), dtype='int')
-        self.Nx, self.Ny = Nxy[0], Nxy[1]
-        self.texture = Texture.create(size=(self.Nx,self.Ny),
-                                        colorfmt='rgba')
-        self.texture
-
     def push_to_texture(self):
-        # viridis is the color map I need to display in
         sock.send("Density".encode())
-        #print("getting density")
         arr_length = self.Nx * self.Ny * 4
-        Density_data = np.frombuffer(sock.recv(8192), dtype='float')
-        while Density_data.size < arr_length:
-            Density_data = np.append(Density_data,
-                            np.frombuffer(sock.recv(8192), dtype='float'))
-#            print("data size:", Density_data.size)
+        deserialize = json.loads(sock.recv(65536).decode())
+        Density_data = np.array(deserialize)
 
-#        Density_data = np.frombuffer(Density_data,dtype='float')
-#        print("Density data:", Density_data)
-        sock.send("Density Complete".encode())
-        receive = sock.recv(1024).decode()
-        #print(receive)
         data = Density_data.astype(dtype='uint8')
         data = data.tobytes()
         # blit_buffer takes the data and put it onto my texture
@@ -165,20 +145,25 @@ class Display(FloatLayout):
         force = self.ids.force
 
         sock.send("Vpos".encode())
-        #Vpos returns an array [Vx,0,Vy,0] - fix in the future
-        Vpos = np.frombuffer(sock.recv(128), dtype='int')
-        Vx, Vy = Vpos[0], Vpos[1]
+        error_check = sock.recv(128).decode()
 
-        x = float(Vx*Winx/self.Nx)
-        y = float(Vy*Winy/self.Ny)
-        potential.pos = [x - (Marker().size[0]/2),
-                         y - (Marker().size[1]/2)]
-        force.pos = [x, y]
-        self.force_angle()
+        if error_check == "ERROR":
+            print("V0 change unsuccessful")
+        else:
+            deserialize = json.loads(error_check)
+            Vpos = np.array(deserialize)
+            Vx, Vy = Vpos[0], Vpos[1]
 
-        #print("Vpos:", Vpos)
+            x = float(Vx*Winx/self.Nx)
+            y = float(Vy*Winy/self.Ny)
+            potential.pos = [x - (Marker().size[0]/2),
+                             y - (Marker().size[1]/2)]
+            force.pos = [x, y]
+            self.force_angle()
 
-    #This prevents the 'pause' button from being used
+
+    """This allows single clicks to change Vpos, but
+            prevents other widgets on screen from being used"""
     #def on_touch_down(self, touch):
     #    if self.no_collision(touch) is False:
     #        self.on_touch_move(touch)
@@ -187,15 +172,13 @@ class Display(FloatLayout):
         finger = self.ids.finger
 
         if self.no_collision(touch) is False:
-            # align touch with screen
-            sock.send("OnTouch".encode())
-            ready_check = sock.recv(128).decode()
-            if ready_check == "SendTouch":
-                sock.send(np.array([touch.x, touch.y]))
-                #print("touch sent")
-            else: print("ready_check", ready_check)
+            send_data = "OnTouch"
+            send_data += json.dumps([touch.x, touch.y])
 
-            ready_check = sock.recv(128).decode()
+            sock.send(send_data.encode())
+            error_check = sock.recv(128).decode()
+            if error_check == "ERROR":
+                print("Touch update unsuccessful")
 
             self.get_Vpos()
 
@@ -216,26 +199,27 @@ class StartScreen(Screen):
         super().__init__(**kwargs)
 
     def V0_values(self, *args):
-        sock.send("V0".encode())
-        response = sock.recv(128).decode()
-        if response == "SendV0":
-            sock.send(str(args[1]).encode())
-            response = sock.recv(128).decode()
-        print(response)
+        send_data = "V0"
+        send_data += json.dumps(float(args[1]))
+        sock.send(send_data.encode())
+        error_check = sock.recv(128).decode()
+        if error_check == "ERROR":
+            print("V0 change unsuccessful")
 
     def cooling_values(self, *args):
         self.ids.cooling_val.text = str(complex(1,10**int(args[1])))
-        sock.send("Cooling".encode())
-        response = sock.recv(128).decode()
-        if response == "SendCooling":
-            sock.send(str(int(args[1])).encode())
-            response = sock.recv(128)
+        send_data = "Cooling"
+        send_data += str(int(args[1]))
+        sock.send(send_data.encode())
+        error_check = sock.recv(128).decode()
+        if error_check == "ERROR":
+            print("Cooling change unsuccessful")
 
     def reset_game(self):
         sock.send("Reset".encode())
-        response = sock.recv(128)
-        print(response)
-
+        error_check = sock.recv(128).decode()
+        if error_check == "ERROR":
+            print("Game reset unsuccessful")
 
 class ScreenMng(ScreenManager):
     """Manages all of the screens (i.e. which screen is visible etc.)."""
@@ -265,7 +249,7 @@ class SuperHydroApp(App):
 
 if __name__ == "__main__":
     host = '127.0.0.1'
-    port = 19873
+    port = 8888
     sock = socket.socket()
     sock.connect((host,port))
 
@@ -275,7 +259,8 @@ if __name__ == "__main__":
         Nx, Ny = int(sys.argv[1]), int(sys.argv[2])
     else:
         # windows aspect ratio same as grid
-        window = np.frombuffer(sock.recv(100),dtype='float')
+        win = sock.recv(128).decode()
+        window = json.loads(win)
         Window.size = int(window[0]), int(window[1])
         print ("window:",Window.size)
     SuperHydroApp().run()
