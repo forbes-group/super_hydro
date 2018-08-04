@@ -69,38 +69,39 @@ class Display(FloatLayout):
         finger = self.ids.finger
 
         if keycode[1] == 'd':
-            finger.pos = (finger.pos[0] + 5, finger.pos[1])
+            finger.pos[0] += 25
         elif keycode[1] == 'a':
-            finger.pos = (finger.pos[0] - 5, finger.pos[1])
+            finger.pos[0] -= 25
         elif keycode[1] == 'w':
-            finger.pos = (finger.pos[0], finger.pos[1] + 5)
+            finger.pos[1] += 25
         elif keycode[1] == 's':
-            finger.pos = (finger.pos[0], finger.pos[1] - 5)
+            finger.pos[1] -= 25
 
         touch_input = [finger.pos[0] + Marker().size[0]/2,
                         finger.pos[1] + Marker().size[1]/2]
 
         if touch_input[0] > Window.size[0]:
             touch_input[0] = 0
-        elif touch_input[0] < 0:
-            touch_input[0] = Window.size[0]
-
+            finger.pos[0] = 0
+        elif touch_input[0] <= 0:
+            touch_input[0] = Window.size[0] - 20
+            finger.pos[0] = Window.size[0] - 20
         if touch_input[1] > Window.size[1]:
             touch_input[1] = 0
-        elif touch_input[1] < 0:
-            touch_input[1] = Window.size[1]
+            finger.pos[1] = 0
+        elif touch_input[1] <= 0:
+            touch_input[1] = Window.size[1] - 20
+            finger.pos[1] = Window.size[1] - 20
 
-        sock.send("OnTouch".encode())
-        ready_check = sock.recv(128).decode()
-        if ready_check == "SendTouch":
-            sock.send(np.array(touch_input))
-            #print("touch sent")
-        else: print("ready_check", ready_check)
-
-        ready_check = sock.recv(128).decode()
+        send_data = "OnTouch"
+        send_data += json.dumps(touch_input)
+        sock.send(send_data.encode())
+        error_check = sock. recv(128).decode()
+        if error_check == "ERROR":
+            print("Touch update unsuccessful")
 
         self.get_Vpos()
-        self.update(2)
+        #self.update(2)
 
     def scroll_values(self, *args):
         pass
