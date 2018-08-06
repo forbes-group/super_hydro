@@ -5,6 +5,8 @@ import json
 
 import numpy as np
 
+from kivy.config import Config
+Config.set('graphics', 'resizable', False)
 from kivy.app import App
 from kivy.core.window import Window
 from kivy.graphics.texture import Texture
@@ -51,7 +53,7 @@ class Display(FloatLayout):
 
     def push_to_texture(self):
         sock.send("Density".encode())
-        arr_length = self.Nx * self.Ny * 4
+        #arr_length = self.Nx * self.Ny * 4
         deserialize = json.loads(sock.recv(65536).decode())
         Density_data = np.array(deserialize)
 
@@ -60,6 +62,9 @@ class Display(FloatLayout):
         # blit_buffer takes the data and put it onto my texture
         self.get_texture().blit_buffer(data, bufferfmt='ubyte',
                                        colorfmt='rgba')
+
+    def get_graph_pxsize(self):
+        return graph_pxsize
 
     def _keyboard_closed(self):
         self._keyboard.unbind(on_key_down=self._on_keyboard_down)
@@ -80,18 +85,18 @@ class Display(FloatLayout):
         touch_input = [finger.pos[0] + Marker().size[0]/2,
                         finger.pos[1] + Marker().size[1]/2]
 
-        if touch_input[0] > Window.size[0]:
+        if touch_input[0] > self.texture.size[0]:
             touch_input[0] = 0
             finger.pos[0] = 0
         elif touch_input[0] <= 0:
-            touch_input[0] = Window.size[0] - 20
-            finger.pos[0] = Window.size[0] - 20
-        if touch_input[1] > Window.size[1]:
+            touch_input[0] = self.texture.size[0] - 20
+            finger.pos[0] = self.texture.size[0] - 20
+        if touch_input[1] > self.texture.size[1]:
             touch_input[1] = 0
             finger.pos[1] = 0
         elif touch_input[1] <= 0:
-            touch_input[1] = Window.size[1] - 20
-            finger.pos[1] = Window.size[1] - 20
+            touch_input[1] = self.texture.size[1] - 20
+            finger.pos[1] = self.texture.size[1] - 20
 
         send_data = "OnTouch"
         send_data += json.dumps(touch_input)
@@ -131,17 +136,18 @@ class Display(FloatLayout):
     def no_collision(self, touch):  # checks for button collision during game
         collision = True
         #scroll = self.ids.my_slider
-        home = self.ids.pause_button
+        pause = self.ids.pause_button
 
-        #if (not scroll.collide_point(touch.x, touch.y) and
-        #        not home.collide_point(touch.x, touch.y)):
-        if not home.collide_point(touch.x,touch.y):
+        """within game space/not touching pause button"""
+        if (not pause.collide_point(touch.x,touch.y) and
+            (touch.x < Window.size[0] - graph_pxsize and
+                touch.y > graph_pxsize)):
             collision = False
         return collision
 
     def get_Vpos(self):
-        Winx = Window.size[0]
-        Winy = Window.size[1]
+        Winx = Window.size[0] - graph_pxsize
+        Winy = Window.size[1] - graph_pxsize
         potential = self.ids.potential
         force = self.ids.force
 
@@ -158,8 +164,8 @@ class Display(FloatLayout):
             x = float(Vx*Winx/self.Nx)
             y = float(Vy*Winy/self.Ny)
             potential.pos = [x - (Marker().size[0]/2),
-                             y - (Marker().size[1]/2)]
-            force.pos = [x, y]
+                             y - (Marker().size[1]/2) + graph_pxsize]
+            force.pos = [x, y + graph_pxsize]
             self.force_angle()
 
 
@@ -174,7 +180,8 @@ class Display(FloatLayout):
 
         if self.no_collision(touch) is False:
             send_data = "OnTouch"
-            send_data += json.dumps([touch.x, touch.y])
+            #adjusts for the border size
+            send_data += json.dumps([touch.x, touch.y - graph_pxsize])
 
             sock.send(send_data.encode())
             error_check = sock.recv(128).decode()
@@ -253,6 +260,7 @@ if __name__ == "__main__":
     port = 8888
     sock = socket.socket()
     sock.connect((host,port))
+    graph_pxsize = 150
 
     # Look at argparse
     # And config file
@@ -262,6 +270,7 @@ if __name__ == "__main__":
         # windows aspect ratio same as grid
         win = sock.recv(128).decode()
         window = json.loads(win)
-        Window.size = int(window[0]), int(window[1])
+        Window.size = int(window[0]) + graph_pxsize,\
+                        int(window[1]) + graph_pxsize
         print ("window:",Window.size)
     SuperHydroApp().run()

@@ -106,6 +106,7 @@ class Server():
                                  self.state.get_Vext().shape)
         Vpos = np.array(Vpos)
         Vpos = Vpos.tolist()
+        print(Vpos)
         self.conn.send((json.dumps(Vpos).encode()))
 
     def on_touch(self, touch_pos):
