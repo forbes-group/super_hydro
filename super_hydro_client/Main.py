@@ -27,6 +27,14 @@ class Display(FloatLayout):
     dt = 1.0/20.0
     Nx, Ny = 0,0
 
+    number_keys_pressed = 0
+    keys_pressed = {
+        'w':False,
+        's':False,
+        'a':False,
+        'd':False
+    }
+
     texture = None
 
     def __init__(self, **kwargs):
@@ -72,46 +80,47 @@ class Display(FloatLayout):
 
     def _on_keyboard_down(self, keyboard, keycode, text, modifiers):
         finger = self.ids.finger
+        winx = Window.size[0] - graph_pxsize
+        winy = Window.size[1] - graph_pxsize
 
-        if keycode[1] == 'd':
-            finger.pos[0] += 25
-        elif keycode[1] == 'a':
-            finger.pos[0] -= 25
-        elif keycode[1] == 'w':
-            finger.pos[1] += 25
-        elif keycode[1] == 's':
-            finger.pos[1] -= 25
+        pressed_key = keycode[1]
+
+        if pressed_key == 'w':
+            finger.pos = finger.pos[0], finger.pos[1] + 20
+        if pressed_key == 's':
+            finger.pos = finger.pos[0], finger.pos[1] - 20
+        if pressed_key == 'd':
+            finger.pos = finger.pos[0] + 20, finger.pos[1]
+        if pressed_key == 'a':
+            finger.pos = finger.pos[0] - 20, finger.pos[1]
 
         touch_input = [finger.pos[0] + Marker().size[0]/2,
-                        finger.pos[1] + Marker().size[1]/2]
+                        finger.pos[1] + Marker().size[1]/2 - graph_pxsize]
 
-        if touch_input[0] > self.texture.size[0]:
+        #keeps input within game border
+        if touch_input[0] > winx:
             touch_input[0] = 0
             finger.pos[0] = 0
         elif touch_input[0] <= 0:
-            touch_input[0] = self.texture.size[0] - 20
-            finger.pos[0] = self.texture.size[0] - 20
-        if touch_input[1] > self.texture.size[1]:
+            touch_input[0] = winx - 20
+            finger.pos[0] = winx - 20
+        if touch_input[1] > winy:
             touch_input[1] = 0
-            finger.pos[1] = 0
+            finger.pos[1] = 0 + graph_pxsize
         elif touch_input[1] <= 0:
-            touch_input[1] = self.texture.size[1] - 20
-            finger.pos[1] = self.texture.size[1] - 20
+            touch_input[1] = winy - 20
+            finger.pos[1] = winy + graph_pxsize - 20
 
         send_data = "OnTouch"
         send_data += json.dumps(touch_input)
         sock.send(send_data.encode())
         error_check = sock. recv(128).decode()
         if error_check == "ERROR":
-            print("Touch update unsuccessful")
+            print("Keyboard update unsuccessful")
 
-        self.get_Vpos()
-        #self.update(2)
-
-    def scroll_values(self, *args):
-        pass
-        #app = App.get_running_app()
-        #app.state.V0_mu = args[1]
+    def _on_keyboard_up(self,keycode):
+        up_key = keycode[1]
+        self.keys_pressed[up_key] = False
 
     def force_angle(self):      # point the arrow towards the finger
         dist_x = self.ids.finger.pos[0] - self.ids.potential.pos[0]
