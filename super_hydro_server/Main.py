@@ -2,6 +2,7 @@ import gpe
 import socket
 import attr
 import json
+import configparser
 
 from matplotlib import cm
 
@@ -29,16 +30,15 @@ class Parameters(object):
 
 class Server():
     def __init__(self, **kwargs):
-        self.params = Parameters()
-        self.state = gpe.State(Nxy=(self.params.Nx, self.params.Ny),
+        self.state = gpe.State(Nxy=(params.Nx, params.Ny),
                             V0_mu=0.5, test_finger=False,
-                            healing_length=self.params.healing_length,
-                            dt_t_scale=self.params.dt_t_scale)
+                            healing_length=params.healing_length,
+                            dt_t_scale=params.dt_t_scale)
         self.sock = socket.socket()
         self.sock.bind((host,port))
         self.sock.listen(1)
         self.conn, self.addr = self.sock.accept()
-        window_size = json.dumps(self.params.window_size())
+        window_size = json.dumps(params.window_size())
         self.conn.send(window_size.encode())
         super().__init__(**kwargs)
 
@@ -79,7 +79,7 @@ class Server():
 
             elif client_message == "Texture":
                 #sends the dimensions of the State class
-                Nxy = json.dumps(self.params.Nxy())
+                Nxy = json.dumps(params.Nxy())
                 print(Nxy)
                 self.conn.send(Nxy.encode())
 
@@ -88,7 +88,7 @@ class Server():
                 print("client message:", client_message)
 
     def send_density(self):
-        self.state.step(self.params.steps)
+        self.state.step(params.steps)
         n_ = self.state.get_density().T
         array = cm.viridis((n_-n_.min())/(n_.max()-n_.min()))
         array *= int(255/array.max()) #normalize V0_values
@@ -109,19 +109,27 @@ class Server():
         self.conn.send((json.dumps(Vpos).encode()))
 
     def on_touch(self, touch_pos):
-        winx, winy = self.params.window_size()
+        winx, winy = params.window_size()
         Lx, Ly = self.state.Lxy
         self.state.set_xy0((touch_pos[0] - (winx/2)) * (Lx/winx),
                             (touch_pos[1] - (winy/2)) * (Ly/winy))
         self.conn.send("success".encode())
 
     def reset_game(self):
-        self.state = gpe.State(Nxy=(self.params.Nx, self.params.Ny),
+        self.state = gpe.State(Nxy=(params.Nx, params.Ny),
                             V0_mu=0.5, test_finger=False,
-                            healing_length=self.params.healing_length,
-                            dt_t_scale=self.params.dt_t_scale)
+                            healing_length=params.healing_length,
+                            dt_t_scale=params.dt_t_scale)
         self.conn.send("success".encode())
 
 
 if __name__ == "__main__":
+    params = Parameters()
+    config = configparser.ConfigParser()
+    config.read('config.ini')
+    params.Nx = int(config['Parameters']['Nx'])
+    params.Ny = int(config['Parameters']['Ny'])
+    params.V0_mu = float(config['Parameters']['V0_mu'])
+    params.steps = int(config['Parameters']['steps'])
+
     Server().start()
