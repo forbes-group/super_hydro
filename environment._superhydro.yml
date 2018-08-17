@@ -1,0 +1,13 @@
+name: _superhydro
+channels:
+  - defaults
+  - conda-forge
+dependencies:
+  - python>=3
+  - ipykernel
+  - cython
+  - scipy
+  - matplotlib
+  - pip:
+    - attrs
+    - kivy

@@ -9,8 +9,8 @@ from matplotlib import cm
 import numpy as np
 from numpy import unravel_index
 
-host = "127.0.0.1"
-port = 8888
+_HOST = "127.0.0.1"
+
 
 @attr.s
 class Parameters(object):
@@ -29,13 +29,13 @@ class Parameters(object):
         return (self.Nx,self.Ny)
 
 class Server():
-    def __init__(self, **kwargs):
+    def __init__(self, port=8888, **kwargs):
         self.state = gpe.State(Nxy=(params.Nx, params.Ny),
                             V0_mu=0.5, test_finger=False,
                             healing_length=params.healing_length,
                             dt_t_scale=params.dt_t_scale)
         self.sock = socket.socket()
-        self.sock.bind((host,port))
+        self.sock.bind((_HOST, port))
         self.sock.listen(1)
         self.conn, self.addr = self.sock.accept()
         window_size = json.dumps(params.window_size())
@@ -131,5 +131,6 @@ if __name__ == "__main__":
     params.Ny = int(config['Parameters']['Ny'])
     params.V0_mu = float(config['Parameters']['V0_mu'])
     params.steps = int(config['Parameters']['steps'])
+    port = int(config['ui']['port'])
 
-    Server().start()
+    Server(port=port).start()

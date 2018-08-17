@@ -1,3 +1,4 @@
+import configparser
 import sys
 import socket
 import attr
@@ -265,21 +266,21 @@ class SuperHydroApp(App):
 
 
 if __name__ == "__main__":
+    config = configparser.ConfigParser()
+    config.read('config.ini')
+    port = int(config['ui']['port'])
+    
     host = '127.0.0.1'
-    port = 8888
     sock = socket.socket()
-    sock.connect((host,port))
+    sock.connect((host, port))
     graph_pxsize = 150
 
     # Look at argparse
     # And config file
-    if len(sys.argv) == 3:
-        Nx, Ny = int(sys.argv[1]), int(sys.argv[2])
-    else:
-        # windows aspect ratio same as grid
-        win = sock.recv(128).decode()
-        window = json.loads(win)
-        Window.size = int(window[0]) + graph_pxsize,\
-                        int(window[1]) + graph_pxsize
-        print ("window:",Window.size)
+    # windows aspect ratio same as grid
+    win = sock.recv(128).decode()
+    window = json.loads(win)
+    Window.size = int(window[0]) + graph_pxsize,\
+                  int(window[1]) + graph_pxsize
+    print ("window:",Window.size)
     SuperHydroApp().run()
