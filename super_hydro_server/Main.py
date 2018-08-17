@@ -1,8 +1,11 @@
-import gpe
+from contextlib import contextmanager
 import socket
 import attr
 import json
 import configparser
+import logging
+
+import gpe
 
 from matplotlib import cm
 
@@ -10,6 +13,27 @@ import numpy as np
 from numpy import unravel_index
 
 _HOST = "127.0.0.1"
+
+def log(msg, level=logging.INFO):
+    """Log msg to the logger."""
+    # Get logger each time so handlers are properly dealt with
+    logging.getLogger(__name__).log(level=level, msg=msg)
+    
+
+@contextmanager
+def log_task(msg, _level=[0]):
+    indent = " " * 2 * _level[0]
+    msg = indent + msg
+    log(msg + "...")
+    try:
+        _level[0] += 1
+        yield
+        log(msg + ". Done.")
+    except:
+        log(msg + ". Failed!", level=logging.ERROR)
+        raise
+    finally:
+        _level[0] -= 1
 
 
 @attr.s

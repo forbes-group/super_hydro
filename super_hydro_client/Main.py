@@ -1,9 +1,11 @@
 import configparser
-import sys
-import socket
-import attr
+from contextlib import contextmanager
 import json
+import logging
+import socket
+import sys
 
+import attr
 import numpy as np
 
 from kivy.config import Config
@@ -18,6 +20,31 @@ from kivy.uix.floatlayout import FloatLayout
 from kivy.uix.scrollview import ScrollView
 from kivy.uix.accordion import Accordion, AccordionItem
 from kivy.clock import Clock
+
+from communication import Communicator
+
+
+def log(msg, level=logging.ERROR):
+    """Log msg to the logger."""
+    # Get logger each time so handlers are properly dealt with
+    logging.getLogger(__name__).log(level=level, msg=msg)
+    
+
+@contextmanager
+def log_task(msg, _level=[0]):
+    indent = " " * 2 * _level[0]
+    msg = indent + msg
+    log(msg + "...")
+    try:
+        _level[0] += 1
+        yield
+        log(msg + ". Done.")
+    except:
+        log(msg + ". Failed!", level=logging.ERROR)
+        raise
+    finally:
+        _level[0] -= 1
+
 
 class Display(FloatLayout):
     """Main simulation layout."""
@@ -39,8 +66,12 @@ class Display(FloatLayout):
     texture = None
 
     def __init__(self, **kwargs):
-        self.get_texture()
-        self.push_to_texture()
+        with log_task("Getting texture from server"):
+            self.get_texture()
+            
+        with log_task("Get density from server and push to texture"):
+            self.push_to_texture()
+            
         self.angle = 45
         self.arrow_size = (0, 0)
         self.event = Clock.schedule_interval(self.update, self.dt)
@@ -52,18 +83,17 @@ class Display(FloatLayout):
     # for getting the texture into the kivy file
     def get_texture(self):
         if self.texture is None:
-            sock.send("Texture".encode())
-            Nxy = sock.recv(128).decode()
-            N = json.loads(Nxy)
+            communicator.send("Texture")
+            N = communicator.get_json(128)
             self.Nx, self.Ny = int(N[0]), int(N[1])
             self.texture = Texture.create(size=(self.Nx, self.Ny),
                                             colorfmt='rgba')
         return self.texture
 
     def push_to_texture(self):
-        sock.send("Density".encode())
+        communicator.send("Density")
         #arr_length = self.Nx * self.Ny * 4
-        deserialize = json.loads(sock.recv(65536).decode())
+        deserialize = communicator.get_json(65536)
         Density_data = np.array(deserialize)
 
         data = Density_data.astype(dtype='uint8')
@@ -114,10 +144,7 @@ class Display(FloatLayout):
 
         send_data = "OnTouch"
         send_data += json.dumps(touch_input)
-        sock.send(send_data.encode())
-        error_check = sock. recv(128).decode()
-        if error_check == "ERROR":
-            print("Keyboard update unsuccessful")
+        communicator.request(send_data, "Keyboard update unsuccessful")
 
     def _on_keyboard_up(self,keycode):
         up_key = keycode[1]
@@ -161,12 +188,7 @@ class Display(FloatLayout):
         potential = self.ids.potential
         force = self.ids.force
 
-        sock.send("Vpos".encode())
-        error_check = sock.recv(128).decode()
-
-        if error_check == "ERROR":
-            print("V0 change unsuccessful")
-        else:
+        if communicator.request("Vpos", "V0 change unsuccessful"):
             deserialize = json.loads(error_check)
             Vpos = np.array(deserialize)
             Vx, Vy = Vpos[0], Vpos[1]
@@ -193,10 +215,7 @@ class Display(FloatLayout):
             #adjusts for the border size
             send_data += json.dumps([touch.x, touch.y - graph_pxsize])
 
-            sock.send(send_data.encode())
-            error_check = sock.recv(128).decode()
-            if error_check == "ERROR":
-                print("Touch update unsuccessful")
+            communicator.send(send_data, "Touch update unsuccessful")
 
             self.get_Vpos()
 
@@ -219,25 +238,16 @@ class StartScreen(Screen):
     def V0_values(self, *args):
         send_data = "V0"
         send_data += json.dumps(float(args[1]))
-        sock.send(send_data.encode())
-        error_check = sock.recv(128).decode()
-        if error_check == "ERROR":
-            print("V0 change unsuccessful")
+        communicator.request(send_data, "V0 change unsuccessful")
 
     def cooling_values(self, *args):
         self.ids.cooling_val.text = str(complex(1,10**int(args[1])))
         send_data = "Cooling"
         send_data += str(int(args[1]))
-        sock.send(send_data.encode())
-        error_check = sock.recv(128).decode()
-        if error_check == "ERROR":
-            print("Cooling change unsuccessful")
+        communicator.request(send_data, "Cooling change unsuccessful")
 
     def reset_game(self):
-        sock.send("Reset".encode())
-        error_check = sock.recv(128).decode()
-        if error_check == "ERROR":
-            print("Game reset unsuccessful")
+        communicator.request("Reset", "Game reset unsuccessful")
 
 class ScreenMng(ScreenManager):
     """Manages all of the screens (i.e. which screen is visible etc.)."""
@@ -266,20 +276,22 @@ class SuperHydroApp(App):
 
 
 if __name__ == "__main__":
-    config = configparser.ConfigParser()
-    config.read('config.ini')
-    port = int(config['ui']['port'])
-    
-    host = '127.0.0.1'
-    sock = socket.socket()
-    sock.connect((host, port))
+    with log_task("Reading configuration"):
+        config = configparser.ConfigParser()
+        config.read('config.ini')
+
+    with log_task("Connecting to server"):        
+        port = int(config['ui']['port'])    
+        host = '127.0.0.1'
+
+        communicator = Communicator(host=host, port=port)
+        
     graph_pxsize = 150
 
     # Look at argparse
     # And config file
     # windows aspect ratio same as grid
-    win = sock.recv(128).decode()
-    window = json.loads(win)
+    window = communicator.get_json(128)
     Window.size = int(window[0]) + graph_pxsize,\
                   int(window[1]) + graph_pxsize
     print ("window:",Window.size)

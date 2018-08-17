@@ -33,5 +33,10 @@ Issues
    fi
    ```
 
-   Put a default port (not 8080) in config file, then search forward
+   Put a default port (not 8888) in config file, then search forward
    incrementally until a free port is found.
+
+MMF: Make simple logger.
+
+* Refactor socket communication making sure that messages are properly
+  sent and buffered.
