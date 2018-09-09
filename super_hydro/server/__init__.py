@@ -35,12 +35,8 @@ class Server(object):
             client_message = self.comm.recv()
             #print("client:",client_message)
 
-            if client_message == b"Window.size":
-                self.comm.send(obj=self.opts.window_size)
-                
-            elif client_message == b"Density":
-                #send the get_density
-                self.send_density()
+            if client_message == b"Frame":
+                self.send_frame()
 
             elif client_message == b"Vpos":
                 #send Vpos
@@ -61,8 +57,7 @@ class Server(object):
                 self.reset_game()
                 self.comm.respond(b"Game Reset")
 
-            elif client_message == b"Texture":
-                #sends the dimensions of the State class
+            elif client_message == b"Nxy":
                 self.comm.send(obj=(self.opts.Nx, self.opts.Ny))
                 
             else:
@@ -70,14 +65,14 @@ class Server(object):
                 print("client message:", client_message)
                 self.comm.respond("Unknown Message")
 
-    def send_density(self):
+    def send_frame(self):
+        """Send the RGB frame to draw."""
         self.state.step(self.opts.steps)
         n_ = self.state.get_density().T
         array = cm.viridis((n_-n_.min())/(n_.max()-n_.min()))
-        array *= int(255/array.max()) #normalize V0_values
+        array *= int(255/array.max()) # normalize V0_values
         data = array.astype(dtype='uint8')
-        data = data.tolist()
-        self.comm.send(data)
+        self.comm.send_array(data)
 
     def send_Vpos(self):
         if self.state.V0_mu >= 0:
@@ -91,10 +86,8 @@ class Server(object):
         self.comm.send(Vpos)
 
     def on_touch(self, touch_pos):
-        winx, winy = self.opts.window_size
-        Lx, Ly = self.state.Lxy
-        self.state.set_xy0((touch_pos[0] - (winx/2)) * (Lx/winx),
-                            (touch_pos[1] - (winy/2)) * (Ly/winy))
+        x0, y0 = (np.asarray(touch_pos) - 0.5)*self.state.Lxy
+        self.state.set_xy0(x0, y0)
 
     def reset_game(self):
         self.state = gpe.State(Nxy=(self.opts.Nx, self.opts.Ny),
@@ -105,6 +98,5 @@ class Server(object):
 def run():
     """Load the configuration and start the server."""
     parser = config.get_server_parser()
-    opts = parser.parse_args()
-    opts.window_size = (opts.window_width, opts.window_width*opts.Ny/opts.Nx)
+    opts, other_args = parser.parse_known_args()
     Server(opts=opts).start()

@@ -3,6 +3,26 @@ import sys
 
 import numpy as np
 
+from .. import config, communication, utils
+
+_LOGGER = utils.Logger(__name__)
+log = _LOGGER.log
+log_task = _LOGGER.log_task
+
+######################################################################
+# We grab the options here because kivy will otherwise destroy all the
+# command-line options.
+# https://groups.google.com/d/msg/kivy-users/gLBRrqRp7MI/I18pjq80ymkJ
+def get_opts():
+    """Get the client configuration options."""
+    with log_task("Reading configuration"):
+        parser = config.get_client_parser()
+        opts, other_args = parser.parse_known_args()
+        log("Unused Options: {}".format(other_args), 100)
+    return opts
+
+_OPTS = get_opts()
+
 from kivy.config import Config
 Config.set('graphics', 'resizable', False)
 from kivy.app import App
@@ -16,11 +36,7 @@ from kivy.uix.scrollview import ScrollView
 from kivy.uix.accordion import Accordion, AccordionItem
 from kivy.clock import Clock
 
-from .. import config, communication, utils
 
-_LOGGER = utils.Logger(__name__)
-log = _LOGGER.log
-log_task = _LOGGER.log_task
 
 
 class Display(FloatLayout):
@@ -29,7 +45,6 @@ class Display(FloatLayout):
     arrow_size = ListProperty(0)
     arrow_visible = True
     event = None
-    fps = 80.0  # Maximum frames-per-second
     Nx, Ny = 0,0
 
     number_keys_pressed = 0
@@ -45,16 +60,19 @@ class Display(FloatLayout):
     def __init__(self, **kwargs):
         app = App.get_running_app()
         self.comm = app.comm
+        self.opts = app.opts
         self.graph_pxsize = app.graph_pxsize
-        with log_task("Getting texture from server"):
-            self.get_texture()
+        
+        self.Nx, self.Ny = self.comm.get(b"Nxy")
+        self.get_texture()
             
         with log_task("Get density from server and push to texture"):
             self.push_to_texture()
             
         self.angle = 45
         self.arrow_size = (0, 0)
-        self.event = Clock.schedule_interval(self.update, 1./self.fps)
+        print("fps: {}".format(1./self.opts.fps))
+        self.event = Clock.schedule_interval(self.update, 1./self.opts.fps)
         self._keyboard = Window.request_keyboard(self._keyboard_closed, self)
         self._keyboard.bind(on_key_down=self._on_keyboard_down)
         self.event.cancel()  # for pausing game when screens change
@@ -63,15 +81,13 @@ class Display(FloatLayout):
     # for getting the texture into the kivy file
     def get_texture(self):
         if self.texture is None:
-            self.Nx, self.Ny = self.comm.get(b"Texture")
-            self.texture = Texture.create(size=(self.Nx, self.Ny),
-                                          colorfmt='rgba')
+            with log_task("Creating texture"):
+                self.texture = Texture.create(size=(self.Nx, self.Ny),
+                                              colorfmt='rgba')
         return self.texture
 
     def push_to_texture(self):
-        Density_data = np.array(self.comm.get(b"Density"))
-        data = Density_data.astype(dtype='uint8')
-        data = data.tobytes()
+        data = self.comm.get_array(b"Frame").tobytes()
         # blit_buffer takes the data and put it onto my texture
         self.get_texture().blit_buffer(data, bufferfmt='ubyte',
                                        colorfmt='rgba')
@@ -85,8 +101,8 @@ class Display(FloatLayout):
 
     def _on_keyboard_down(self, keyboard, keycode, text, modifiers):
         finger = self.ids.finger
-        winx = Window.size[0] - self.graph_pxsize
-        winy = Window.size[1] - self.graph_pxsize
+        framex = Window.size[0] - self.graph_pxsize
+        framey = Window.size[1] - self.graph_pxsize
 
         pressed_key = keycode[1]
 
@@ -103,19 +119,22 @@ class Display(FloatLayout):
                         finger.pos[1] + Marker().size[1]/2 - self.graph_pxsize]
 
         #keeps input within game border
-        if touch_input[0] > winx:
+        if touch_input[0] > framex:
             touch_input[0] = 0
             finger.pos[0] = 0
         elif touch_input[0] <= 0:
-            touch_input[0] = winx - 20
-            finger.pos[0] = winx - 20
-        if touch_input[1] > winy:
+            touch_input[0] = framex - 20
+            finger.pos[0] = framex - 20
+        if touch_input[1] > framey:
             touch_input[1] = 0
             finger.pos[1] = 0 + self.graph_pxsize
         elif touch_input[1] <= 0:
-            touch_input[1] = winy - 20
-            finger.pos[1] = winy + self.graph_pxsize - 20
+            touch_input[1] = framey - 20
+            finger.pos[1] = framey + self.graph_pxsize - 20
 
+        # Normalize to frame
+        touch_input[0] = touch_input[0]/framex
+        touch_input[1] = touch_input[1]/framey
         self.comm.send(b"OnTouch", touch_input)
 
     def _on_keyboard_up(self,keycode):
@@ -181,10 +200,16 @@ class Display(FloatLayout):
         finger = self.ids.finger
 
         if self.no_collision(touch) is False:
-            send_data = "OnTouch"
             #adjusts for the border size
             touch_input = [touch.x, touch.y - self.graph_pxsize]
 
+            # Normalize to frame size
+            framex = Window.size[0] - self.graph_pxsize
+            framey = Window.size[1] - self.graph_pxsize
+
+            touch_input[0] /= framex
+            touch_input[1] /= framey
+            
             self.comm.send(b"OnTouch", touch_input)
 
             self.get_Vpos()
@@ -247,19 +272,16 @@ class SuperHydroApp(App):
 
         self.graph_pxsize = 150
 
-        # Look at argparse
-        # And config file
-        # windows aspect ratio same as grid
-        window = self.comm.get(b"Window.size")
-        Window.size = (window[0] + self.graph_pxsize,
-                       window[1] + self.graph_pxsize)
+        Nx, Ny = self.comm.get(b"Nxy")
+        frame_width = self.opts.window_width
+        frame_height = self.opts.window_width * Ny/Nx
+        window_width = frame_width + self.graph_pxsize
+        window_height = frame_height + self.graph_pxsize
+
+        Window.size = (window_width, window_height)
         log("window: {}".format(Window.size))
         return ScreenMng()
 
 
 def run():
-    with log_task("Reading configuration"):
-        parser = config.get_client_parser()
-        opts = parser.parse_args()
-
-    SuperHydroApp(opts=opts).run()
+    SuperHydroApp(opts=_OPTS).run()

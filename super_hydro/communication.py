@@ -1,5 +1,7 @@
 from contextlib import contextmanager
-import json
+
+import numpy as np
+
 import zmq
 
 from . import utils
@@ -28,16 +30,28 @@ class Client(object):
         """Request data from server."""
         with log_task("Getting {} from server".format(msg)):
             self.socket.send(msg)
-            return json.loads(self.socket.recv().decode())
+            return self.socket.recv_json()
 
     def send(self, msg, obj):
         """Send data to server."""
         with log_task("Sending {} to server".format(msg)):
             self.socket.send(msg)
             self.socket.recv()
-            self.socket.send(json.dumps(obj).encode())
+            self.socket.send_json(obj)
             self.socket.recv()
 
+    def get_array(self, msg, flags=0, copy=True, track=False):
+        """Request a numpy array."""
+        # https://pyzmq.readthedocs.io/en/latest/serialization.html
+        with log_task("Getting {} from server".format(msg)):
+            self.socket.send(msg)
+            md = self.socket.recv_json(flags=flags)
+            msg = self.socket.recv(flags=flags, copy=copy, track=track)
+            A = np.frombuffer(msg, dtype=md['dtype']).reshape(md['shape'])
+        return A
+
+def recv_array(socket, flags=0, copy=True, track=False):
+    """recv a numpy array"""
         
 class Server(object):
     def __init__(self, opts):
@@ -46,12 +60,12 @@ class Server(object):
             self.context = zmq.Context()
             self.socket = self.context.socket(zmq.REP)
             self.socket.bind("tcp://*:{}".format(opts.port))
-        log("Server listening on port: {}".format(opts.port))
+        log("Server listening on port: {}".format(opts.port), level=100)
 
     def get(self):
         """Get an object from the client."""
         self.socket.send(b"")
-        obj = json.loads(self.socket.recv().decode())
+        obj = self.socket.recv_json()
         self.socket.send(b"")
         return obj
         
@@ -59,47 +73,18 @@ class Server(object):
         return self.socket.recv()
 
     def send(self, obj):
-        self.socket.send(json.dumps(obj).encode())
+        self.socket.send_json(obj)
 
+    def send_array(self, A, flags=0, copy=True, track=False):
+        """Send a numpy array."""
+        # https://pyzmq.readthedocs.io/en/latest/serialization.html
+        md = dict(
+            dtype = str(A.dtype),
+            shape = A.shape,
+        )
+        
+        self.socket.send_json(md, flags|zmq.SNDMORE)
+        self.socket.send(A, flags, copy=copy, track=track)
+        
     def respond(self, msg):
         self.socket.send(msg)
-        
-        
-class Communicator(object):
-    def __init__(self, opts):
-        
-        self.sock = socket.socket()
-        self.sock.connect((host, port))
-
-    def get_raw(self, buffsize):
-        return self.sock.recv(buffsize).decode()
-
-    def get_json(self, buffsize):
-        return json.loads(self.get_raw(buffsize))
-
-    def send(self, msg):
-        try:
-            msg = msg.encode()
-        except:
-            pass
-        size = len(msg)
-        ####self.sock.send(size)
-        self.sock.send(msg)
-        
-    def recv(self):
-        ####size = int(self.sock.recv(1))
-        return self.sock.recv(size).decode()
-
-    def request(self, name, user_message=None):
-        msg = name.encode()
-        self.send(msg)
-        
-        error_check = self.get_raw(128)
-        if error_check == "ERROR":
-            if user_message is None:
-                user_message = "Request {} unsuccessful".format(name)
-            print(user_message)
-            return False
-        else:
-            return True
-        

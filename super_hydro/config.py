@@ -13,7 +13,7 @@ XDG_CONFIG_HOME = process_path(os.environ.get(
     'XDG_CONFIG_HOME', '~/.config'))
 
 # This directory
-SUPER_HYDRO_DIR = os.path.dirname(__file__)
+SUPER_HYDRO_DIR = process_path(os.path.join(os.path.dirname(__file__), '..'))
 
 PARSER = configargparse.get_argument_parser(
     default_config_files=list(map(process_path, [
@@ -28,7 +28,7 @@ PARSER = configargparse.get_argument_parser(
         os.path.join(XDG_CONFIG_HOME, "super_hydro.conf"),
 
         # Some users expect this:
-        '~/.super_hydro.conf'
+        '~/.super_hydro.conf', 
         
         # Config file in the same directory application is run from
         './super_hydro.conf'
@@ -41,12 +41,8 @@ PARSER.add('-c', '--config_file', is_config_file=True,
            help='Config file')
 PARSER.add('-p', '--port', default=9000, type=int, env_var='SUPER_HYDRO_PORT',
            help='Port used for communication by the server and client')
-PARSER.add('-h', '--host', default="localhost", env_var='SUPER_HYDRO_HOST',
+PARSER.add('--host', default="localhost", env_var='SUPER_HYDRO_HOST',
            help='URL where the server is listening')
-PARSER.add('--window_width',
-           help="Window width (pixels)",
-           default=1000, type=int)
-
 
 def get_server_parser():
     """Return the parser with server configuration"""
@@ -68,4 +64,9 @@ def get_server_parser():
     
 def get_client_parser():
     """Return the parser with client configuration"""
+    PARSER.add('--window_width',
+               help="Window width (pixels)",
+               default=1000, type=int)
+    PARSER.add('-fps', '--fps', default=80.0, type=float,
+               help="Maximum framerate (frames-per-second)")
     return PARSER
