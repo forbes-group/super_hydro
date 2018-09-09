@@ -1,3 +1,5 @@
+from contextlib import contextmanager
+import logging
 import numpy as np
 import scipy as sp
 
@@ -47,3 +49,35 @@ def dot2(A, x):
     True
     """
     return np.einsum('ab...,b...->a...', A, x)
+
+
+class Logger(object):
+    """Logging object."""
+    def __init__(self, name="", indent_amount=2):
+        self.name = name
+        self.level = 0
+        self.indent_amount = indent_amount
+
+    @property
+    def indent(self):
+        """Return the appropriate indentation."""
+        return " " * self.indent_amount * self.level
+
+    def log(self, msg, level=logging.INFO):
+        """Log msg to the logger."""
+        # Get logger each time so handlers are properly dealt with
+        logging.getLogger(self.name).log(level=level,
+                                         msg=self.indent + msg)
+    
+    @contextmanager
+    def log_task(self, msg, level=logging.INFO):
+        self.log(msg + "...", level=level)
+        try:
+            self.level += 1
+            yield
+            self.log(msg + ". Done.", level=level)
+        except:
+            self.log(msg + ". Failed!", level=logging.ERROR)
+            raise
+        finally:
+            self.level -= 1

@@ -1,10 +1,12 @@
-name: _superhydroclient
+name: _super_hydro_client
 channels:
   - defaults
   - conda-forge
 dependencies:
   - python>=3
+  - configargparse
   - cython
   - numpy
+  - pyzmq
   - pip:
     - kivy

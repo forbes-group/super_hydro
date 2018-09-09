@@ -67,8 +67,8 @@ class State(object):
     healing_length
 
     """
-    def __init__(self, Nxy=(32, 32), dx=0.1,
-                 healing_length=1.0, r0=1.0, V0_mu=0.5,
+    def __init__(self, Nxy=(32, 32), dx=1.0,
+                 healing_length=10.0, r0=10.0, V0_mu=0.5,
                  cooling_phase=1.0+0.01j,
                  cooling_steps=100, dt_t_scale=0.1,
                  soc=False,

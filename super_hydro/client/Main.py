@@ -1,7 +1,7 @@
-import configparser
 from contextlib import contextmanager
 import json
 import logging
+import os
 import socket
 import sys
 
@@ -21,29 +21,15 @@ from kivy.uix.scrollview import ScrollView
 from kivy.uix.accordion import Accordion, AccordionItem
 from kivy.clock import Clock
 
-from communication import Communicator
+sys.path.append(os.path.join(os.path.dirname(__file__), '..', '..'))
 
+from super_hydro import config
+from super_hydro import communication
+from super_hydro import utils
 
-def log(msg, level=logging.ERROR):
-    """Log msg to the logger."""
-    # Get logger each time so handlers are properly dealt with
-    logging.getLogger(__name__).log(level=level, msg=msg)
-    
-
-@contextmanager
-def log_task(msg, _level=[0]):
-    indent = " " * 2 * _level[0]
-    msg = indent + msg
-    log(msg + "...")
-    try:
-        _level[0] += 1
-        yield
-        log(msg + ". Done.")
-    except:
-        log(msg + ". Failed!", level=logging.ERROR)
-        raise
-    finally:
-        _level[0] -= 1
+_LOGGER = utils.Logger(__name__)
+log = _LOGGER.log
+log_task = _LOGGER.log_task
 
 
 class Display(FloatLayout):
@@ -66,6 +52,8 @@ class Display(FloatLayout):
     texture = None
 
     def __init__(self, **kwargs):
+        global communicator
+        self.comm = communicator
         with log_task("Getting texture from server"):
             self.get_texture()
             
@@ -83,19 +71,13 @@ class Display(FloatLayout):
     # for getting the texture into the kivy file
     def get_texture(self):
         if self.texture is None:
-            communicator.send("Texture")
-            N = communicator.get_json(128)
-            self.Nx, self.Ny = int(N[0]), int(N[1])
+            self.Nx, self.Ny = self.comm.get(b"Texture")
             self.texture = Texture.create(size=(self.Nx, self.Ny),
-                                            colorfmt='rgba')
+                                          colorfmt='rgba')
         return self.texture
 
     def push_to_texture(self):
-        communicator.send("Density")
-        #arr_length = self.Nx * self.Ny * 4
-        deserialize = communicator.get_json(65536)
-        Density_data = np.array(deserialize)
-
+        Density_data = np.array(self.comm.get(b"Density"))
         data = Density_data.astype(dtype='uint8')
         data = data.tobytes()
         # blit_buffer takes the data and put it onto my texture
@@ -142,9 +124,7 @@ class Display(FloatLayout):
             touch_input[1] = winy - 20
             finger.pos[1] = winy + graph_pxsize - 20
 
-        send_data = "OnTouch"
-        send_data += json.dumps(touch_input)
-        communicator.request(send_data, "Keyboard update unsuccessful")
+        self.comm.send(b"OnTouch", touch_input)
 
     def _on_keyboard_up(self,keycode):
         up_key = keycode[1]
@@ -188,17 +168,15 @@ class Display(FloatLayout):
         potential = self.ids.potential
         force = self.ids.force
 
-        if communicator.request("Vpos", "V0 change unsuccessful"):
-            deserialize = json.loads(error_check)
-            Vpos = np.array(deserialize)
-            Vx, Vy = Vpos[0], Vpos[1]
+        Vpos = np.array(self.comm.get(b"Vpos"))
+        Vx, Vy = Vpos[0], Vpos[1]
 
-            x = float(Vx*Winx/self.Nx)
-            y = float(Vy*Winy/self.Ny)
-            potential.pos = [x - (Marker().size[0]/2),
-                             y - (Marker().size[1]/2) + graph_pxsize]
-            force.pos = [x, y + graph_pxsize]
-            self.force_angle()
+        x = float(Vx*Winx/self.Nx)
+        y = float(Vy*Winy/self.Ny)
+        potential.pos = [x - (Marker().size[0]/2),
+                         y - (Marker().size[1]/2) + graph_pxsize]
+        force.pos = [x, y + graph_pxsize]
+        self.force_angle()
 
 
     """This allows single clicks to change Vpos, but
@@ -213,9 +191,9 @@ class Display(FloatLayout):
         if self.no_collision(touch) is False:
             send_data = "OnTouch"
             #adjusts for the border size
-            send_data += json.dumps([touch.x, touch.y - graph_pxsize])
+            touch_input = [touch.x, touch.y - graph_pxsize]
 
-            communicator.send(send_data, "Touch update unsuccessful")
+            self.comm.send(b"OnTouch", touch_input)
 
             self.get_Vpos()
 
@@ -233,21 +211,19 @@ class StartScreen(Screen):
     # allows changing of game variables
 
     def __init__(self, **kwargs):
+        global communicator
+        self.comm = communicator
         super().__init__(**kwargs)
 
     def V0_values(self, *args):
-        send_data = "V0"
-        send_data += json.dumps(float(args[1]))
-        communicator.request(send_data, "V0 change unsuccessful")
+        self.comm.send(b"V0", args[1])
 
     def cooling_values(self, *args):
-        self.ids.cooling_val.text = str(complex(1,10**int(args[1])))
-        send_data = "Cooling"
-        send_data += str(int(args[1]))
-        communicator.request(send_data, "Cooling change unsuccessful")
+        self.ids.cooling_val.text = str(complex(1, 10**int(args[1])))
+        self.comm.send(b"Cooling", args[1])
 
     def reset_game(self):
-        communicator.request("Reset", "Game reset unsuccessful")
+        self.comm.request(b"Reset")
 
 class ScreenMng(ScreenManager):
     """Manages all of the screens (i.e. which screen is visible etc.)."""
@@ -277,22 +253,18 @@ class SuperHydroApp(App):
 
 if __name__ == "__main__":
     with log_task("Reading configuration"):
-        config = configparser.ConfigParser()
-        config.read('config.ini')
+        parser = config.get_client_parser()
+        opts = parser.parse_args()
 
     with log_task("Connecting to server"):        
-        port = int(config['ui']['port'])    
-        host = '127.0.0.1'
-
-        communicator = Communicator(host=host, port=port)
+        communicator = communication.Client(opts=opts)
         
     graph_pxsize = 150
 
     # Look at argparse
     # And config file
     # windows aspect ratio same as grid
-    window = communicator.get_json(128)
-    Window.size = int(window[0]) + graph_pxsize,\
-                  int(window[1]) + graph_pxsize
-    print ("window:",Window.size)
+    window = communicator.get(b"Window.size")
+    Window.size = (window[0] + graph_pxsize, window[1] + graph_pxsize)
+    print("window: {}".format(Window.size))
     SuperHydroApp().run()
