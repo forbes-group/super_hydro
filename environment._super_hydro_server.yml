@@ -8,5 +8,3 @@ dependencies:
   - scipy
   - matplotlib
   - pyzmq
-  - pip:
-    - attrs
