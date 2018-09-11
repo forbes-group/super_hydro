@@ -2,6 +2,7 @@
 
 import os
 import sys
+import time
 
 from matplotlib import cm
 
@@ -28,7 +29,6 @@ class Server(object):
         self.comm = communication.Server(opts=opts)
         super().__init__(**kwargs)
 
-        
     def start(self):
         while True:
             #decide what kind of information it is, redirect

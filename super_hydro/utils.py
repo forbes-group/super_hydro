@@ -71,11 +71,25 @@ class Logger(object):
     
     @contextmanager
     def log_task(self, msg, level=logging.INFO):
+        """Context for tasks with paired start and Done messages.
+
+        Arguments
+        ---------
+        msg : str
+           Message.  By default, results in messages like::
+
+               msg...
+               msg. Done.
+               msg. Failed!
+
+        level : int
+           Logging level (default INFO)
+        """
         self.log(msg + "...", level=level)
         try:
             self.level += 1
             yield
-            self.log(msg + ". Done.", level=level)
+            self.log(msg + ". Done." , level=level)
         except:
             self.log(msg + ". Failed!", level=logging.ERROR)
             raise
