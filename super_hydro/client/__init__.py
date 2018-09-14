@@ -37,8 +37,6 @@ from kivy.uix.accordion import Accordion, AccordionItem
 from kivy.clock import Clock
 
 
-
-
 class Display(FloatLayout):
     """Main simulation layout."""
     angle = NumericProperty(0)
@@ -182,8 +180,8 @@ class Display(FloatLayout):
         Vpos = np.array(self.comm.get(b"Vpos"))
         Vx, Vy = Vpos[0], Vpos[1]
 
-        x = float(Vx*Winx/self.Nx)
-        y = float(Vy*Winy/self.Ny)
+        x = float(Vx*Winx)
+        y = float(Vy*Winy)
         potential.pos = [x - (Marker().size[0]/2),
                          y - (Marker().size[1]/2) + self.graph_pxsize]
         force.pos = [x, y + self.graph_pxsize]
@@ -222,6 +220,8 @@ class Display(FloatLayout):
         self.push_to_texture()
         self.canvas.ask_update()
 
+    def pause_game(self):
+        self.comm.request(b"Pause")
 
 class StartScreen(Screen):
     """Initial start screen with menu choices etc."""
@@ -239,8 +239,12 @@ class StartScreen(Screen):
         self.ids.cooling_val.text = str(complex(1, 10**int(args[1])))
         self.comm.send(b"Cooling", args[1])
 
+    def start_game(self):
+        self.comm.request(b"Start")
+
     def reset_game(self):
         self.comm.request(b"Reset")
+
 
 class ScreenMng(ScreenManager):
     """Manages all of the screens (i.e. which screen is visible etc.)."""

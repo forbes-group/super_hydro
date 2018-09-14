@@ -43,6 +43,9 @@ PARSER.add('-p', '--port', default=9000, type=int, env_var='SUPER_HYDRO_PORT',
            help='Port used for communication by the server and client')
 PARSER.add('--host', default="localhost", env_var='SUPER_HYDRO_HOST',
            help='URL where the server is listening')
+PARSER.add('-fps', '--fps', default=80.0, type=float,
+           help="Maximum framerate (frames-per-second)")
+
 
 def get_server_parser():
     """Return the parser with server configuration"""
@@ -58,15 +61,12 @@ def get_server_parser():
                help="Finger potential depth in units of the chemical potential")
     PARSER.add('--steps', default=20, type=int,
                help="Number of integration steps between display updates")
-    
     return PARSER
-    
-    
+
+
 def get_client_parser():
     """Return the parser with client configuration"""
     PARSER.add('--window_width',
                help="Window width (pixels)",
                default=1000, type=int)
-    PARSER.add('-fps', '--fps', default=80.0, type=float,
-               help="Maximum framerate (frames-per-second)")
     return PARSER
