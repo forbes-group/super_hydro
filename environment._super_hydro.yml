@@ -10,5 +10,6 @@ dependencies:
   - scipy
   - matplotlib
   - pyzmq
+  - attrs
   - pip:
     - kivy
