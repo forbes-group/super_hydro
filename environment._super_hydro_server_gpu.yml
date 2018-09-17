@@ -1,0 +1,17 @@
+name: _super_hydro_server_gpu
+channels:
+  - defaults
+  - conda-forge
+dependencies:
+  - python>=3
+  - configargparse
+  - scipy
+  - matplotlib
+  - pyzmq
+  - attrs
+  - ipykernel
+  - numba
+  - notebook
+  - pip:
+    - mmfutils
+    - mmf_setup
