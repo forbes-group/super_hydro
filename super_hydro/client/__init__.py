@@ -36,6 +36,8 @@ from kivy.uix.scrollview import ScrollView
 from kivy.uix.accordion import Accordion, AccordionItem
 from kivy.clock import Clock
 
+assert Window is not None
+
 
 class Display(FloatLayout):
     """Main simulation layout."""
@@ -56,6 +58,7 @@ class Display(FloatLayout):
     texture = None
 
     def __init__(self, **kwargs):
+        global Window
         app = App.get_running_app()
         self.comm = app.comm
         self.opts = app.opts
@@ -98,6 +101,7 @@ class Display(FloatLayout):
         self._keyboard = None
 
     def _on_keyboard_down(self, keyboard, keycode, text, modifiers):
+        global Window
         finger = self.ids.finger
         framex = Window.size[0] - self.graph_pxsize
         framey = Window.size[1] - self.graph_pxsize
@@ -160,6 +164,7 @@ class Display(FloatLayout):
         self.arrow_visible = value
 
     def no_collision(self, touch):  # checks for button collision during game
+        global Window
         collision = True
         #scroll = self.ids.my_slider
         pause = self.ids.pause_button
@@ -172,6 +177,7 @@ class Display(FloatLayout):
         return collision
 
     def get_Vpos(self):
+        global Window
         Winx = Window.size[0] - self.graph_pxsize
         Winy = Window.size[1] - self.graph_pxsize
         potential = self.ids.potential
@@ -194,6 +200,7 @@ class Display(FloatLayout):
     #        self.on_touch_move(touch)
 
     def on_touch_move(self, touch):
+        global Window
         finger = self.ids.finger
 
         if self.no_collision(touch) is False:

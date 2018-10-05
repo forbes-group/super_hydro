@@ -1,5 +1,6 @@
 from contextlib import contextmanager
 import logging
+
 import numpy as np
 import scipy as sp
 
@@ -49,6 +50,19 @@ def dot2(A, x):
     True
     """
     return np.einsum('ab...,b...->a...', A, x)
+
+
+def mstep(t, t1, alpha=3.0):
+    r"""Smooth step function that goes from 0 at time ``t=0`` to 1 at time
+    ``t=t1``.  This step function is $C_\infty$:
+    """
+    return np.where(
+        t < 0.0,
+        0.0,
+        np.where(
+            t < t1,
+            (1 + np.tanh(alpha*np.tan(np.pi*(2*t/t1-1)/2)))/2,
+            1.0))
 
 
 class Logger(object):

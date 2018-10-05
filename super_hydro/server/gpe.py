@@ -2,6 +2,7 @@ import attr
 
 import numpy as np
 import numpy.fft
+from .. import utils
 
 
 @attr.s
@@ -73,6 +74,7 @@ class State(object):
                  cooling_steps=100, dt_t_scale=0.1,
                  soc=False,
                  soc_d=0.05, soc_w=0.5,
+                 cylinder=True,
                  test_finger=False):
         g = hbar = m = 1.0
         self.g = g
@@ -89,6 +91,7 @@ class State(object):
         x = (np.arange(Nx)*dx - Lx/2.0)[:, None]
         y = (np.arange(Ny)*dy - Ly/2.0)[None, :]
         self.xy = (x, y)
+        self.cylinder = cylinder
 
         kx = 2*np.pi * np.fft.fftfreq(Nx, dx)[:, None]
         ky = 2*np.pi * np.fft.fftfreq(Ny, dy)[None, :]
@@ -124,17 +127,22 @@ class State(object):
 
         self.t = -10000
         self.dt = dt_t_scale*self.t_scale
-        self._phase = -1.0/self.hbar
+        self.cooling_phase = 1j
         self.step(cooling_steps)
         self.t = 0
-        self._phase = -1j/self.hbar/cooling_phase
+        self.cooling_phase = cooling_phase
         self.dt = dt_t_scale*self.t_scale
         self.c_s = np.sqrt(self.mu/self.m)
 
     @property
+    def _phase(self):
+        return -1j/self.hbar/self.cooling_phase
+        
+    @property
     def v_max(self):
-        c_min = 0.8*np.sqrt(self.g*self.get_density().min()/self.m)
-        return c_min
+        c_min = 1.0*np.sqrt(self.g*self.get_density().min()/self.m)
+        c_mean = 1.0*np.sqrt(self.g*self.get_density().mean()/self.m)
+        return c_mean
 
     def get_density(self):
         return abs(self.data)**2
@@ -171,11 +179,17 @@ class State(object):
         x0, y0 = self.pot_z.real, self.pot_z.imag
         Lx, Ly = self.Lxy
 
+        V = 0
+        if self.cylinder:
+            r2_ = (2*x/Lx)**2 + (2*y/Ly)**2
+            V = V + 100*self.mu*utils.mstep(r2_ - 0.8, 0.2)
+        
         # Wrap displaced x and y in periodic box.
         x = (x - x0 + Lx/2) % Lx - Lx/2
         y = (y - y0 + Ly/2) % Ly - Ly/2
         r2 = x**2 + y**2
-        return self.V0_mu*self.mu * np.exp(-r2/2.0/self.r0**2)
+        V = V + self.V0_mu*self.mu * np.exp(-r2/2.0/self.r0**2)
+        return V
 
     def apply_expK(self, dt, factor=1.0):
         y = self.data
