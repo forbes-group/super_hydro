@@ -187,7 +187,6 @@ class Display(FloatLayout):
         force.pos = [x, y + self.graph_pxsize]
         self.force_angle()
 
-
     """This allows single clicks to change Vpos, but
             prevents other widgets on screen from being used"""
     #def on_touch_down(self, touch):
@@ -222,6 +221,7 @@ class Display(FloatLayout):
 
     def pause_game(self):
         self.comm.request(b"Pause")
+
 
 class StartScreen(Screen):
     """Initial start screen with menu choices etc."""

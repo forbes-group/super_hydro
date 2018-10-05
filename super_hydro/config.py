@@ -3,6 +3,7 @@ import os.path
 
 import configargparse
 
+
 def process_path(path):
     """Return the normalized path with '~' and vars expanded."""
     return os.path.normpath(os.path.expandvars(os.path.expanduser(path)))

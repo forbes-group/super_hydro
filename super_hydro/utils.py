@@ -55,13 +55,13 @@ class Logger(object):
     """Logging object."""
     def __init__(self, name="", indent_amount=2):
         self.name = name
-        self.level = 0
+        self.nesting = 0
         self.indent_amount = indent_amount
 
     @property
     def indent(self):
         """Return the appropriate indentation."""
-        return " " * self.indent_amount * self.level
+        return " " * self.indent_amount * self.nesting
 
     def log(self, msg, level=logging.INFO):
         """Log msg to the logger."""
@@ -87,11 +87,12 @@ class Logger(object):
         """
         self.log(msg + "...", level=level)
         try:
-            self.level += 1
+            self.nesting += 1
             yield
+            self.nesting -= 1
             self.log(msg + ". Done." , level=level)
         except:
+            self.nesting -= 1
             self.log(msg + ". Failed!", level=logging.ERROR)
             raise
-        finally:
-            self.level -= 1
+            
