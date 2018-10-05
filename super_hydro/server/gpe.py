@@ -4,6 +4,16 @@ import numpy as np
 import numpy.fft
 from .. import utils
 
+try:
+    import mmfutils.performance.fft
+except ImportError:
+    mmfutils = None
+
+try:
+    import numexpr
+except ImportError:
+    numexpr = None
+    
 
 @attr.s
 class Dispersion(object):
@@ -74,6 +84,7 @@ class State(object):
                  cooling_steps=100, dt_t_scale=0.1,
                  soc=False,
                  soc_d=0.05, soc_w=0.5,
+                 winding=50,
                  cylinder=True,
                  test_finger=False):
         g = hbar = m = 1.0
@@ -91,8 +102,7 @@ class State(object):
         x = (np.arange(Nx)*dx - Lx/2.0)[:, None]
         y = (np.arange(Ny)*dy - Ly/2.0)[None, :]
         self.xy = (x, y)
-        self.cylinder = cylinder
-
+        
         kx = 2*np.pi * np.fft.fftfreq(Nx, dx)[:, None]
         ky = 2*np.pi * np.fft.fftfreq(Ny, dy)[None, :]
         self.kxy = (kx, ky)
@@ -115,7 +125,19 @@ class State(object):
         self.c_s = np.sqrt(self.mu/self.m)
         self.c_min = np.sqrt(mu_min/self.m)
         #self.v_max = 1.1*self.c_min
+        
         self.data = np.ones(Nxy, dtype=complex) * np.sqrt(n0)
+
+        self.cylinder = cylinder
+        self._V_trap = self.get_V_trap()
+
+        if mmfutils and False:
+            self.fft = mmfutils.performance.fft.get_fftn_pyfftw(self.data)
+            self.ifft = mmfutils.performance.fft.get_ifftn_pyfftw(self.data)
+        else:
+            self.fft = np.fft.fftn
+            self.ifft = np.fft.ifftn
+
         self._N = self.get_density().sum()
 
         self.test_finger = test_finger
@@ -129,23 +151,26 @@ class State(object):
         self.dt = dt_t_scale*self.t_scale
         self.cooling_phase = 1j
         self.step(cooling_steps)
+        if cylinder:
+            self.data *= np.exp(1j*winding*np.angle(x+1j*y))
         self.t = 0
         self.cooling_phase = cooling_phase
         self.dt = dt_t_scale*self.t_scale
         self.c_s = np.sqrt(self.mu/self.m)
 
+
     @property
     def _phase(self):
         return -1j/self.hbar/self.cooling_phase
-        
-    @property
-    def v_max(self):
-        c_min = 1.0*np.sqrt(self.g*self.get_density().min()/self.m)
-        c_mean = 1.0*np.sqrt(self.g*self.get_density().mean()/self.m)
+
+    def get_v_max(self, density):
+        #c_min = 1.0*np.sqrt(self.g*density.min()/self.m)
+        c_mean = 1.0*np.sqrt(self.g*density.mean()/self.m)
         return c_mean
 
     def get_density(self):
-        return abs(self.data)**2
+        y = self.data
+        return (y.conj()*y).real
 
     def set_xy0(self, x0, y0):
         self.z_finger = x0 + 1j*y0
@@ -168,40 +193,66 @@ class State(object):
     def z_finger(self, z_finger):
         self._z_finger = z_finger
 
-    def fft(self, y):
-        return np.fft.fftn(y)
-
-    def ifft(self, y):
-        return np.fft.ifftn(y)
-
+    def get_V_trap(self):
+        """Return any static trapping potential."""
+        if self.cylinder:
+            x, y = self.xy
+            Lx, Ly = self.Lxy
+            r2_ = (2*x/Lx)**2 + (2*y/Ly)**2
+            return 100*self.mu*utils.mstep(r2_ - 0.8, 0.2)
+        else:
+            return 0
+        
     def get_Vext(self):
+        """Return the full external potential."""
         x, y = self.xy
         x0, y0 = self.pot_z.real, self.pot_z.imag
         Lx, Ly = self.Lxy
 
         V = 0
-        if self.cylinder:
-            r2_ = (2*x/Lx)**2 + (2*y/Ly)**2
-            V = V + 100*self.mu*utils.mstep(r2_ - 0.8, 0.2)
         
         # Wrap displaced x and y in periodic box.
         x = (x - x0 + Lx/2) % Lx - Lx/2
         y = (y - y0 + Ly/2) % Ly - Ly/2
         r2 = x**2 + y**2
-        V = V + self.V0_mu*self.mu * np.exp(-r2/2.0/self.r0**2)
-        return V
+        return self._V_trap + self.V0_mu*self.mu * np.exp(-r2/2.0/self.r0**2)
 
     def apply_expK(self, dt, factor=1.0):
         y = self.data
-        self.data[...] = self.ifft(np.exp(self._phase*dt*self.K*factor)
-                                   * self.fft(y))
+        if numexpr:
+            yt = self.fft(y)
+            self.data[...] = self.ifft(
+                numexpr.evaluate(
+                    'exp(f*K)*y',
+                    local_dict=dict(
+                        f=self._phase*dt*factor,
+                        K=self.K,
+                        y=yt)))
+        else:
+            self.data[...] = self.ifft(np.exp(self._phase*dt*self.K*factor)
+                                       * self.fft(y))
 
-    def apply_expV(self, dt, factor=1.0):
+    def apply_expV(self, dt, factor=1.0, density=None):
         y = self.data
-        n = self.get_density()
-        V = self.get_Vext() + self.g*n - self.mu
-        self.data[...] = np.exp(self._phase*dt*V*factor) * y
-        self.data *= np.sqrt(self._N/n.sum())
+        if density is None:
+            density = self.get_density()
+        n = density
+        if numexpr:
+            self.data[...] = numexpr.evaluate(
+                'exp(f*(V+g*n-mu))*y*sqrt(_n)',
+                local_dict=dict(
+                    V=self.get_Vext(),
+                    g=self.g,
+                    n=n,
+                    mu=self.mu,
+                    _n=self._N/n.sum(),
+                    f=self._phase*dt*factor,
+                    y=y))
+        else:
+            V = self.get_Vext() + self.g*n - self.mu
+            self.data[...] = np.exp(self._phase*dt*V*factor) * y
+            self.data *= np.sqrt(self._N/n.sum())
+            
 
     def mod(self, z):
         """Make sure the point z lies in the box."""
@@ -213,15 +264,17 @@ class State(object):
         self.apply_expK(dt=dt, factor=0.5)
         self.t += dt/2.0
         for n in range(N):
+            density = self.get_density()
             self.pot_z += dt * self.pot_v
             pot_a = -self.pot_k_m * (self.pot_z - self.z_finger)
             pot_a += -self.pot_damp * self.pot_v
             self.pot_v += dt * pot_a
-            if abs(self.pot_v) > self.v_max:
-                self.pot_v *= self.v_max/abs(self.pot_v)
+            v_max = self.get_v_max(density=density)
+            if abs(self.pot_v) > v_max:
+                self.pot_v *= v_max/abs(self.pot_v)
 
             self.pot_z = self.mod(self.pot_z)
-            self.apply_expV(dt=dt, factor=1.0)
+            self.apply_expV(dt=dt, factor=1.0, density=density)
             self.apply_expK(dt=dt, factor=1.0)
             self.t += dt
         self.apply_expK(dt=dt, factor=-0.5)

@@ -1,11 +1,35 @@
 """SuperHydro Server."""
 
+from collections import deque
 from contextlib import contextmanager
 import threading
 import os
 import queue
 import sys
 import time
+
+PROFILE = False
+if PROFILE:
+    import cProfile
+    def profile(filename='prof.dat'):
+        def wrap(f):
+            def wrapped_f(*v, **kw):
+                with log_task("Profiling to {}".format(filename), level=100):
+                    pr = cProfile.Profile()
+                    pr.enable()
+                    try:
+                        res = f(*v, **kw)
+                    finally:
+                        pr.disable()
+                        pr.dump_stats(filename)
+                    return res
+            return wrapped_f
+        return wrap
+else:
+    def profile(filename=None):
+        def wrap(f):
+            return f
+        return wrap
 
 from matplotlib import cm
 
@@ -39,6 +63,8 @@ class Computation(object):
         self.paused = True
         self.running = True
 
+        self._times = deque(maxlen=100)
+
     @contextmanager
     def sync(self):
         """Provides a context that will wait long enough to not
@@ -48,8 +74,16 @@ class Computation(object):
         try:
             yield
         finally:
-            time.sleep(max(0, 1./self.fps - (time.perf_counter() - tic)))
+            dt = (time.perf_counter() - tic)
+            self._times.append(dt)
+            if PROFILE:
+                log("{:.2g}+-{:.2g}ms/step".format(
+                    np.mean(self._times)*1000/self.steps,
+                    np.std(self._times)*1000/self.steps),
+                    level=100)
+            time.sleep(max(0, 1./self.fps - dt))
 
+    @profile('prof.dat')
     def run(self):
         """Start the computation."""
         while self.running:

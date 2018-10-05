@@ -17,6 +17,13 @@ dependencies:
   - pytest-cov
   - pytest-runner
 
+  # For performance
+  - numexpr
+
+  # For profiling
+  - snakeviz
+  
   - pip:
     - kivy
     - mmf_setup
+    - mmfutils>=0.4.11
