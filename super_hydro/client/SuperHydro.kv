@@ -54,8 +54,8 @@
 
     Button:
         id: pause_button
-        size_hint:.1,.1
-        pos: .9 * root.size[0],.9 * root.size[1]
+        size_hint: root.get_graph_pxsize()/root.size[0],root.get_graph_pxsize()/root.size[1]
+        pos: root.size[0] - root.get_graph_pxsize(),0
         text: "Pause"
         on_release:
             root.pause_game()
@@ -151,45 +151,6 @@
         Label:
             pos: arrow_check.pos[0],0
             text: "Show arrow"
-
-    ScrollView:
-        id: scroll
-        size_hint: (1,None)
-        size: .3 * root.size[0], .35 * root.size[1]
-        pos: .6 * root.size[0], .07 * root.size[1]
-        Accordion:
-            size_hint: .3, .3
-            AccordionItem:
-                Button:
-                    text: "Some starting state"
-                    size_hint: .2,.2
-                    height: 40
-            AccordionItem:
-                Button:
-                    text: "A different state"
-                    size_hint: .2,.2
-                    height: 40
-            AccordionItem:
-                Button:
-                    text: "A new GPE state"
-                    size_hint: .2,.2
-                    height: 40
-            AccordionItem:
-                Button:
-                    text: "2"
-                    size_hint: .2,.2
-                    height: 40
-            AccordionItem:
-                Button:
-                    text: "3"
-                    size_hint: .2,.2
-                    height: 40
-            AccordionItem:
-                Button:
-                    text: "4"
-                    size_hint: .2,.2
-                    height: 40
-
 
 <Marker>:
     source: 'VisualAssets/Marker1.png'

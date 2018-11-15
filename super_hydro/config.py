@@ -29,8 +29,8 @@ PARSER = configargparse.get_argument_parser(
         os.path.join(XDG_CONFIG_HOME, "super_hydro.conf"),
 
         # Some users expect this:
-        '~/.super_hydro.conf', 
-        
+        '~/.super_hydro.conf',
+
         # Config file in the same directory application is run from
         './super_hydro.conf'
     ])))
@@ -69,5 +69,5 @@ def get_client_parser():
     """Return the parser with client configuration"""
     PARSER.add('--window_width',
                help="Window width (pixels)",
-               default=1000, type=int)
+               default=600, type=int)
     return PARSER
