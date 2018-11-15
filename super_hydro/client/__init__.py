@@ -24,6 +24,10 @@ def get_opts():
 
 _OPTS = get_opts()
 
+# Blow away options so Kivy does not get confused.  Note: no command
+# line options can be passed to Kivy.
+sys.argv = sys.argv[:1]
+
 from kivy.config import Config
 Config.set('graphics', 'resizable', False)
 from kivy.app import App
