@@ -1,0 +1,5 @@
+#!/bin/bash
+
+cd "${BASH_SOURCE%/*}/../"
+python bin/server "$@" &
+python bin/client --kill_server "$@"

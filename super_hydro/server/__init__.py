@@ -208,6 +208,7 @@ class Server(object):
                     self.message_queue.put(("pause",))
                     self.comm.respond(b"Paused")
                 elif client_message == b"Quit":
+                    self.comm.respond(b"Quitting")
                     finished = True
                 else:
                     print("Unknown data type")

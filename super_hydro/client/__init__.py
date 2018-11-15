@@ -19,6 +19,7 @@ def get_opts():
         parser = config.get_client_parser()
         opts, other_args = parser.parse_known_args()
         log("Unused Options: {}".format(other_args), 100)
+                
     return opts
 
 _OPTS = get_opts()
@@ -292,6 +293,10 @@ class SuperHydroApp(App):
         Window.size = (window_width, window_height)
         log("window: {}".format(Window.size))
         return ScreenMng()
+
+    def on_stop(self):
+        if self.opts.kill_server:
+            self.comm.request(b"Quit")
 
 
 def run():

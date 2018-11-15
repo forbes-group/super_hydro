@@ -70,4 +70,7 @@ def get_client_parser():
     PARSER.add('--window_width',
                help="Window width (pixels)",
                default=1000, type=int)
+    PARSER.add('--kill_server', action='store_true',
+               help="Kill server on exit",)
+    
     return PARSER

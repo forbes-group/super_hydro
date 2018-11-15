@@ -193,44 +193,25 @@ class State(object):
     def z_finger(self, z_finger):
         self._z_finger = z_finger
 
-#creates a grid of particles equadistant from eachothr with N_particles being the number of particles along the x direction.
     def tracer_part_create(self, N_particles=10):
-        x, y = self.Nxy
-        dx = dy = self.dx
-        alpha = (x / N_particles)
-        x_range = np.arange(0, x*dx, dx*alpha, dtype = complex)
-        y_range = np.array(N_particles * [0 + 0j])
-        par_pos = x_range + y_range
-
-        N_y = int((y * N_particles) / x)
-        i = 1
-        while i < (N_y):
-            y_pos = 1j * i * alpha*dx
-            par_pos = np.append(par_pos, (x_range + y_pos))
-            i = i + 1
-
-#culls the grid of particles such that those left are proportional to the density array n
+        np.random.seed(1)
+        Nx, Ny = self.Nxy
+        x, y = self.xy
+        x, y = np.ravel(x), np.ravel(y)
         n = self.get_density()
-        i = 0
-        p = np.array([])
-        while i < par_pos.size :
-            y_val = np.imag(par_pos[i])
-            x_val = np.real(par_pos[i])
-            val = 100 * n[int(x_val)][int(y_val)]
-            rand_val = np.random.randint(1, 101)
-            if rand_val > (val):
-                par_pos[i] = None
-                p = np.append(a, i)
-            else:
-                par_pos[i] = par_pos[i]
-            i = i + 1
+        n_max = n.max()
 
-        par_pos = np.delete(par_pos, p)
-        return(par_pos)
+        particles = []
+        while len(particles) < N_particles:            
+            ix = np.random.randint(Nx)
+            iy = np.random.randint(Ny)
 
+            if np.random.random()*n_max <= n[ix, iy]:
+                particles.append(x[ix] + 1j*y[iy])
+        return (np.asarray(particles))
 
-#defines the velocityfield for the particles
     def tracer_velocity(self):
+        """Define the velocity field for the particles"""
         kx, ky = self.kxy
         m = self.m
         n = self.data.conj()*self.data
@@ -240,8 +221,9 @@ class State(object):
         self.v_trace = v_x + 1j*v_y
         return (self.v_trace)
 
-#applies the velocity field to the particle positions and updates with time dt
     def update_par_pos(self, dt):
+        """Applies the velocity field to the particle positions and
+        updates with time dt""" 
         i = 0
         n = self.tracer_part_create()
         m = self.tracer_velocity()
