@@ -52,11 +52,12 @@ class Computation(object):
 
     pause_timeout = 0.1         # Time to wait when paused.
 
-    def __init__(self, opts, message_queue, density_queue, pot_queue):
+    def __init__(self, opts, message_queue, density_queue, pot_queue, tracer_queue):
         self.opts = opts
         self.do_reset()
         self.message_queue = message_queue
         self.density_queue = density_queue
+		self.tracer_queue = tracer_queue
         self.pot_queue = pot_queue
         self.fps = opts.fps
         self.steps = opts.steps
@@ -127,6 +128,9 @@ class Computation(object):
     def do_get_density(self):
         self.density_queue.put(self.state.get_density())
 
+    def do_get_tracer():
+        self.tracer_queue.put(self.state._par_pos)
+
     def do_update_finger(self, x, y):
         self.state.set_xy0(x, y)
 
@@ -156,11 +160,13 @@ class Server(object):
         self.opts = opts
         self.message_queue = queue.Queue()
         self.density_queue = queue.Queue()
+        self.tracer_queue = queue.Queue()
         self.pot_queue = queue.Queue()
         self.computation = Computation(opts=opts,
                                        message_queue=self.message_queue,
                                        density_queue=self.density_queue,
-                                       pot_queue=self.pot_queue)
+                                       pot_queue=self.pot_queue
+                                       tracer_queue=self.tracer_queue)
         self.computation_thread = threading.Thread(target=self.computation.run)
         self.comm = communication.Server(opts=opts)
         self.state = gpe.State(
@@ -210,6 +216,8 @@ class Server(object):
                 elif client_message == b"Quit":
                     self.comm.respond(b"Quitting")
                     finished = True
+                elif client_message == b"Tracer":
+                    self.send_tracer()
                 else:
                     print("Unknown data type")
                     print("client message:", client_message)
@@ -226,6 +234,19 @@ class Server(object):
         array *= int(255/array.max()) # normalize V0_values
         data = array.astype(dtype='uint8')
         self.comm.send_array(data)
+
+    def send_tracer(self):
+        self.message_queue.put(("get_tracer",))
+        trpos = self.tracer_queue.get() 
+        i = 0
+        while i < len(trpos):
+            xy = self.xy_to_pos((trpos[i].real, trpos[i].imag))
+            trpos[i] = xy
+            i = i + 1
+        array = trpos
+        trdata = array.astype(dtype='uint8')
+        self.comm.send_array(trdata)
+		
 
     def pos_to_xy(self, pos):
         """Return the (x, y) coordinates of (pos_x, pos_y) in the frame."""

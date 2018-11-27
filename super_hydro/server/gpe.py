@@ -146,6 +146,7 @@ class State(object):
         self.pot_z = 0 + 0j
         self.pot_v = 0 + 0j
         self.pot_damp = 4.0
+        self._par_pos = self.tracer_part_create()
 
         self.t = -10000
         self.dt = dt_t_scale*self.t_scale
@@ -225,14 +226,14 @@ class State(object):
         """Applies the velocity field to the particle positions and
         updates with time dt""" 
         i = 0
-        n = self.tracer_part_create()
+        n = self._par_pos
         m = self.tracer_velocity()
         while i < n.size - 1:
             y_val = np.imag(n[i])
             x_val = np.real(n[i])
             n[i] = n[i] + (m[int(x_val)][int(y_val)] * dt)
             i = i + 1
-        return(n[i])
+        return(n)
 
     def get_V_trap(self):
         """Return any static trapping potential."""
