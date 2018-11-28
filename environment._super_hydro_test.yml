@@ -12,18 +12,18 @@ dependencies:
   - pyzmq
   - attrs
   
+  # For performance
+  - numexpr
+
+  - pip:
+    - kivy
+    - mmf_setup
+    - mmfutils>=0.4.11
+
   # For testing
   - pytest-flake8
   - pytest-cov
   - pytest-runner
 
-  # For performance
-  - numexpr
-
   # For profiling
   - snakeviz
-  
-  - pip:
-    - kivy
-    - mmf_setup
-    - mmfutils>=0.4.11

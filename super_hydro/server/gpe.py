@@ -213,7 +213,9 @@ class State(object):
 
     def tracer_velocity(self):
         """Define the velocity field for the particles"""
-        px, py = self.kxy*self.hbar
+        px, py = self.kxy
+        px *= self.hbar
+        py *= self.hbar
         m = self.m
         n = self.data.conj()*self.data
 		# self._data_fft == self.fft(self.data)
@@ -234,6 +236,13 @@ class State(object):
             n[i] = n[i] + (m[int(x_val)][int(y_val)] * dt)
             i = i + 1
         return(n)
+
+    def get_tracer_particles(self):
+        """Return the tracer particle positions.
+
+        This is a 1D complex array of the particle positions in data
+        coordinates."""
+        return self._par_pos
 
     def get_V_trap(self):
         """Return any static trapping potential."""

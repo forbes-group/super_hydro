@@ -128,8 +128,8 @@ class Computation(object):
     def do_get_density(self):
         self.density_queue.put(self.state.get_density())
 
-    def do_get_tracer():
-        self.tracer_queue.put(self.state._par_pos)
+    def do_get_tracer(self):
+        self.tracer_queue.put(self.state.get_tracer_particles())
 
     def do_update_finger(self, x, y):
         self.state.set_xy0(x, y)
@@ -231,6 +231,9 @@ class Server(object):
         self.message_queue.put(("get_density",))
         n_ = self.density_queue.get().T
         array = cm.viridis((n_-n_.min())/(n_.max()-n_.min()))
+
+        array = self._update_frame_with_tracer_particles(array)
+        
         array *= int(255/array.max()) # normalize V0_values
         data = array.astype(dtype='uint8')
         self.comm.send_array(data)
@@ -247,6 +250,22 @@ class Server(object):
         trdata = array.astype(dtype='uint8')
         self.comm.send_array(trdata)
 		
+    def _update_frame_with_tracer_particles(self, array):
+        # Note: array has x and y swapped...
+        self.message_queue.put(("get_tracer",))
+        pos = self.tracer_queue.get()  # Complex array of positions
+
+        x, y = self.state.xy
+        Nx, Ny = self.state.Nxy
+        
+        Npart = len(pos)
+        ix, iy = np.unravel_index(
+            np.argmin(
+                abs(pos[:, None, None] - (x + 1j*y)).reshape((Npart, Nx*Ny)),
+                axis=-1),
+            (Nx, Ny))
+        array[iy, ix, ...] = (1.0, 1.0, 1.0, 1.0)
+        return array
 
     def pos_to_xy(self, pos):
         """Return the (x, y) coordinates of (pos_x, pos_y) in the frame."""
