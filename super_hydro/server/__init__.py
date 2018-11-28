@@ -57,7 +57,7 @@ class Computation(object):
         self.do_reset()
         self.message_queue = message_queue
         self.density_queue = density_queue
-		self.tracer_queue = tracer_queue
+        self.tracer_queue = tracer_queue
         self.pot_queue = pot_queue
         self.fps = opts.fps
         self.steps = opts.steps
@@ -165,7 +165,7 @@ class Server(object):
         self.computation = Computation(opts=opts,
                                        message_queue=self.message_queue,
                                        density_queue=self.density_queue,
-                                       pot_queue=self.pot_queue
+                                       pot_queue=self.pot_queue,
                                        tracer_queue=self.tracer_queue)
         self.computation_thread = threading.Thread(target=self.computation.run)
         self.comm = communication.Server(opts=opts)

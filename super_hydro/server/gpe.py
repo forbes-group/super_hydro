@@ -213,12 +213,12 @@ class State(object):
 
     def tracer_velocity(self):
         """Define the velocity field for the particles"""
-        kx, ky = self.kxy
+        px, py = self.kxy*self.hbar
         m = self.m
         n = self.data.conj()*self.data
 		# self._data_fft == self.fft(self.data)
-        v_x = self.ifft(kx*self.fft(self.data)) / n / m
-        v_y = self.ifft(ky*self.fft(self.data)) / n / m
+        v_x = (self.ifft(px*self.fft(self.data)) / self.data / m).real
+        v_y = (self.ifft(py*self.fft(self.data)) / self.data / m).real
         self.v_trace = v_x + 1j*v_y
         return (self.v_trace)
 
