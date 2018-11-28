@@ -332,6 +332,7 @@ class State(object):
         self.t += dt/2.0
         for n in range(N):
             # Update tracer particle positions
+            self.update_tracer_velocity()   # Maybe defer if too slow.
             self.update_tracer_pos(dt)
             
             density = self.get_density()
@@ -352,7 +353,7 @@ class State(object):
         self.t -= dt/2.0
 
         # Update tracer particle velocities after each full loop for speed
-        self.update_tracer_velocity()
+        # self.update_tracer_velocity()
         
     def plot(self):
         from matplotlib import pyplot as plt
