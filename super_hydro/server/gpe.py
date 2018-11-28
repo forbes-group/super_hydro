@@ -75,8 +75,7 @@ class State(object):
     ----------
     V0_mu : float
        Potential strength in units of mu
-    healing_length
-
+    healing_length:
     """
     def __init__(self, Nxy=(32, 32), dx=1.0,
                  healing_length=10.0, r0=10.0, V0_mu=0.5,
@@ -87,7 +86,7 @@ class State(object):
                  winding=10,
                  cylinder=True,
                  test_finger=False,
-                 N_tracer_particles=100):
+                 N_tracer_particles=1000):
         g = hbar = m = 1.0
         self.g = g
         self.hbar = hbar
@@ -215,7 +214,21 @@ class State(object):
                 particles.append(x[ix] + 1j*y[iy])
         return (np.asarray(particles))
 
-    def tracer_velocity(self):
+    def get_inds(self, pos):
+        """Return the indices (ix, iy) to the nearest point on the
+        grid.
+        
+        """
+        x, y = self.xy
+        Lx, Ly = self.Lxy
+        Nx, Ny = self.Nxy
+        Npart = len(pos)
+        pos = (pos + (Lx+1j*Ly)/2.0)
+        ix = np.round((pos.real / Lx) * Nx).astype(int) % Nx
+        iy = np.round((pos.imag / Ly) * Ny).astype(int) % Nx
+        return (ix, iy)
+
+    def update_tracer_velocity(self):
         """Define the velocity field for the particles"""
         px, py = self.kxy
         px *= self.hbar
@@ -226,32 +239,18 @@ class State(object):
         v_x = (self.ifft(px*self.fft(self.data)) / self.data / m).real
         v_y = (self.ifft(py*self.fft(self.data)) / self.data / m).real
         self.v_trace = (v_x + 1j*v_y)
-        return self.v_trace
-
-    def get_inds(self, pos):
-        """Return the indices (ix, iy) to the nearest point on the
-        grid.
-        
-        """
-        x, y = self.xy
-        Nx, Ny = self.Nxy
-        Npart = len(pos)
-        ix, iy = np.unravel_index(
-            np.argmin(
-                abs(pos[:, None, None] - (x + 1j*y)).reshape((Npart, Nx*Ny)),
-                axis=-1),
-            (Nx, Ny))
-        return (ix, iy)
-
-    def update_par_pos(self, dt):
+    
+    def update_tracer_pos(self, dt):
         """Applies the velocity field to the particle positions and
         updates with time dt""" 
         if not hasattr(self, '_par_pos'):
             return
+        if not hasattr(self, 'v_trace'):
+            self.update_tracer_velocity()
         i = 0
         pos = self._par_pos
         ix, iy = self.get_inds(pos)
-        v = self.tracer_velocity()[ix, iy]
+        v = self.v_trace[ix, iy]
         pos += dt*v
 
     def get_tracer_particles(self):
@@ -332,6 +331,9 @@ class State(object):
         self.apply_expK(dt=dt, factor=0.5)
         self.t += dt/2.0
         for n in range(N):
+            # Update tracer particle positions
+            self.update_tracer_pos(dt)
+            
             density = self.get_density()
             self.pot_z += dt * self.pot_v
             pot_a = -self.pot_k_m * (self.pot_z - self.z_finger)
@@ -340,17 +342,18 @@ class State(object):
             v_max = self.get_v_max(density=density)
             if abs(self.pot_v) > v_max:
                 self.pot_v *= v_max/abs(self.pot_v)
-
             self.pot_z = self.mod(self.pot_z)
-            # update tracer particle positions)
-            self.update_par_pos(dt)
 
             self.apply_expV(dt=dt, factor=1.0, density=density)
             self.apply_expK(dt=dt, factor=1.0)
             self.t += dt
+            
         self.apply_expK(dt=dt, factor=-0.5)
         self.t -= dt/2.0
 
+        # Update tracer particle velocities after each full loop for speed
+        self.update_tracer_velocity()
+        
     def plot(self):
         from matplotlib import pyplot as plt
         n = self.get_density()

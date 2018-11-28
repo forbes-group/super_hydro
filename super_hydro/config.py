@@ -46,6 +46,10 @@ PARSER.add('--host', default="localhost", env_var='SUPER_HYDRO_HOST',
            help='URL where the server is listening')
 PARSER.add('-fps', '--fps', default=80.0, type=float,
            help="Maximum framerate (frames-per-second)")
+PARSER.add('--tracer_alpha', default=0.3, type=float,
+           help="Alpha of tracer particles.")
+PARSER.add('--tracer_color', default=(0.0,0.0,0.0,1.0), type=tuple,
+           help="Alpha of tracer particles.")
 
 
 def get_server_parser():
@@ -70,7 +74,9 @@ def get_client_parser():
     PARSER.add('--window_width',
                help="Window width (pixels)",
                default=600, type=int)
-    PARSER.add('--kill_server', action='store_true',
+    PARSER.add('--dont_kill_server', default=True,
+               action='store_false',
+               dest='kill_server',
                help="Kill server on exit",)
     
     return PARSER

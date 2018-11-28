@@ -255,16 +255,11 @@ class Server(object):
         self.message_queue.put(("get_tracer",))
         pos = self.tracer_queue.get()  # Complex array of positions
 
-        x, y = self.state.xy
-        Nx, Ny = self.state.Nxy
-        
-        Npart = len(pos)
-        ix, iy = np.unravel_index(
-            np.argmin(
-                abs(pos[:, None, None] - (x + 1j*y)).reshape((Npart, Nx*Ny)),
-                axis=-1),
-            (Nx, Ny))
-        array[iy, ix, ...] = (1.0, 1.0, 1.0, 1.0)
+        ix, iy = self.state.get_inds(pos)
+        alpha = self.opts.tracer_alpha
+        array[iy, ix, ...] = (
+            (1-alpha)*array[iy, ix, ...]
+            + alpha*np.array(self.opts.tracer_color))
         return array
 
     def pos_to_xy(self, pos):
