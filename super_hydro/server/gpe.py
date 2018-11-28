@@ -84,9 +84,10 @@ class State(object):
                  cooling_steps=100, dt_t_scale=0.1,
                  soc=False,
                  soc_d=0.05, soc_w=0.5,
-                 winding=50,
+                 winding=10,
                  cylinder=True,
-                 test_finger=False):
+                 test_finger=False,
+                 N_tracer_particles=100):
         g = hbar = m = 1.0
         self.g = g
         self.hbar = hbar
@@ -102,7 +103,8 @@ class State(object):
         x = (np.arange(Nx)*dx - Lx/2.0)[:, None]
         y = (np.arange(Ny)*dy - Ly/2.0)[None, :]
         self.xy = (x, y)
-        
+
+        self.N_tracer_particles = N_tracer_particles
         kx = 2*np.pi * np.fft.fftfreq(Nx, dx)[:, None]
         ky = 2*np.pi * np.fft.fftfreq(Ny, dy)[None, :]
         self.kxy = (kx, ky)
@@ -146,7 +148,6 @@ class State(object):
         self.pot_z = 0 + 0j
         self.pot_v = 0 + 0j
         self.pot_damp = 4.0
-        self._par_pos = self.tracer_part_create()
 
         self.t = -10000
         self.dt = dt_t_scale*self.t_scale
@@ -158,6 +159,8 @@ class State(object):
         self.cooling_phase = cooling_phase
         self.dt = dt_t_scale*self.t_scale
         self.c_s = np.sqrt(self.mu/self.m)
+
+        self._par_pos = self.tracer_part_create()
 
 
     @property
@@ -194,7 +197,8 @@ class State(object):
     def z_finger(self, z_finger):
         self._z_finger = z_finger
 
-    def tracer_part_create(self, N_particles=10):
+    def tracer_part_create(self):
+        N_particles = self.N_tracer_particles
         np.random.seed(1)
         Nx, Ny = self.Nxy
         x, y = self.xy
@@ -221,21 +225,34 @@ class State(object):
 		# self._data_fft == self.fft(self.data)
         v_x = (self.ifft(px*self.fft(self.data)) / self.data / m).real
         v_y = (self.ifft(py*self.fft(self.data)) / self.data / m).real
-        self.v_trace = v_x + 1j*v_y
-        return (self.v_trace)
+        self.v_trace = (v_x + 1j*v_y)
+        return self.v_trace
+
+    def get_inds(self, pos):
+        """Return the indices (ix, iy) to the nearest point on the
+        grid.
+        
+        """
+        x, y = self.xy
+        Nx, Ny = self.Nxy
+        Npart = len(pos)
+        ix, iy = np.unravel_index(
+            np.argmin(
+                abs(pos[:, None, None] - (x + 1j*y)).reshape((Npart, Nx*Ny)),
+                axis=-1),
+            (Nx, Ny))
+        return (ix, iy)
 
     def update_par_pos(self, dt):
         """Applies the velocity field to the particle positions and
         updates with time dt""" 
+        if not hasattr(self, '_par_pos'):
+            return
         i = 0
-        n = self._par_pos
-        m = self.tracer_velocity()
-        while i < n.size - 1:
-            y_val = np.imag(n[i])
-            x_val = np.real(n[i])
-            n[i] = n[i] + (m[int(x_val)][int(y_val)] * dt)
-            i = i + 1
-        return(n)
+        pos = self._par_pos
+        ix, iy = self.get_inds(pos)
+        v = self.tracer_velocity()[ix, iy]
+        pos += dt*v
 
     def get_tracer_particles(self):
         """Return the tracer particle positions.
@@ -326,7 +343,7 @@ class State(object):
 
             self.pot_z = self.mod(self.pot_z)
             # update tracer particle positions)
-            self._par_pos = self.update_par_pos(dt)
+            self.update_par_pos(dt)
 
             self.apply_expV(dt=dt, factor=1.0, density=density)
             self.apply_expK(dt=dt, factor=1.0)
