@@ -9,9 +9,12 @@ dependencies:
   - matplotlib
   - pyzmq
   - attrs
-  - ipykernel
+  - IPykernel
   - numba
   - notebook
+  - cython
+  - reikna    # FFT for CUDA etc.
   - pip:
+    - pycuda
     - mmfutils
     - mmf_setup

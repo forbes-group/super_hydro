@@ -79,6 +79,7 @@ class State(object):
         self.hbar = hbar
         self.m = m
         self.r0 = r0
+        self.dt = 0.01
         self.V0_mu = V0_mu
         self.Nxy = Nx, Ny = Nxy
         self.dx = dx
@@ -122,10 +123,11 @@ class State(object):
         self.pot_v = 0 + 0j
         self.pot_damp = 4.0
 
-        self.t = -10000
-        self.dt = dt_t_scale*self.t_scale
-        self._phase = -1.0/self.hbar
-        self.step(cooling_steps)
+        if cooling_steps:
+            self.t = -10000
+            self.dt = dt_t_scale*self.t_scale
+            self._phase = -1.0/self.hbar
+            self.step(cooling_steps)
         self.t = 0
         self._phase = -1j/self.hbar/cooling_phase
         self.dt = dt_t_scale*self.t_scale
@@ -150,9 +152,9 @@ class State(object):
     def z_finger(self):
         if self.test_finger:
             if self.t >= 0:
-                return 3.0*np.exp(1j*self.t/5)
+                return 5.0*np.exp(1j*self.t/5)
             else:
-                return 3.0
+                return 5.0
         else:
             return self._z_finger
 
@@ -195,7 +197,7 @@ class State(object):
                          for _x, _L in zip((z.real, z.imag), self.Lxy)])
 
     def step(self, N):
-        dt = self.dt
+        dt = 0.1 #self.dt
         self.apply_expK(dt=dt, factor=0.5)
         self.t += dt/2.0
         for n in range(N):

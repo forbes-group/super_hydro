@@ -40,3 +40,17 @@ MMF: Make simple logger.
 
 * Refactor socket communication making sure that messages are properly
   sent and buffered.
+
+GPU
+---
+
+* Add script to 'module load cuda' when activating gpu environment. Something
+  like:
+ 
+    mkdir -p "${CONDA_PREFIX}/etc/conda/activate.d"
+    cat 'module load cuda' > "${CONDA_PREFIX}/etc/conda/activate.d/load_modules.sh"
+
+* Find a way of unsetting CFLAGS = -m when installing pycuda.
+
+  - https://github.com/conda-forge/toolchain-feedstock/pull/43
+
