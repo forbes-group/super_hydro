@@ -225,7 +225,7 @@ class State(object):
         Npart = len(pos)
         pos = (pos + (Lx+1j*Ly)/2.0)
         ix = np.round((pos.real / Lx) * Nx).astype(int) % Nx
-        iy = np.round((pos.imag / Ly) * Ny).astype(int) % Nx
+        iy = np.round((pos.imag / Ly) * Ny).astype(int) % Ny
         return (ix, iy)
 
     def update_tracer_velocity(self):
@@ -242,7 +242,7 @@ class State(object):
     
     def update_tracer_pos(self, dt):
         """Applies the velocity field to the particle positions and
-        updates with time dt""" 
+        updates with time dt"""
         if not hasattr(self, '_par_pos'):
             return
         if not hasattr(self, 'v_trace'):
