@@ -52,7 +52,8 @@ class Computation(object):
 
     pause_timeout = 0.1         # Time to wait when paused.
 
-    def __init__(self, opts, message_queue, density_queue, pot_queue, tracer_queue):
+    def __init__(self, opts,
+                 message_queue, density_queue, pot_queue, tracer_queue):
         self.opts = opts
         self.do_reset()
         self.message_queue = message_queue
@@ -233,14 +234,14 @@ class Server(object):
         array = cm.viridis((n_-n_.min())/(n_.max()-n_.min()))
 
         array = self._update_frame_with_tracer_particles(array)
-        
-        array *= int(255/array.max()) # normalize V0_values
+
+        array *= int(255/array.max())  # normalize V0_values
         data = array.astype(dtype='uint8')
         self.comm.send_array(data)
 
     def send_tracer(self):
         self.message_queue.put(("get_tracer",))
-        trpos = self.tracer_queue.get() 
+        trpos = self.tracer_queue.get()
         i = 0
         while i < len(trpos):
             xy = self.xy_to_pos((trpos[i].real, trpos[i].imag))
@@ -249,7 +250,7 @@ class Server(object):
         array = trpos
         trdata = array.astype(dtype='uint8')
         self.comm.send_array(trdata)
-		
+
     def _update_frame_with_tracer_particles(self, array):
         # Note: array has x and y swapped...
         self.message_queue.put(("get_tracer",))

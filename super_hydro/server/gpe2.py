@@ -103,14 +103,14 @@ class State(object):
 
     """
     dim = 2
-    
+
     def __init__(self, Nxy=(32, 32), dx=0.1,
                  healing_length=1.0,
                  r0=1.0, V0_mu=0.5,
                  cooling_phase=1.0+0.01j,
                  cooling_steps=100, dt_t_scale=0.1,
                  g=1.0, m=1.0, hbar=1.0,
-                 #k_R=2.0, soc_d=0.05, soc_w=0.5,
+                 # k_R=2.0, soc_d=0.05, soc_w=0.5,
                  k_R=5.0, soc_d=0.5/4.0, soc_w=0.25,
                  test_finger=False):
         self.g = g
@@ -120,7 +120,7 @@ class State(object):
         self.Nxy = Nx, Ny = Nxy
         self.dx = dx
         self.Lxy = Lx, Ly = Lxy = np.asarray(Nxy)*dx
-                
+
         self.r0 = r0
         self.V0_mu = V0_mu
         self.healing_length = healing_length
@@ -152,16 +152,16 @@ class State(object):
         self.dispersion = Dispersion(w=soc_w, d=soc_d)
         k0 = self.dispersion.get_k0() * self.k_R
         self.k0 = kx_[np.argmin(abs(kx_ - k0))]
-        
+
         psi_ab = np.asarray(self.dispersion.get_ab())[self.bcast]
-        
+
         ka = self.k0 + self.k_R
         kb = self.k0 - self.k_R
         assert np.allclose(0, [abs(ka - kx_).min(),
                                abs(kb - kx_).min()])
 
         phase = np.exp(1j*np.array([ka, kb])[self.bcast]*(x + 0*y))
-        #phase = 1.0
+        # phase = 1.0
         self.data = (np.ones(Nxy, dtype=complex)[None, ...]
                      * np.sqrt(n0) * psi_ab * phase)
         self._N = self.get_density().sum()
@@ -196,7 +196,7 @@ class State(object):
 
     def get_density(self):
         return self.get_densities().sum(axis=0)
-    
+
     def set_xy0(self, x0, y0):
         self.z_finger = x0 + 1j*y0
 

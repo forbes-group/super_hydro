@@ -8,6 +8,7 @@ def process_path(path):
     """Return the normalized path with '~' and vars expanded."""
     return os.path.normpath(os.path.expandvars(os.path.expanduser(path)))
 
+
 # Standard XDG config directory
 # https://specifications.freedesktop.org/basedir-spec/basedir-spec-0.6.html
 XDG_CONFIG_HOME = process_path(os.environ.get(
@@ -48,7 +49,7 @@ PARSER.add('-fps', '--fps', default=80.0, type=float,
            help="Maximum framerate (frames-per-second)")
 PARSER.add('--tracer_alpha', default=0.3, type=float,
            help="Alpha of tracer particles.")
-PARSER.add('--tracer_color', default=(0.0,0.0,0.0,1.0), type=tuple,
+PARSER.add('--tracer_color', default=(0.0, 0.0, 0.0, 1.0), type=tuple,
            help="Alpha of tracer particles.")
 
 
@@ -63,7 +64,7 @@ def get_server_parser():
     PARSER.add('--dt_t_scale', default=0.1, type=float,
                help="Integration timestep in units of t_scale=hbar/E_max")
     PARSER.add('--V0_mu', default=0.5, type=float,
-               help="Finger potential depth in units of the chemical potential")
+               help="Finger potential depth in units of mu")
     PARSER.add('--steps', default=20, type=int,
                help="Number of integration steps between display updates")
     return PARSER
@@ -78,5 +79,5 @@ def get_client_parser():
                action='store_false',
                dest='kill_server',
                help="Kill server on exit",)
-    
+
     return PARSER

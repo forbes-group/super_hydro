@@ -9,6 +9,7 @@ _LOGGER = utils.Logger(__name__)
 log = _LOGGER.log
 log_task = _LOGGER.log_task
 
+
 ######################################################################
 # We grab the options here because kivy will otherwise destroy all the
 # command-line options.
@@ -19,8 +20,9 @@ def get_opts():
         parser = config.get_client_parser()
         opts, other_args = parser.parse_known_args()
         log("Unused Options: {}".format(other_args), 100)
-                
+
     return opts
+
 
 _OPTS = get_opts()
 
@@ -50,14 +52,14 @@ class Display(FloatLayout):
     arrow_size = ListProperty(0)
     arrow_visible = True
     event = None
-    Nx, Ny = 0,0
+    Nx, Ny = 0, 0
 
     number_keys_pressed = 0
     keys_pressed = {
-        'w':False,
-        's':False,
-        'a':False,
-        'd':False
+        'w': False,
+        's': False,
+        'a': False,
+        'd': False
     }
 
     texture = None
@@ -68,13 +70,13 @@ class Display(FloatLayout):
         self.comm = app.comm
         self.opts = app.opts
         self.graph_pxsize = app.graph_pxsize
-        
+
         self.Nx, self.Ny = self.comm.get(b"Nxy")
         self.get_texture()
-            
+
         with log_task("Get density from server and push to texture"):
             self.push_to_texture()
-            
+
         self.angle = 45
         self.arrow_size = (0, 0)
         print("fps: {}".format(1./self.opts.fps))
@@ -123,9 +125,9 @@ class Display(FloatLayout):
             finger.pos = finger.pos[0] - 20, finger.pos[1]
 
         touch_input = [finger.pos[0] + Marker().size[0]/2,
-                        finger.pos[1] + Marker().size[1]/2 - self.graph_pxsize]
+                       finger.pos[1] + Marker().size[1]/2 - self.graph_pxsize]
 
-        #keeps input within game border
+        # keeps input within game border
         if touch_input[0] > framex:
             touch_input[0] = 0
             finger.pos[0] = 0
@@ -144,7 +146,7 @@ class Display(FloatLayout):
         touch_input[1] = touch_input[1]/framey
         self.comm.send(b"OnTouch", touch_input)
 
-    def _on_keyboard_up(self,keycode):
+    def _on_keyboard_up(self, keycode):
         up_key = keycode[1]
         self.keys_pressed[up_key] = False
 
@@ -171,7 +173,7 @@ class Display(FloatLayout):
     def no_collision(self, touch):  # checks for button collision during game
         global Window
         collision = True
-        #scroll = self.ids.my_slider
+        # scroll = self.ids.my_slider
         pause = self.ids.pause_button
 
         """within game space/not touching pause button"""
@@ -200,16 +202,16 @@ class Display(FloatLayout):
 
     """This allows single clicks to change Vpos, but
             prevents other widgets on screen from being used"""
-    #def on_touch_down(self, touch):
-    #    if self.no_collision(touch) is False:
-    #        self.on_touch_move(touch)
+    # def on_touch_down(self, touch):
+    #     if self.no_collision(touch) is False:
+    #         self.on_touch_move(touch)
 
     def on_touch_move(self, touch):
         global Window
         finger = self.ids.finger
 
         if self.no_collision(touch) is False:
-            #adjusts for the border size
+            # adjusts for the border size
             touch_input = [touch.x, touch.y - self.graph_pxsize]
 
             # Normalize to frame size
@@ -218,7 +220,7 @@ class Display(FloatLayout):
 
             touch_input[0] /= framex
             touch_input[1] /= framey
-            
+
             self.comm.send(b"OnTouch", touch_input)
 
             self.get_Vpos()
@@ -283,7 +285,7 @@ class SuperHydroApp(App):
 
     def build(self):
         global Window
-        with log_task("Connecting to server"):        
+        with log_task("Connecting to server"):
             self.comm = communication.Client(opts=self.opts)
 
         self.graph_pxsize = 150
