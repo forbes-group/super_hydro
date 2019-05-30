@@ -1,9 +1,8 @@
 import numpy as np
 
-
 import pytest
 
-from gpe import State
+from ..gpe import State
 
 
 def test_gpe():

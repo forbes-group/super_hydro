@@ -1,16 +1,22 @@
-"""SuperHydro Server."""
+__doc__ = """SuperHydro Server."""
 
 from collections import deque
 from contextlib import contextmanager
 import threading
-import os
 import queue
-import sys
 import time
+
+from matplotlib import cm
+
+import numpy as np
+
+from .. import config, communication, utils
+from ..physics import gpe
 
 PROFILE = False
 if PROFILE:
     import cProfile
+
     def profile(filename='prof.dat'):
         def wrap(f):
             def wrapped_f(*v, **kw):
@@ -31,13 +37,8 @@ else:
             return f
         return wrap
 
-from matplotlib import cm
 
-import numpy as np
-from numpy import unravel_index
-
-from .. import config, communication, utils
-from . import gpe
+__all__ = ['run', '__doc__', '__all__']
 
 
 _LOGGER = utils.Logger(__name__)
@@ -152,7 +153,7 @@ class Computation(object):
             healing_length=opts.healing_length,
             dt_t_scale=opts.dt_t_scale)
 
-    def unknown_command(self, *v):
+    def unknown_command(self, msg, *v):
         raise ValueError(f"Unknown Command {msg}(*{v})")
 
 

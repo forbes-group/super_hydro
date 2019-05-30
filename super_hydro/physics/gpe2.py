@@ -1,4 +1,3 @@
-
 """Two-component systems.
 
 Here we model two-component systems with spin-orbit coupling along the
@@ -11,12 +10,12 @@ import attr
 import numpy as np
 import numpy.fft
 
-import utils
+from .. import utils
 
 
 @attr.s
 class Dispersion(object):
-    """Tools for computing porperties of the lower band dispersion.
+    r"""Tools for computing porperties of the lower band dispersion.
 
     Everything is expressed in dimensionless units with $k/k_r$,
     $d=\delta/4E_R$, $w=\Omega/4E_R$, and $E_\pm/2E_R$.

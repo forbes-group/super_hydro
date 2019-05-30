@@ -17,7 +17,7 @@ except ImportError:
 
 @attr.s
 class Dispersion(object):
-    """Tools for computing porperties of the lower band dispersion.
+    r"""Tools for computing porperties of the lower band dispersion.
 
     Everything is expressed in dimensionless units with $k/k_r$,
     $d=\delta/4E_R$, $w=\Omega/4E_R$, and $E_\pm/2E_R$.

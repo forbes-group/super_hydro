@@ -15,7 +15,7 @@ def expm2(M):
     >>> from scipy.linalg import expm
     >>> np.random.seed(1)
     >>> M = np.random.random((2, 2, 5))
-    >>> res = np.asarray([expm(M[:,:,_n]) for _n in xrange(M.shape[-1])])
+    >>> res = np.asarray([expm(M[:,:,_n]) for _n in range(M.shape[-1])])
     >>> res = np.rollaxis(res, 0, 3)
     >>> np.allclose(expm2(M), res)
     True
