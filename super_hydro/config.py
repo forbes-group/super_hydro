@@ -47,6 +47,8 @@ PARSER.add('--host', default="localhost", env_var='SUPER_HYDRO_HOST',
            help='URL where the server is listening')
 PARSER.add('-fps', '--fps', default=80.0, type=float,
            help="Maximum framerate (frames-per-second)")
+PARSER.add('--tracer_particles', default=1000, type=int,
+           help="Number of tracer particles.")
 PARSER.add('--tracer_alpha', default=0.3, type=float,
            help="Alpha of tracer particles.")
 PARSER.add('--tracer_color', default=(0.0, 0.0, 0.0, 1.0), type=tuple,

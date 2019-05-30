@@ -1,0 +1,74 @@
+"""Tracer particle support.
+
+This module provides support for generating, tracking, and viewing
+tracer particles to track the flow during a simulation.
+"""
+import numpy as np
+
+
+class TracerParticles(object):
+    def __init__(self, state, N_particles=1000):
+        self.N_particles = N_particles
+        self.state = state
+        self._par_pos = self.tracer_particles_create(self.state)
+
+    def tracer_particles_create(self, state):
+        N_particles = self.N_particles
+        np.random.seed(1)
+        Nx, Ny = state.Nxy
+        x, y = state.xy
+        x, y = np.ravel(x), np.ravel(y)
+        n = state.get_density()
+        n_max = n.max()
+
+        particles = []
+        while len(particles) < N_particles:
+            ix = np.random.randint(Nx)
+            iy = np.random.randint(Ny)
+
+            if np.random.random()*n_max <= n[ix, iy]:
+                particles.append(x[ix] + 1j*y[iy])
+        return (np.asarray(particles))
+
+    def get_inds(self, pos, state):
+        """Return the indices (ix, iy) to the nearest point on the
+        grid.
+        """
+        x, y = state.xy
+        Lx, Ly = state.Lxy
+        Nx, Ny = state.Nxy
+        pos = (pos + (Lx+1j*Ly)/2.0)
+        ix = np.round((pos.real / Lx) * Nx).astype(int) % Nx
+        iy = np.round((pos.imag / Ly) * Ny).astype(int) % Ny
+        return (ix, iy)
+
+    def update_tracer_velocity(self, state):
+        """Define the velocity field for the particles"""
+        # px, py = self.kxy
+        # px *= self.hbar
+        # py *= self.hbar
+        # m = self.m
+        # n = self.data.conj()*self.data
+        # self._data_fft == self.fft(self.data)
+        # v_x = (self.ifft(px*self.fft(self.data)) / self.data / m).real
+        # v_y = (self.ifft(py*self.fft(self.data)) / self.data / m).real
+        self.v_trace = state.get_v()
+
+    def update_tracer_pos(self, dt, state):
+        """Applies the velocity field to the particle positions and
+        updates with time dt"""
+        if not hasattr(self, '_par_pos'):
+            return
+        if not hasattr(self, 'v_trace'):
+            self.update_tracer_velocity()
+        pos = self._par_pos
+        ix, iy = self.get_inds(pos, state=state)
+        v = self.v_trace[ix, iy]
+        pos += dt*v
+
+    def get_tracer_particles(self):
+        """Return the tracer particle positions.
+
+        This is a 1D complex array of the particle positions in data
+        coordinates."""
+        return getattr(self, '_par_pos', [])

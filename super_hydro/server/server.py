@@ -11,7 +11,7 @@ from matplotlib import cm
 import numpy as np
 
 from .. import config, communication, utils
-from ..physics import gpe
+from ..physics import gpe, tracer_particles
 
 PROFILE = False
 if PROFILE:
@@ -94,7 +94,8 @@ class Computation(object):
                 if self.paused:
                     time.sleep(self.pause_timeout)
                 else:
-                    self.state.step(self.steps)
+                    self.state.step(self.steps,
+                                    tracer_particles=self.tracer_particles)
                 self.process_queue()
 
     def process_queue(self):
@@ -131,7 +132,7 @@ class Computation(object):
         self.density_queue.put(self.state.get_density())
 
     def do_get_tracer(self):
-        self.tracer_queue.put(self.state.get_tracer_particles())
+        self.tracer_queue.put(self.tracer_particles.get_tracer_particles())
 
     def do_update_finger(self, x, y):
         self.state.set('xy0', (x, y))
@@ -152,6 +153,13 @@ class Computation(object):
             V0_mu=opts.V0_mu, test_finger=False,
             healing_length=opts.healing_length,
             dt_t_scale=opts.dt_t_scale)
+
+        if opts.tracer_particles:
+            self.tracer_particles = tracer_particles.TracerParticles(
+                state=self.state,
+                N_particles=opts.tracer_particles)
+        else:
+            self.tracer_particles = None
 
     def unknown_command(self, msg, *v):
         raise ValueError(f"Unknown Command {msg}(*{v})")
@@ -257,7 +265,7 @@ class Server(object):
         self.message_queue.put(("get_tracer",))
         pos = self.tracer_queue.get()  # Complex array of positions
 
-        ix, iy = self.state.get_inds(pos)
+        ix, iy = self.computation.tracer_particles.get_inds(pos, state=self.state)
         alpha = self.opts.tracer_alpha
         array[iy, ix, ...] = (
             (1-alpha)*array[iy, ix, ...]

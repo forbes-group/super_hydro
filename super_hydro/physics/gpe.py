@@ -85,8 +85,7 @@ class State(object):
                  soc_d=0.05, soc_w=0.5,
                  winding=10,
                  cylinder=True,
-                 test_finger=False,
-                 N_tracer_particles=1000):
+                 test_finger=False):
         g = hbar = m = 1.0
         self.g = g
         self.hbar = hbar
@@ -103,7 +102,6 @@ class State(object):
         y = (np.arange(Ny)*dy - Ly/2.0)[None, :]
         self.xy = (x, y)
 
-        self.N_tracer_particles = N_tracer_particles
         kx = 2*np.pi * np.fft.fftfreq(Nx, dx)[:, None]
         ky = 2*np.pi * np.fft.fftfreq(Ny, dy)[None, :]
         self.kxy = (kx, ky)
@@ -151,15 +149,13 @@ class State(object):
         self.t = -10000
         self.dt = dt_t_scale*self.t_scale
         self.cooling_phase = 1j
-        self.step(cooling_steps)
+        self.step(cooling_steps, tracer_particles=None)
         if cylinder:
             self.data *= np.exp(1j*winding*np.angle(x+1j*y))
         self.t = 0
         self.cooling_phase = cooling_phase
         self.dt = dt_t_scale*self.t_scale
         self.c_s = np.sqrt(self.mu/self.m)
-
-        self._par_pos = self.tracer_part_create()
 
     def fft(self, y):
         return self._fft(y, axes=(-1, -2))
@@ -226,67 +222,6 @@ class State(object):
     def z_finger(self, z_finger):
         self._z_finger = z_finger
 
-    def tracer_part_create(self):
-        N_particles = self.N_tracer_particles
-        np.random.seed(1)
-        Nx, Ny = self.Nxy
-        x, y = self.xy
-        x, y = np.ravel(x), np.ravel(y)
-        n = self.get_density()
-        n_max = n.max()
-
-        particles = []
-        while len(particles) < N_particles:
-            ix = np.random.randint(Nx)
-            iy = np.random.randint(Ny)
-
-            if np.random.random()*n_max <= n[ix, iy]:
-                particles.append(x[ix] + 1j*y[iy])
-        return (np.asarray(particles))
-
-    def get_inds(self, pos):
-        """Return the indices (ix, iy) to the nearest point on the
-        grid.
-        """
-        x, y = self.xy
-        Lx, Ly = self.Lxy
-        Nx, Ny = self.Nxy
-        pos = (pos + (Lx+1j*Ly)/2.0)
-        ix = np.round((pos.real / Lx) * Nx).astype(int) % Nx
-        iy = np.round((pos.imag / Ly) * Ny).astype(int) % Ny
-        return (ix, iy)
-
-    def update_tracer_velocity(self):
-        """Define the velocity field for the particles"""
-        # px, py = self.kxy
-        # px *= self.hbar
-        # py *= self.hbar
-        # m = self.m
-        # n = self.data.conj()*self.data
-        # self._data_fft == self.fft(self.data)
-        # v_x = (self.ifft(px*self.fft(self.data)) / self.data / m).real
-        # v_y = (self.ifft(py*self.fft(self.data)) / self.data / m).real
-        self.v_trace = self.get_v()
-
-    def update_tracer_pos(self, dt):
-        """Applies the velocity field to the particle positions and
-        updates with time dt"""
-        if not hasattr(self, '_par_pos'):
-            return
-        if not hasattr(self, 'v_trace'):
-            self.update_tracer_velocity()
-        pos = self._par_pos
-        ix, iy = self.get_inds(pos)
-        v = self.v_trace[ix, iy]
-        pos += dt*v
-
-    def get_tracer_particles(self):
-        """Return the tracer particle positions.
-
-        This is a 1D complex array of the particle positions in data
-        coordinates."""
-        return self._par_pos
-
     def get_V_trap(self):
         """Return any static trapping potential."""
         if self.cylinder:
@@ -350,14 +285,16 @@ class State(object):
         return complex(*[(_x + _L/2) % (_L) - _L/2
                          for _x, _L in zip((z.real, z.imag), self.Lxy)])
 
-    def step(self, N):
+    def step(self, N, tracer_particles=None):
         dt = self.dt
         self.apply_expK(dt=dt, factor=0.5)
         self.t += dt/2.0
         for n in range(N):
-            # Update tracer particle positions
-            self.update_tracer_velocity()   # Maybe defer if too slow.
-            self.update_tracer_pos(dt)
+            if tracer_particles is not None:
+                # Update tracer particle positions.
+                # Maybe defer if too expensive
+                tracer_particles.update_tracer_velocity(state=self)
+                tracer_particles.update_tracer_pos(dt, state=self)
 
             density = self.get_density()
             self.pot_z += dt * self.pot_v
