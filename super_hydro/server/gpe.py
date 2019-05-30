@@ -133,11 +133,11 @@ class State(object):
         self._V_trap = self.get_V_trap()
 
         if mmfutils and False:
-            self.fft = mmfutils.performance.fft.get_fftn_pyfftw(self.data)
-            self.ifft = mmfutils.performance.fft.get_ifftn_pyfftw(self.data)
+            self._fft = mmfutils.performance.fft.get_fftn_pyfftw(self.data)
+            self._ifft = mmfutils.performance.fft.get_ifftn_pyfftw(self.data)
         else:
-            self.fft = np.fft.fftn
-            self.ifft = np.fft.ifftn
+            self._fft = np.fft.fftn
+            self._ifft = np.fft.ifftn
 
         self._N = self.get_density().sum()
 
@@ -161,6 +161,44 @@ class State(object):
 
         self._par_pos = self.tracer_part_create()
 
+    def fft(self, y):
+        return self._fft(y, axes=(-1, -2))
+
+    def ifft(self, y):
+        return self._ifft(y, axes=(-1, -2))
+
+    def get_density(self):
+        y = self.data
+        return (y.conj()*y).real
+
+    def get_v(self, y=None):
+        """Return the velocity field as a complex number."""
+        if y is None:
+            y = self.data
+        yt = self.fft(y)
+        px, py = self.kxy
+        vx, vy = (self.ifft([px*yt, py*yt])/y).real / self.m
+        return vx + 1j*vy
+
+    def set(self, param, value):
+        """Set the param attribute to value.
+
+        This method looks for a `set_{param}` method and uses it
+        first, falling back to the standard `setattr` method.
+        """
+        set_param = getattr(self, "set_{}".format(param),
+                            lambda _v: setattr(self, param, _v))
+        set_param(value)
+
+    def get(self, param):
+        return getattr(self, param)
+
+    # End of interface
+    ######################################################################
+    def set_xy0(self, xy0):
+        x0, y0 = xy0
+        self.z_finger = x0 + 1j*y0
+
     @property
     def _phase(self):
         return -1j/self.hbar/self.cooling_phase
@@ -169,13 +207,6 @@ class State(object):
         # c_min = 1.0*np.sqrt(self.g*density.min()/self.m)
         c_mean = 1.0*np.sqrt(self.g*density.mean()/self.m)
         return c_mean
-
-    def get_density(self):
-        y = self.data
-        return (y.conj()*y).real
-
-    def set_xy0(self, x0, y0):
-        self.z_finger = x0 + 1j*y0
 
     @property
     def t_scale(self):
@@ -227,15 +258,15 @@ class State(object):
 
     def update_tracer_velocity(self):
         """Define the velocity field for the particles"""
-        px, py = self.kxy
-        px *= self.hbar
-        py *= self.hbar
-        m = self.m
+        # px, py = self.kxy
+        # px *= self.hbar
+        # py *= self.hbar
+        # m = self.m
         # n = self.data.conj()*self.data
         # self._data_fft == self.fft(self.data)
-        v_x = (self.ifft(px*self.fft(self.data)) / self.data / m).real
-        v_y = (self.ifft(py*self.fft(self.data)) / self.data / m).real
-        self.v_trace = (v_x + 1j*v_y)
+        # v_x = (self.ifft(px*self.fft(self.data)) / self.data / m).real
+        # v_y = (self.ifft(py*self.fft(self.data)) / self.data / m).real
+        self.v_trace = self.get_v()
 
     def update_tracer_pos(self, dt):
         """Applies the velocity field to the particle positions and

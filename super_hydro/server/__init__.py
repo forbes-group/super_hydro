@@ -133,16 +133,16 @@ class Computation(object):
         self.tracer_queue.put(self.state.get_tracer_particles())
 
     def do_update_finger(self, x, y):
-        self.state.set_xy0(x, y)
+        self.state.set('xy0', (x, y))
 
     def do_update_V0_mu(self, V0_mu):
-        self.state.V0_mu = V0_mu
+        self.state.set('V0_mu', V0_mu)
 
     def do_update_cooling_phase(self, cooling_phase):
-        self.state.cooling_phase = cooling_phase
+        self.state.set('cooling_phase', cooling_phase)
 
     def do_get_pot(self):
-        self.pot_queue.put(self.state.pot_z)
+        self.pot_queue.put(self.state.get('pot_z'))
 
     def do_reset(self):
         opts = self.opts
@@ -265,11 +265,11 @@ class Server(object):
 
     def pos_to_xy(self, pos):
         """Return the (x, y) coordinates of (pos_x, pos_y) in the frame."""
-        return (np.asarray(pos) - 0.5)*self.state.Lxy
+        return (np.asarray(pos) - 0.5)*self.state.get('Lxy')
 
     def xy_to_pos(self, xy):
         """Return the frame (pos_x, pos_y) from (x, y) coordinates."""
-        return np.asarray(xy)/self.state.Lxy + 0.5
+        return np.asarray(xy)/self.state.get('Lxy') + 0.5
 
     def on_touch(self, touch_pos):
         x0, y0 = self.pos_to_xy(touch_pos)
