@@ -82,7 +82,15 @@ class Logger(object):
         # Get logger each time so handlers are properly dealt with
         logging.getLogger(self.name).log(level=level,
                                          msg=self.indent + msg)
-    
+
+    def warn(self, msg, level=logging.WARNING):
+        """Log warning msg to the logger."""
+        self.log(msg, level=level)
+
+    def error(self, msg, level=logging.ERROR):
+        """Log error msg to the logger."""
+        self.log(msg, level=level)
+
     @contextmanager
     def log_task(self, msg, level=logging.INFO):
         """Context for tasks with paired start and Done messages.
@@ -104,9 +112,8 @@ class Logger(object):
             self.nesting += 1
             yield
             self.nesting -= 1
-            self.log(msg + ". Done." , level=level)
-        except:
+            self.log(msg + ". Done.", level=level)
+        except Exception:
             self.nesting -= 1
             self.log(msg + ". Failed!", level=logging.ERROR)
             raise
-            

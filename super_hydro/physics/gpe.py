@@ -2,7 +2,7 @@ import attr
 
 import numpy as np
 import numpy.fft
-from .. import utils
+from .. import utils, interfaces
 
 try:
     import mmfutils.performance.fft
@@ -13,6 +13,12 @@ try:
     import numexpr
 except ImportError:
     numexpr = None
+
+
+_LOGGER = utils.Logger(__name__)
+log = _LOGGER.log
+warn = _LOGGER.warn
+log_task = _LOGGER.log_task
 
 
 @attr.s
@@ -68,7 +74,7 @@ class Dispersion(object):
         return k0
 
 
-class State(object):
+class BEC(object):
     """
 
     Parameters
@@ -77,26 +83,26 @@ class State(object):
        Potential strength in units of mu
     healing_length:
     """
-    def __init__(self, Nxy=(32, 32), dx=1.0,
-                 healing_length=10.0, r0=10.0, V0_mu=0.5,
-                 cooling_phase=1.0+0.01j,
-                 cooling_steps=100, dt_t_scale=0.1,
-                 soc=False,
-                 soc_d=0.05, soc_w=0.5,
-                 winding=10,
-                 cylinder=True,
-                 test_finger=False):
-        g = hbar = m = 1.0
-        self.g = g
-        self.hbar = hbar
-        self.m = m
-        self.r0 = r0
-        self.V0_mu = V0_mu
-        self.Nxy = Nx, Ny = Nxy
-        self.dx = dx
-        self.Lxy = Lx, Ly = Lxy = np.asarray(Nxy)*dx
-        self.healing_length = healing_length
-        self.cooling_phase = cooling_phase
+    params = dict(
+        g=1.0, hbar=1.0, m=1.0,
+        Nx=32, Ny=32, dx=1.0,
+        healing_length=10.0, r0=10.0, V0_mu=0.5,
+        cooling_phase=1.0+0.01j,
+        cooling_steps=100, dt_t_scale=0.1,
+        soc=False,
+        soc_d=0.05, soc_w=0.5,
+        winding=10,
+        cylinder=True,
+        test_finger=False)
+
+    def __init__(self, opts):
+        self.params = {_key: getattr(opts, _key, self.params[_key])
+                       for _key in self.params}
+        for _key in self.params:
+            setattr(self, _key, self.params[_key])
+
+        self.Nxy = Nxy = Nx, Ny = self.Nx, self.Ny
+        self.Lxy = Lx, Ly = Lxy = np.asarray(self.Nxy)*self.dx
         dx, dy = np.divide(Lxy, Nxy)
         x = (np.arange(Nx)*dx - Lx/2.0)[:, None]
         y = (np.arange(Ny)*dy - Ly/2.0)[None, :]
@@ -106,8 +112,8 @@ class State(object):
         ky = 2*np.pi * np.fft.fftfreq(Ny, dy)[None, :]
         self.kxy = (kx, ky)
 
-        if soc:
-            self._dispersion = Dispersion(d=soc_d, w=soc_w)
+        if self.soc:
+            self._dispersion = Dispersion(d=self.soc_d, w=self.soc_w)
             kR = 3 / self.healing_length
             kR = 1.0/self.r0
             k0 = self._dispersion.get_k0()
@@ -116,10 +122,10 @@ class State(object):
         else:
             kx2 = kx**2
         self._kx2 = kx2
-        self.K = hbar**2*(kx2 + ky**2)/2.0/self.m
+        self.K = self.hbar**2*(kx2 + ky**2)/2.0/self.m
 
-        self.n0 = n0 = hbar**2/2.0/healing_length**2/g
-        self.mu = g*n0
+        self.n0 = n0 = self.hbar**2/2.0/self.healing_length**2/self.g
+        self.mu = self.g*n0
         mu_min = max(0, min(self.mu, self.mu*(1-self.V0_mu)))
         self.c_s = np.sqrt(self.mu/self.m)
         self.c_min = np.sqrt(mu_min/self.m)
@@ -127,7 +133,6 @@ class State(object):
 
         self.data = np.ones(Nxy, dtype=complex) * np.sqrt(n0)
 
-        self.cylinder = cylinder
         self._V_trap = self.get_V_trap()
 
         if mmfutils and False:
@@ -139,7 +144,6 @@ class State(object):
 
         self._N = self.get_density().sum()
 
-        self.test_finger = test_finger
         self.z_finger = 0 + 0j
         self.pot_k_m = 10.0
         self.pot_z = 0 + 0j
@@ -147,14 +151,15 @@ class State(object):
         self.pot_damp = 4.0
 
         self.t = -10000
-        self.dt = dt_t_scale*self.t_scale
-        self.cooling_phase = 1j
-        self.step(cooling_steps, tracer_particles=None)
-        if cylinder:
-            self.data *= np.exp(1j*winding*np.angle(x+1j*y))
+        self.dt = self.dt_t_scale*self.t_scale
+
+        self.cooling_phase, cooling_phase = 1j, self.cooling_phase
+        self.step(self.cooling_steps, tracer_particles=None)
+        if self.cylinder:
+            self.data *= np.exp(1j*self.winding*np.angle(x+1j*y))
         self.t = 0
         self.cooling_phase = cooling_phase
-        self.dt = dt_t_scale*self.t_scale
+        self.dt = self.dt_t_scale*self.t_scale
         self.c_s = np.sqrt(self.mu/self.m)
 
     def fft(self, y):
@@ -326,3 +331,6 @@ class State(object):
         plt.plot([self.z_finger.real], [self.z_finger.imag], 'go')
         plt.title("{:.2f}".format(self.t))
         plt.colorbar()
+
+
+interfaces.classImplements(BEC, interfaces.IModel)

@@ -2,6 +2,7 @@ __doc__ = """SuperHydro Server."""
 
 from collections import deque
 from contextlib import contextmanager
+import importlib
 import threading
 import queue
 import time
@@ -148,11 +149,7 @@ class Computation(object):
 
     def do_reset(self):
         opts = self.opts
-        self.state = gpe.State(
-            Nxy=(opts.Nx, opts.Ny),
-            V0_mu=opts.V0_mu, test_finger=False,
-            healing_length=opts.healing_length,
-            dt_t_scale=opts.dt_t_scale)
+        self.state = opts.State(opts=opts)
 
         if opts.tracer_particles:
             self.tracer_particles = tracer_particles.TracerParticles(
@@ -179,11 +176,7 @@ class Server(object):
                                        tracer_queue=self.tracer_queue)
         self.computation_thread = threading.Thread(target=self.computation.run)
         self.comm = communication.Server(opts=opts)
-        self.state = gpe.State(
-            Nxy=(opts.Nx, opts.Ny),
-            V0_mu=opts.V0_mu, test_finger=False,
-            healing_length=opts.healing_length,
-            dt_t_scale=opts.dt_t_scale)
+        self.state = opts.State(opts=opts)
         super().__init__(**kwargs)
 
     def start(self):
@@ -265,7 +258,8 @@ class Server(object):
         self.message_queue.put(("get_tracer",))
         pos = self.tracer_queue.get()  # Complex array of positions
 
-        ix, iy = self.computation.tracer_particles.get_inds(pos, state=self.state)
+        ix, iy = self.computation.tracer_particles.get_inds(
+            pos, state=self.state)
         alpha = self.opts.tracer_alpha
         array[iy, ix, ...] = (
             (1-alpha)*array[iy, ix, ...]
@@ -286,14 +280,17 @@ class Server(object):
 
     def reset_game(self):
         self.message_queue.put(("reset",))
-        self.state = gpe.State(Nxy=(self.opts.Nx, self.opts.Ny),
-                               V0_mu=self.opts.V0_mu, test_finger=False,
-                               healing_length=self.opts.healing_length,
-                               dt_t_scale=self.opts.dt_t_scale)
+        self.state = self.opts.State(opts=self.opts)
 
 
 def run():
     """Load the configuration and start the server."""
     parser = config.get_server_parser()
     opts, other_args = parser.parse_known_args()
+
+    # Get the physics model.
+    module = ".".join(['physics'] + opts.model.split(".")[:-1])
+    cls = opts.model.split('.')[-1]
+    pkg = "super_hydro"
+    opts.State = getattr(importlib.import_module("." + module, pkg), cls)
     Server(opts=opts).start()

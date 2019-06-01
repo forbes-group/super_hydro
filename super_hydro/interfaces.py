@@ -3,24 +3,23 @@
 from zope.interface import Interface, Attribute, classImplements
 
 
-class IState(Interface):
+class IModel(Interface):
     """Interface for physical model.
 
     This class represents a state of the physical system.  It is
     responsible for initializing and computing the time evolution of
     the system in response to external stimuli from the clients.
     """
-    def __init__(Nxy, dt_t_scale, **kw):
+    def __init__(Nxy, opts):
         """Constructor.
 
         Should initialize the state.
 
         Arguments
         =========
-        Nxy : (int, int)
-           Size of grid.
-        **kw:
-          Additional arguments are system specific.
+        opts : Options
+           Options object with attributes defined through the
+           configuration mechanism.
         """
 
     def get_density():

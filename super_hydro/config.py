@@ -57,6 +57,8 @@ PARSER.add('--tracer_color', default=(0.0, 0.0, 0.0, 1.0), type=tuple,
 
 def get_server_parser():
     """Return the parser with server configuration"""
+    PARSER.add('-m', '--model', is_config_file=True,
+               help='Physical model: i.e. gpe.BEC')
     PARSER.add('--Nx', default=64, type=int,
                help="Horizontal grid resolution")
     PARSER.add('--Ny', default=32, type=int,
