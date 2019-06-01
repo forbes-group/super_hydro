@@ -117,3 +117,16 @@ class Logger(object):
             self.nesting -= 1
             self.log(msg + ". Failed!", level=logging.ERROR)
             raise
+
+
+class PrintLogger(Logger):
+    def log(self, msg, level=logging.INFO):
+        """Log msg to the logger."""
+        print(level, msg)
+
+
+class PrintLogger(Logger):
+    def log(self, msg, level=logging.INFO):
+        """Log msg to the logger."""
+        print(level, msg)
+        

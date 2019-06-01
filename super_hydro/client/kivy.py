@@ -5,6 +5,9 @@ import numpy as np
 
 from .. import config, communication, utils
 
+__all__ = ['run', '__doc__', '__all__']
+
+
 _LOGGER = utils.Logger(__name__)
 log = _LOGGER.log
 log_task = _LOGGER.log_task

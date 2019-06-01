@@ -48,7 +48,7 @@ class Client(object):
         with log_task("Request: {}".format(msg)):
             self.socket.send(msg)
             return self.socket.recv()
-                    
+
     def get(self, msg):
         """Request data from server."""
         with log_task("Getting {} from server".format(msg)):
@@ -89,11 +89,11 @@ class Client(object):
                 raise IOError(
                     "Server declined request to send {} saying {}"
                     .format(msg, response))
-            self.socket.send_json(md, flags|zmq.SNDMORE)
+            self.socket.send_json(md, flags | zmq.SNDMORE)
             self.socket.send(A, flags, copy=copy, track=track)
             return self.socket.recv()
 
-        
+
 class Server(object):
     def __init__(self, opts):
         url = "tcp://*:{0.port}".format(opts)

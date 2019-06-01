@@ -74,8 +74,20 @@ class Dispersion(object):
         return k0
 
 
-class BEC(object):
-    """
+class ModelBase(object):
+    """Helper class for models."""
+    params = {}
+
+    def __init__(self, opts):
+        """Default constructor simply sets attributes defined in params."""
+        self.params = {_key: getattr(opts, _key, self.params[_key])
+                       for _key in self.params}
+        for _key in self.params:
+            setattr(self, _key, self.params[_key])
+
+
+class BEC(ModelBase):
+    """Single component BEC.
 
     Parameters
     ----------
@@ -96,10 +108,7 @@ class BEC(object):
         test_finger=False)
 
     def __init__(self, opts):
-        self.params = {_key: getattr(opts, _key, self.params[_key])
-                       for _key in self.params}
-        for _key in self.params:
-            setattr(self, _key, self.params[_key])
+        super().__init__(opts=opts)
 
         self.Nxy = Nxy = Nx, Ny = self.Nx, self.Ny
         self.Lxy = Lx, Ly = Lxy = np.asarray(self.Nxy)*self.dx
@@ -332,5 +341,13 @@ class BEC(object):
         plt.title("{:.2f}".format(self.t))
         plt.colorbar()
 
+
+class BECFlow(BEC):
+    """Model implementing variable flow in a BEC.
+
+    This model provides a way of demonstrating Landau's critical
+    velocity.  We use twisted boundary conditions to implement an
+    adjustable flow.
+    """
 
 interfaces.classImplements(BEC, interfaces.IModel)
