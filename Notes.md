@@ -40,3 +40,12 @@ MMF: Make simple logger.
 
 * Refactor socket communication making sure that messages are properly
   sent and buffered.
+
+Dependencies
+============
+* Consider two different clients - a lite client that has minimal
+  imports (but requires the server to compute everything) and a more
+  full-bodied client that can perform some computations such as the
+  tracer particles to reduce server load.  The idea is to keep the
+  lite client for mobile devices which cannot import numpy/scipy etc.
+  

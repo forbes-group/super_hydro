@@ -9,3 +9,8 @@ dependencies:
   - matplotlib
   - pyzmq
   - attrs
+  - zope.interface
+
+  # For performance
+  - numexpr
+  
