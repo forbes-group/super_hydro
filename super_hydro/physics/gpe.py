@@ -81,10 +81,12 @@ class ModelBase(object):
 
     def __init__(self, opts):
         """Default constructor simply sets attributes defined in params."""
+        self._initializing = True
         self.params = {_key: getattr(opts, _key, self.params[_key])
                        for _key in self.params}
         for _key in self.params:
             setattr(self, _key, self.params[_key])
+        self._initializing = False
 
     def decode(self, param, bytes):
         if not param in self.interactive_params:
@@ -123,6 +125,7 @@ class BEC(ModelBase):
         w.FloatSlider(name='V0_mu',
                       min=-2, max=2, step=0.1,
                       description='V0/mu'),
+        w.Checkbox(True, name='cylinder', description="Trap"),
         w.density])
 
     def __init__(self, opts):
@@ -135,8 +138,8 @@ class BEC(ModelBase):
         y = (np.arange(Ny)*dy - Ly/2.0)[None, :]
         self.xy = (x, y)
 
-        self.kxy = kx, ky = (2*np.pi * np.fft.fftfreq(Nx, dx)[:, None],
-                             2*np.pi * np.fft.fftfreq(Ny, dy)[None, :])
+        self._kxy = kx, ky = (2*np.pi * np.fft.fftfreq(Nx, dx)[:, None],
+                              2*np.pi * np.fft.fftfreq(Ny, dy)[None, :])
 
         if self.soc:
             self._dispersion = Dispersion(d=self.soc_d, w=self.soc_w)
@@ -148,7 +151,6 @@ class BEC(ModelBase):
         else:
             kx2 = kx**2
         self._kx2 = kx2
-        self.K = self.hbar**2*(kx2 + ky**2)/2.0/self.m
 
         self.n0 = n0 = self.hbar**2/2.0/self.healing_length**2/self.g
         self.mu = self.g*n0
@@ -157,6 +159,7 @@ class BEC(ModelBase):
         self.c_min = np.sqrt(mu_min/self.m)
         # self.v_max = 1.1*self.c_min
 
+        self.K = self.get_K()
         self.data = np.ones(Nxy, dtype=complex) * np.sqrt(n0)
 
         self._V_trap = self.get_V_trap()
@@ -226,6 +229,24 @@ class BEC(ModelBase):
     def set_xy0(self, xy0):
         x0, y0 = xy0
         self.z_finger = x0 + 1j*y0
+
+    @property
+    def kxy(self):
+        return self._kxy
+
+    def get_K(self):
+        kx, ky = self.kxy
+        return self.hbar**2*(kx**2 + ky**2)/2.0/self.m
+
+    @property
+    def cylinder(self):
+        return self._cylinder
+
+    @cylinder.setter
+    def cylinder(self, cylinder):
+        self._cylinder = cylinder
+        if not self._initializing:
+            self._V_trap = self.get_V_trap()
 
     @property
     def cooling(self):
@@ -377,20 +398,38 @@ class BECFlow(BEC):
     velocity.  This velocity is implemented by shifting the momenta by
     k_B = m*v/hbar
     """
-    v = 0
+    params = dict(BEC.params, cylinder=False, mv_mu=0)
+
+    layout = w.VBox([
+        w.FloatSlider(name='mv_mu',
+                      min=-5, max=5, step=0.1,
+                      description='v/(mu/m)'),
+        BEC.layout])
 
     def __init__(self, opts):
         super().__init__(opts=opts)
+        self.mv_mu = self.mv_mu
 
     @property
-    def K(self):
-        kx, ky = self.kxy
-        return self.hbar**2*((kx+self.k_B)**2 + ky**2)/2.0/self.m
+    def mv_mu(self):
+        return self._mv_mu
+
+    @mv_mu.setter
+    def mv_mu(self, mv_mu):
+        self._mv_mu = mv_mu
+        if not self._initializing:
+            self.K = self.get_K()
+
+    @property
+    def kxy(self):
+        kx, ky = self._kxy
+        return (kx+self.k_B, ky)
 
     @property
     def k_B(self):
         """Return the Bloch momentum"""
-        return self.m * self.v/self.hbar
+        mv = self.mv_mu*self.mu
+        return mv/self.hbar
 
 
 interfaces.classImplements(BEC, interfaces.IModel)

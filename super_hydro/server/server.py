@@ -244,7 +244,8 @@ class Server(object):
         """Send the RGB frame to draw."""
         self.message_queue.put(("get_density",))
         n_ = self.density_queue.get().T
-        array = cm.viridis((n_-n_.min())/(n_.max()-n_.min()))
+        #array = cm.viridis((n_-n_.min())/(n_.max()-n_.min()))
+        array = cm.viridis(n_/n_.max())
 
         array = self._update_frame_with_tracer_particles(array)
 

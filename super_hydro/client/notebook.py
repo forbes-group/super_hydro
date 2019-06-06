@@ -45,7 +45,7 @@ class App(object):
 class NotebookApp(App):
     fmt = 'PNG'
     _running = True
-    
+
     def _get_widget(self):
         layout = self.get_layout()
         (self._interactive_widgets,
