@@ -26,6 +26,7 @@ _LOGGER = utils.Logger(__name__)
 log = _LOGGER.log
 log_task = _LOGGER.log_task
 
+
 ######################################################################
 # Client and Server base communicators.  These classes define a simple
 # protocol for sending and receiving data based on the REQ and REP
@@ -33,7 +34,6 @@ log_task = _LOGGER.log_task
 # (REQ) of the server, which then responds (REP).  For each of these
 # transactions the client must send() and recv() while the server must
 # recv() and then send().
-
 class Client(object):
     """Basic communication class for the client."""
     def __init__(self, opts):

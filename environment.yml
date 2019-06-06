@@ -16,6 +16,12 @@ dependencies:
   # For performance
   - numexpr
 
+  # For display
+  - ipywidgets
+  - pillow
+  - ipympl
+  
+
   - pip:
     - kivy
     - mmf_setup

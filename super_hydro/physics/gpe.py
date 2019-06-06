@@ -3,6 +3,7 @@ import attr
 import numpy as np
 import numpy.fft
 from .. import utils, interfaces
+from .. import widgets as w
 
 try:
     import mmfutils.performance.fft
@@ -85,6 +86,14 @@ class ModelBase(object):
         for _key in self.params:
             setattr(self, _key, self.params[_key])
 
+    def decode(self, param, bytes):
+        if not param in self.interactive_params:
+            warn("Ignoring request to decode non-interactive param {}"
+                 .format(param))
+            return
+        widget, decoder, args = self.interactive_params[param]
+        return decode(bytes)
+
 
 class BEC(ModelBase):
     """Single component BEC.
@@ -99,13 +108,22 @@ class BEC(ModelBase):
         g=1.0, hbar=1.0, m=1.0,
         Nx=32, Ny=32, dx=1.0,
         healing_length=10.0, r0=10.0, V0_mu=0.5,
-        cooling_phase=1.0+0.01j,
+        cooling=0.01,
         cooling_steps=100, dt_t_scale=0.1,
         soc=False,
         soc_d=0.05, soc_w=0.5,
         winding=10,
         cylinder=True,
         test_finger=False)
+
+    layout = w.VBox([
+        w.FloatLogSlider(name='cooling',
+                         base=10, min=-10, max=1, step=0.2,
+                         description='Cooling'),
+        w.FloatSlider(name='V0_mu',
+                      min=-2, max=2, step=0.1,
+                      description='V0/mu'),
+        w.density])
 
     def __init__(self, opts):
         super().__init__(opts=opts)
@@ -117,9 +135,8 @@ class BEC(ModelBase):
         y = (np.arange(Ny)*dy - Ly/2.0)[None, :]
         self.xy = (x, y)
 
-        kx = 2*np.pi * np.fft.fftfreq(Nx, dx)[:, None]
-        ky = 2*np.pi * np.fft.fftfreq(Ny, dy)[None, :]
-        self.kxy = (kx, ky)
+        self.kxy = kx, ky = (2*np.pi * np.fft.fftfreq(Nx, dx)[:, None],
+                             2*np.pi * np.fft.fftfreq(Ny, dy)[None, :])
 
         if self.soc:
             self._dispersion = Dispersion(d=self.soc_d, w=self.soc_w)
@@ -196,6 +213,7 @@ class BEC(ModelBase):
         This method looks for a `set_{param}` method and uses it
         first, falling back to the standard `setattr` method.
         """
+        print(f"Setting {param}={value}")
         set_param = getattr(self, "set_{}".format(param),
                             lambda _v: setattr(self, param, _v))
         set_param(value)
@@ -208,6 +226,16 @@ class BEC(ModelBase):
     def set_xy0(self, xy0):
         x0, y0 = xy0
         self.z_finger = x0 + 1j*y0
+
+    @property
+    def cooling(self):
+        return self._cooling
+
+    @cooling.setter
+    def cooling(self, cooling):
+        self._cooling = cooling
+        cooling_phase = 1+self._cooling*1j
+        self.cooling_phase = cooling_phase/abs(cooling_phase)
 
     @property
     def _phase(self):
@@ -346,8 +374,24 @@ class BECFlow(BEC):
     """Model implementing variable flow in a BEC.
 
     This model provides a way of demonstrating Landau's critical
-    velocity.  We use twisted boundary conditions to implement an
-    adjustable flow.
+    velocity.  This velocity is implemented by shifting the momenta by
+    k_B = m*v/hbar
     """
+    v = 0
+
+    def __init__(self, opts):
+        super().__init__(opts=opts)
+
+    @property
+    def K(self):
+        kx, ky = self.kxy
+        return self.hbar**2*((kx+self.k_B)**2 + ky**2)/2.0/self.m
+
+    @property
+    def k_B(self):
+        """Return the Bloch momentum"""
+        return self.m * self.v/self.hbar
+
 
 interfaces.classImplements(BEC, interfaces.IModel)
+interfaces.classImplements(BECFlow, interfaces.IModel)

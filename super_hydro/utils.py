@@ -123,10 +123,3 @@ class PrintLogger(Logger):
     def log(self, msg, level=logging.INFO):
         """Log msg to the logger."""
         print(level, msg)
-
-
-class PrintLogger(Logger):
-    def log(self, msg, level=logging.INFO):
-        """Log msg to the logger."""
-        print(level, msg)
-        

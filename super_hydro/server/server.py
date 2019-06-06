@@ -11,7 +11,7 @@ from matplotlib import cm
 
 import numpy as np
 
-from .. import config, communication, utils
+from .. import config, communication, utils, widgets
 from ..physics import gpe, tracer_particles
 
 PROFILE = False
@@ -138,11 +138,11 @@ class Computation(object):
     def do_update_finger(self, x, y):
         self.state.set('xy0', (x, y))
 
-    def do_update_V0_mu(self, V0_mu):
-        self.state.set('V0_mu', V0_mu)
-
     def do_update_cooling_phase(self, cooling_phase):
         self.state.set('cooling_phase', cooling_phase)
+
+    def do_update(self, param, value):
+        self.state.set(param, value)
 
     def do_get_pot(self):
         self.pot_queue.put(self.state.get('pot_z'))
@@ -187,7 +187,7 @@ class Server(object):
             while not finished:
                 # decide what kind of information it is, redirect
                 client_message = self.comm.recv()
-                # print("client:",client_message)
+                #print("client:", client_message)
 
                 if client_message == b"Frame":
                     self.send_frame()
@@ -196,16 +196,19 @@ class Server(object):
                     pot_z = self.pot_queue.get()
                     xy = self.xy_to_pos((pot_z.real, pot_z.imag))
                     self.comm.send(tuple(xy.tolist()))
+                elif client_message == b"layout":
+                    self.send_layout()
                 elif client_message == b"OnTouch":
                     self.on_touch(self.comm.get())
-                elif client_message == b"V0":
-                    V0_mu = float(self.comm.get())
-                    self.message_queue.put(("update_V0_mu", V0_mu))
+                elif client_message == b"set":
+                    param, value = self.comm.get()
+                    log("Got set {}={}".format(param, value))
+                    self.on_set(param=param, value=value)
                 elif client_message == b"Cooling":
                     cooling = self.comm.get()
                     cooling_phase = complex(1, 10**int(cooling))
                     self.message_queue.put(("update_cooling_phase", cooling_phase))
-                elif client_message == b"Reset":
+                elif client_message == b"reset":
                     self.reset_game()
                     self.comm.respond(b"Game Reset")
                 elif client_message == b"Nxy":
@@ -216,7 +219,7 @@ class Server(object):
                 elif client_message == b"Pause":
                     self.message_queue.put(("pause",))
                     self.comm.respond(b"Paused")
-                elif client_message == b"Quit":
+                elif client_message == b"quit":
                     self.comm.respond(b"Quitting")
                     finished = True
                 elif client_message == b"Tracer":
@@ -229,6 +232,14 @@ class Server(object):
             self.message_queue.put(("quit",))
             self.computation_thread.join()
 
+    def send_layout(self):
+        """Send the layout to the client."""
+        layout = self.state.layout
+        interactive_widgets = widgets.get_interactive_widgets(layout)
+        for w in interactive_widgets:
+            w.value = self.state.params[w.name]
+        self.comm.send(repr(layout))
+
     def send_frame(self):
         """Send the RGB frame to draw."""
         self.message_queue.put(("get_density",))
@@ -237,7 +248,7 @@ class Server(object):
 
         array = self._update_frame_with_tracer_particles(array)
 
-        array *= int(255/array.max())  # normalize V0_values
+        array *= int(255/array.max())  # normalize values
         data = array.astype(dtype='uint8')
         self.comm.send_array(data)
 
@@ -273,6 +284,9 @@ class Server(object):
     def xy_to_pos(self, xy):
         """Return the frame (pos_x, pos_y) from (x, y) coordinates."""
         return np.asarray(xy)/self.state.get('Lxy') + 0.5
+
+    def on_set(self, param, value):
+        self.message_queue.put(("update", param, value))
 
     def on_touch(self, touch_pos):
         x0, y0 = self.pos_to_xy(touch_pos)
