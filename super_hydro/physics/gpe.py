@@ -22,59 +22,6 @@ warn = _LOGGER.warn
 log_task = _LOGGER.log_task
 
 
-@attr.s
-class Dispersion(object):
-    r"""Tools for computing porperties of the lower band dispersion.
-
-    Everything is expressed in dimensionless units with $k/k_r$,
-    $d=\delta/4E_R$, $w=\Omega/4E_R$, and $E_\pm/2E_R$.
-
-    Examples
-    --------
-    >>> E = Dispersion(w=1.5/4, d=0.543/4)
-    >>> ks = np.linspace(-3, 3, 500)
-    >>> ks_ = (ks[1:] + ks[:-1])/2.0
-    >>> ks__ = ks[1:-1]
-    >>> Es = E(ks).T
-    >>> dEs = E(ks, d=1).T
-    >>> ddEs = E(ks, d=2).T
-    >>> dEs_ = np.diff(Es, axis=0)/np.diff(ks)[:, None]
-    >>> ddEs__ = np.diff(dEs_, axis=0)/np.diff(ks_)[:, None]
-    >>> np.allclose((dEs[1:] + dEs[:-1])/2, dEs_, rtol=0.01)
-    True
-    >>> np.allclose(ddEs[1:-1], ddEs__, rtol=0.04)
-    True
-    """
-    d = attr.ib()
-    w = attr.ib()
-
-    def Es(self, k, d=0):
-        D = np.sqrt((k-self.d)**2 + self.w**2)
-        if d == 0:
-            res = (k**2 + 1)/2.0 - D, (k**2 + 1)/2.0 + D
-        elif d == 1:
-            res = k - (k-self.d)/D, k + (k-self.d)/D
-        elif d == 2:
-            res = 1.0 - self.w**2/D**3, 1.0 + self.w**2/D**3
-        else:
-            raise NotImplementedError("Only d=0, 1, or 2 supported. (got d={})"
-                                      .format(d))
-        return np.asarray(res)
-
-    __call__ = Es
-
-    def newton(self, k):
-        return k - self.Es(k, d=1)[0]/self.Es(k, d=2)[0]
-
-    def get_k0(self, N=5):
-        """Return the minimum of the lower dispersion branch."""
-        # Note that sign(k_0) = -sign(d) for the lower minimum
-        k0 = -np.sign(self.d)/2.0
-        for n in range(N):
-            k0 = self.newton(k0)
-        return k0
-
-
 class ModelBase(object):
     """Helper class for models."""
     params = {}
@@ -88,13 +35,29 @@ class ModelBase(object):
             setattr(self, _key, self.params[_key])
         self._initializing = False
 
-    def decode(self, param, bytes):
-        if not param in self.interactive_params:
-            warn("Ignoring request to decode non-interactive param {}"
-                 .format(param))
-            return
-        widget, decoder, args = self.interactive_params[param]
-        return decode(bytes)
+    def init(self):
+        """Perform any calculations needed when parameters change.
+        Provides an alternative to having to define setters for each
+        sensitive parameters.
+        """
+        pass
+
+    def set(self, param, value):
+        """Set the param attribute to value.
+
+        This method looks for a `set_{param}` method and uses it
+        first, falling back to the standard `setattr` method.
+
+        The init() method is called in case any attributes need updating.
+        """
+        # print(f"Setting {param}={value}")
+        set_param = getattr(self, "set_{}".format(param),
+                            lambda _v: setattr(self, param, _v))
+        set_param(value)
+        self.init()
+
+    def get(self, param):
+        return getattr(self, param)
 
 
 class BEC(ModelBase):
@@ -112,8 +75,6 @@ class BEC(ModelBase):
         healing_length=10.0, r0=10.0, V0_mu=0.5,
         cooling=0.01,
         cooling_steps=100, dt_t_scale=0.1,
-        soc=False,
-        soc_d=0.05, soc_w=0.5,
         winding=10,
         cylinder=True,
         test_finger=False)
@@ -141,17 +102,6 @@ class BEC(ModelBase):
         self._kxy = kx, ky = (2*np.pi * np.fft.fftfreq(Nx, dx)[:, None],
                               2*np.pi * np.fft.fftfreq(Ny, dy)[None, :])
 
-        if self.soc:
-            self._dispersion = Dispersion(d=self.soc_d, w=self.soc_w)
-            kR = 3 / self.healing_length
-            kR = 1.0/self.r0
-            k0 = self._dispersion.get_k0()
-            E0 = self._dispersion(k0)[0]
-            kx2 = 2*kR**2 * (self._dispersion(kx/kR + k0) - E0)[0]
-        else:
-            kx2 = kx**2
-        self._kx2 = kx2
-
         self.n0 = n0 = self.hbar**2/2.0/self.healing_length**2/self.g
         self.mu = self.g*n0
         mu_min = max(0, min(self.mu, self.mu*(1-self.V0_mu)))
@@ -159,10 +109,7 @@ class BEC(ModelBase):
         self.c_min = np.sqrt(mu_min/self.m)
         # self.v_max = 1.1*self.c_min
 
-        self.K = self.get_K()
-        self.data = np.ones(Nxy, dtype=complex) * np.sqrt(n0)
-
-        self._V_trap = self.get_V_trap()
+        self.data = np.ones(self.Nxy, dtype=complex) * np.sqrt(n0)
 
         if mmfutils and False:
             self._fft = mmfutils.performance.fft.get_fftn_pyfftw(self.data)
@@ -179,17 +126,29 @@ class BEC(ModelBase):
         self.pot_v = 0 + 0j
         self.pot_damp = 4.0
 
+        self.c_s = np.sqrt(self.mu/self.m)
+
+        self.init()
+
         self.t = -10000
         self.dt = self.dt_t_scale*self.t_scale
 
         self.cooling_phase, cooling_phase = 1j, self.cooling_phase
         self.step(self.cooling_steps, tracer_particles=None)
+
         if self.cylinder:
             self.data *= np.exp(1j*self.winding*np.angle(x+1j*y))
         self.t = 0
+
         self.cooling_phase = cooling_phase
+
+    def init(self):
+        cooling_phase = 1+self.cooling*1j
+        self.cooling_phase = cooling_phase/abs(cooling_phase)
+        kx, ky = self.kxy = self._kxy
+        self.K = self.hbar**2*(kx**2 + ky**2)/2.0/self.m
+        self._V_trap = self.get_V_trap()
         self.dt = self.dt_t_scale*self.t_scale
-        self.c_s = np.sqrt(self.mu/self.m)
 
     def fft(self, y):
         return self._fft(y, axes=(-1, -2))
@@ -210,53 +169,11 @@ class BEC(ModelBase):
         vx, vy = (self.ifft([px*yt, py*yt])/y).real / self.m
         return vx + 1j*vy
 
-    def set(self, param, value):
-        """Set the param attribute to value.
-
-        This method looks for a `set_{param}` method and uses it
-        first, falling back to the standard `setattr` method.
-        """
-        print(f"Setting {param}={value}")
-        set_param = getattr(self, "set_{}".format(param),
-                            lambda _v: setattr(self, param, _v))
-        set_param(value)
-
-    def get(self, param):
-        return getattr(self, param)
-
     # End of interface
     ######################################################################
     def set_xy0(self, xy0):
         x0, y0 = xy0
         self.z_finger = x0 + 1j*y0
-
-    @property
-    def kxy(self):
-        return self._kxy
-
-    def get_K(self):
-        kx, ky = self.kxy
-        return self.hbar**2*(kx**2 + ky**2)/2.0/self.m
-
-    @property
-    def cylinder(self):
-        return self._cylinder
-
-    @cylinder.setter
-    def cylinder(self, cylinder):
-        self._cylinder = cylinder
-        if not self._initializing:
-            self._V_trap = self.get_V_trap()
-
-    @property
-    def cooling(self):
-        return self._cooling
-
-    @cooling.setter
-    def cooling(self, cooling):
-        self._cooling = cooling
-        cooling_phase = 1+self._cooling*1j
-        self.cooling_phase = cooling_phase/abs(cooling_phase)
 
     @property
     def _phase(self):
@@ -391,6 +308,98 @@ class BEC(ModelBase):
         plt.colorbar()
 
 
+@attr.s
+class Dispersion(object):
+    r"""Tools for computing porperties of the lower band dispersion.
+
+    Everything is expressed in dimensionless units with $k/k_r$,
+    $d=\delta/4E_R$, $w=\Omega/4E_R$, and $E_\pm/2E_R$.
+
+    Examples
+    --------
+    >>> E = Dispersion(w=1.5/4, d=0.543/4)
+    >>> ks = np.linspace(-3, 3, 500)
+    >>> ks_ = (ks[1:] + ks[:-1])/2.0
+    >>> ks__ = ks[1:-1]
+    >>> Es = E(ks).T
+    >>> dEs = E(ks, d=1).T
+    >>> ddEs = E(ks, d=2).T
+    >>> dEs_ = np.diff(Es, axis=0)/np.diff(ks)[:, None]
+    >>> ddEs__ = np.diff(dEs_, axis=0)/np.diff(ks_)[:, None]
+    >>> np.allclose((dEs[1:] + dEs[:-1])/2, dEs_, rtol=0.01)
+    True
+    >>> np.allclose(ddEs[1:-1], ddEs__, rtol=0.04)
+    True
+    """
+    d = attr.ib()
+    w = attr.ib()
+
+    def Es(self, k, d=0):
+        D = np.sqrt((k-self.d)**2 + self.w**2)
+        if d == 0:
+            res = (k**2 + 1)/2.0 - D, (k**2 + 1)/2.0 + D
+        elif d == 1:
+            res = k - (k-self.d)/D, k + (k-self.d)/D
+        elif d == 2:
+            res = 1.0 - self.w**2/D**3, 1.0 + self.w**2/D**3
+        else:
+            raise NotImplementedError("Only d=0, 1, or 2 supported. (got d={})"
+                                      .format(d))
+        return np.asarray(res)
+
+    __call__ = Es
+
+    def newton(self, k):
+        return k - self.Es(k, d=1)[0]/self.Es(k, d=2)[0]
+
+    def get_k0(self, N=5):
+        """Return the minimum of the lower dispersion branch."""
+        # Note that sign(k_0) = -sign(d) for the lower minimum
+        k0 = -np.sign(self.d)/2.0
+        for n in range(N):
+            k0 = self.newton(k0)
+        return k0
+
+
+class BECSOC(BEC):
+    """Model implementing a BEC with modified dispersion.
+    """
+    params = dict(
+        BEC.params,
+        soc=True,
+        soc_d=0.05, soc_w=0.5)
+
+    layout = w.VBox([
+        w.HBox([w.Checkbox(name="soc", description="SOC"),
+                w.FloatSlider(name='soc_d',
+                              min=-1, max=1, step=0.01,
+                              description='detuning/4E_R'),
+                w.FloatSlider(name='soc_w',
+                              min=-2, max=2, step=0.01,
+                              description='Omega/4E_R')]),
+        BEC.layout])
+
+    def __init__(self, opts):
+        super().__init__(opts=opts)
+
+    def init(self):
+        super().init()
+        kx, ky = self._kxy
+        if self.soc:
+            self._dispersion = Dispersion(d=self.soc_d, w=self.soc_w)
+            kR = 3 / self.healing_length
+            kR = 1.0/self.r0
+            k0 = self._dispersion.get_k0()
+            E0 = self._dispersion(k0)[0]
+            kx = kx + kR*k0
+            kx2 = 2*kR**2 * (self._dispersion(kx/kR) - E0)[0]
+        else:
+            kx2 = kx**2
+
+        self.kxy = kx, ky
+        self.K = self.hbar**2*(kx2 + ky**2)/2.0/self.m
+
+
 class BECFlow(BEC):
     """Model implementing variable flow in a BEC.
 
@@ -406,24 +415,11 @@ class BECFlow(BEC):
                       description='v/(mu/m)'),
         BEC.layout])
 
-    def __init__(self, opts):
-        super().__init__(opts=opts)
-        self.mv_mu = self.mv_mu
-
-    @property
-    def mv_mu(self):
-        return self._mv_mu
-
-    @mv_mu.setter
-    def mv_mu(self, mv_mu):
-        self._mv_mu = mv_mu
-        if not self._initializing:
-            self.K = self.get_K()
-
-    @property
-    def kxy(self):
+    def init(self):
+        super().init()
         kx, ky = self._kxy
-        return (kx+self.k_B, ky)
+        kx, ky = self.kxy = (kx + self.k_B, ky)
+        self.K = self.hbar**2*(kx**2 + ky**2)/2.0/self.m
 
     @property
     def k_B(self):
