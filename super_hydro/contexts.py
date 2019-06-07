@@ -1,5 +1,6 @@
 """Provides the NoInterrupt context from the mmfutils project.
 """
+import functools
 import signal
 import time
 
@@ -65,6 +66,10 @@ class NoInterrupt(object):
 
     The last case is mapping a function to data.  This will allow the
     user to interrupt the process between function calls.
+
+    Note that NoInterrupt() contexts can be nested, so if you have
+    sensitive code, just wrap it in a context without worrying about
+    whether or not the calling code is also wrapping.
 
     In the following examples we demonstrate this by simulating
     interrupts
@@ -255,3 +260,29 @@ class NoInterrupt(object):
                     break
                 res.append(function(s, *v, **kw))
         return res
+
+
+def nointerrupt(f):
+    """Decorator that passes an interrupted flag to the protected
+    function.
+
+    Examples
+    --------
+    >>> @nointerrupt
+    ... def f(interrupted):
+    ...     for n in range(3):
+    ...         if interrupted:
+    ...             break
+    ...         print(n)
+    ...         time.sleep(0.1)
+    >>> f()
+    0
+    1
+    2
+    """
+    @functools.wraps(f)
+    def wrapper(*v, **kw):
+        with NoInterrupt() as interrupted:
+            kw.setdefault('interrupted', interrupted)
+            return f(*v, **kw)
+    return wrapper

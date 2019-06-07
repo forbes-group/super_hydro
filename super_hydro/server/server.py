@@ -13,7 +13,7 @@ import numpy as np
 
 from .. import config, communication, utils, widgets
 from ..physics import tracer_particles
-from ..contexts import NoInterrupt
+from ..contexts import nointerrupt
 
 PROFILE = False
 if PROFILE:
@@ -168,6 +168,7 @@ class Computation(object):
 
 class Server(object):
     _poll_interval = 0.1
+
     def __init__(self, opts, **kwargs):
         self.opts = opts
         self.message_queue = queue.Queue()
@@ -184,21 +185,18 @@ class Server(object):
         self.state = opts.State(opts=opts)
         super().__init__(**kwargs)
 
-    def run(self, block=True, interrupted=None):
+    @nointerrupt
+    def run(self, interrupted, block=True):
         """Run the server, blocking if desired."""
+        kwargs = dict(interrupted=interrupted)
         if block:
-            if interrupted is None:
-                with NoInterrupt() as interrupted:
-                    return self.run_server(interrupted=interrupted)
-            else:
-                return self.run_server(interrupted=interrupted)
+            return self.run_server(**kwargs)
         else:
-            kwargs = dict(interrupted=interrupted)
             self.server_thread = threading.Thread(
                 target=self.run_server, kwargs=kwargs)
             self.server_thread.start()
 
-    def run_server(self, interrupted=False):
+    def run_server(self, interrupted=None):
         finished = False
         self.computation_thread.start()
         self.message_queue.put(("start",))
@@ -271,7 +269,7 @@ class Server(object):
         """Send the RGB frame to draw."""
         self.message_queue.put(("get_density",))
         n_ = self.density_queue.get().T
-        #array = cm.viridis((n_-n_.min())/(n_.max()-n_.min()))
+        # array = cm.viridis((n_-n_.min())/(n_.max()-n_.min()))
         array = cm.viridis(n_/n_.max())
 
         array = self._update_frame_with_tracer_particles(array)
@@ -325,15 +323,32 @@ class Server(object):
         self.state = self.opts.State(opts=self.opts)
 
 
-def run(**kw):
-    """Load the configuration and start the server."""
+@nointerrupt
+def run(block=True, args=None, interrupted=False, kwargs={}):
+    """Load the configuration and start the server.
+
+    This can also be called programmatically to start a server.
+
+    Arguments
+    =========
+    block : bool
+       If True, then block until the server is finished.
+    kwargs : dict
+       Overrides loaded configuration options.  Note: no checks are
+       performed, so make sure that these are valid options.
+    args : str
+       If specified, then use these arguments rather than those passed
+       on the command line.  This is useful if starting the server
+       from another application where the command line arguments might
+       instead be for the outer app (like jupyter notebook).
+    """
     parser = config.get_server_parser()
-    opts, other_args = parser.parse_known_args()
-    opts.__dict__.update(kw)
+    opts, other_args = parser.parse_known_args(args=args)
+    opts.__dict__.update(kwargs)
 
     # Get the physics model.
     module = ".".join(['physics'] + opts.model.split(".")[:-1])
     cls = opts.model.split('.')[-1]
     pkg = "super_hydro"
     opts.State = getattr(importlib.import_module("." + module, pkg), cls)
-    Server(opts=opts).run()
+    Server(opts=opts).run(block=block, interrupted=interrupted)

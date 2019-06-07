@@ -18,9 +18,7 @@ import ipywidgets
 
 
 from .. import config, communication, utils, widgets
-from ..contexts import NoInterrupt
-
-#from mmf_utils.contexts import NoInterrupt
+from ..contexts import nointerrupt
 
 _LOGGER = utils.Logger(__name__)
 log = _LOGGER.log
@@ -118,7 +116,8 @@ class NotebookApp(App):
         layout = eval(self.comm.get(b"layout"), widgets.__dict__)
         return layout
 
-    def run(self):
+    @nointerrupt
+    def run(self, interrupted):
         from IPython.display import display
         self.Nx, self.Ny = self.comm.get(b"Nxy")
         self._frame = 0
@@ -126,17 +125,15 @@ class NotebookApp(App):
 
         display(self.get_widget())
 
-        with NoInterrupt() as interrupted:
-            while not interrupted and self._running:
-                frame = 0
-                tic0 = time.time()
-                with self.sync():
-                    frame += 1
-                    data = self.data
-                    self._density.value = self.get_image(data)
-                    toc = time.time()
-                    #self.comm.send(b"set", ("cooling", self._inp.value))
-                    self._msg.value = "{:.2f}fps".format(frame/(toc-tic0))
+        while not interrupted and self._running:
+            frame = 0
+            tic0 = time.time()
+            with self.sync():
+                frame += 1
+                data = self.data
+                self._density.value = self.get_image(data)
+                toc = time.time()
+                self._msg.value = "{:.2f}fps".format(frame/(toc-tic0))
 
     @contextmanager
     def sync(self):
@@ -157,7 +154,7 @@ class NotebookApp(App):
                     break
                 time.sleep(t_sleep)
 
-        
+
 _OPTS = None
 
 
@@ -173,5 +170,21 @@ def get_app(notebook=True):
         return App(opts=_OPTS)
 
 
-def run():
-    get_app().run()
+@nointerrupt
+def run(run_server=True, interrupted=False, **kwargs):
+    """Start the notebook client.
+
+    Arguments
+    ---------
+    run_server : bool
+       If True, then first run a server, otherwise expect to connect
+       to an existing server.
+    """
+    if run_server:
+        # Delay import because server requires many more modules than
+        # the client.
+        from ..server import server
+        server.run(args='', block=False, interrupted=interrupted,
+                   kwargs=kwargs)
+
+    return get_app().run()
