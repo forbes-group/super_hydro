@@ -86,7 +86,8 @@ class Computation(object):
                     np.mean(self._times)*1000/self.steps,
                     np.std(self._times)*1000/self.steps),
                     level=100)
-            time.sleep(max(0, 1./self.fps - dt))
+            t_sleep = max(0, 1./self.fps - dt)
+            time.sleep(t_sleep)
 
     @profile('prof.dat')
     def run(self):
@@ -206,7 +207,7 @@ class Server(object):
                     # Do this so we can receive interrupted messages
                     # if the user interrupts.
                     client_message = self.comm.recv(
-                        timeout=self._poll_interval)
+                        timeout=min(self._poll_interval, 1/self.opts.fps))
                 except communication.TimeoutError:
                     continue
 

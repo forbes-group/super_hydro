@@ -132,8 +132,8 @@ class NotebookApp(App):
                 frame += 1
                 data = self.data
                 self._density.value = self.get_image(data)
-                toc = time.time()
-                self._msg.value = "{:.2f}fps".format(frame/(toc-tic0))
+            toc = time.time()
+            self._msg.value = "{:.2f}fps".format(frame/(toc-tic0))
 
     @contextmanager
     def sync(self):
