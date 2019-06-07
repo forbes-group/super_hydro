@@ -12,7 +12,8 @@ from matplotlib import cm
 import numpy as np
 
 from .. import config, communication, utils, widgets
-from ..physics import gpe, tracer_particles
+from ..physics import tracer_particles
+from ..contexts import NoInterrupt
 
 PROFILE = False
 if PROFILE:
@@ -166,6 +167,7 @@ class Computation(object):
 
 
 class Server(object):
+    _poll_interval = 0.1
     def __init__(self, opts, **kwargs):
         self.opts = opts
         self.message_queue = queue.Queue()
@@ -182,15 +184,33 @@ class Server(object):
         self.state = opts.State(opts=opts)
         super().__init__(**kwargs)
 
-    def start(self):
+    def run(self, block=True, interrupted=None):
+        """Run the server, blocking if desired."""
+        if block:
+            if interrupted is None:
+                with NoInterrupt() as interrupted:
+                    return self.run_server(interrupted=interrupted)
+            else:
+                return self.run_server(interrupted=interrupted)
+        else:
+            kwargs = dict(interrupted=interrupted)
+            self.server_thread = threading.Thread(
+                target=self.run_server, kwargs=kwargs)
+            self.server_thread.start()
+
+    def run_server(self, interrupted=False):
         finished = False
         self.computation_thread.start()
         self.message_queue.put(("start",))
         try:
-            while not finished:
-                # decide what kind of information it is, redirect
-                client_message = self.comm.recv()
-                #print("client:", client_message)
+            while not finished and not interrupted:
+                try:
+                    # Do this so we can receive interrupted messages
+                    # if the user interrupts.
+                    client_message = self.comm.recv(
+                        timeout=self._poll_interval)
+                except communication.TimeoutError:
+                    continue
 
                 if client_message == b"Frame":
                     self.send_frame()
@@ -305,14 +325,15 @@ class Server(object):
         self.state = self.opts.State(opts=self.opts)
 
 
-def run():
+def run(**kw):
     """Load the configuration and start the server."""
     parser = config.get_server_parser()
     opts, other_args = parser.parse_known_args()
+    opts.__dict__.update(kw)
 
     # Get the physics model.
     module = ".".join(['physics'] + opts.model.split(".")[:-1])
     cls = opts.model.split('.')[-1]
     pkg = "super_hydro"
     opts.State = getattr(importlib.import_module("." + module, pkg), cls)
-    Server(opts=opts).start()
+    Server(opts=opts).run()

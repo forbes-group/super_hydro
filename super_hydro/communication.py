@@ -13,8 +13,7 @@ objects.
 
 Unless otherwise specified, messages should by bytes objects.
 """
-
-from contextlib import contextmanager
+import time
 
 import numpy as np
 
@@ -22,9 +21,15 @@ import zmq
 
 from . import utils
 
+__all__ = ['Client', 'Server', 'TimeoutError']
+
 _LOGGER = utils.Logger(__name__)
 log = _LOGGER.log
 log_task = _LOGGER.log_task
+
+
+class TimeoutError(Exception):
+    """Operation timed out."""
 
 
 ######################################################################
@@ -103,9 +108,30 @@ class Server(object):
             self.socket.bind("tcp://*:{}".format(opts.port))
         log("Server listening on port: {}".format(opts.port), level=100)
 
-    def recv(self):
-        """Listen for incoming requests from clients."""
-        return self.socket.recv()
+    def recv(self, timeout=None):
+        """Listen for incoming requests from clients.
+
+        Arguments
+        =========
+        timeout : None, float
+           If provided, then recv() will only block for this period of
+           time.  If no message is received, the it will raise a
+           TimeoutError exception.
+        """
+        if timeout is None:
+            return self.socket.recv()
+
+        # Non-blocking behavior
+        try:
+            return self.socket.recv(flags=zmq.NOBLOCK)
+        except zmq.ZMQError:
+            pass
+
+        time.sleep(timeout)
+        try:
+            return self.socket.recv(flags=zmq.NOBLOCK)
+        except zmq.ZMQError:
+            raise TimeoutError()
 
     def respond(self, msg):
         """Send simple responds to a request."""
@@ -126,9 +152,9 @@ class Server(object):
         """Send a numpy array."""
         # https://pyzmq.readthedocs.io/en/latest/serialization.html
         md = dict(dtype=str(A.dtype), shape=A.shape)
-        self.socket.send_json(md, flags|zmq.SNDMORE)
+        self.socket.send_json(md, flags | zmq.SNDMORE)
         self.socket.send(A, flags, copy=copy, track=track)
-        
+
     def get_array(self, response=b"", flags=0, copy=True, track=False):
         """Receive and return a numpy array."""
         # https://pyzmq.readthedocs.io/en/latest/serialization.html
