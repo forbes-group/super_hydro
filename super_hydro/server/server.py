@@ -147,16 +147,19 @@ class Computation(object):
     def do_get_pot(self):
         self.pot_queue.put(self.state.get('pot_z'))
 
-    def do_reset(self):
+    def do_reset_tracers(self):
         opts = self.opts
-        self.state = opts.State(opts=opts)
-
         if opts.tracer_particles:
             self.tracer_particles = tracer_particles.TracerParticles(
                 state=self.state,
                 N_particles=opts.tracer_particles)
         else:
             self.tracer_particles = None
+
+    def do_reset(self):
+        opts = self.opts
+        self.state = opts.State(opts=opts)
+        self.do_reset_tracers()
 
     def unknown_command(self, msg, *v):
         raise ValueError(f"Unknown Command {msg}(*{v})")
@@ -207,10 +210,14 @@ class Server(object):
                 elif client_message == b"Cooling":
                     cooling = self.comm.get()
                     cooling_phase = complex(1, 10**int(cooling))
-                    self.message_queue.put(("update_cooling_phase", cooling_phase))
+                    self.message_queue.put(("update_cooling_phase",
+                                            cooling_phase))
                 elif client_message == b"reset":
                     self.reset_game()
                     self.comm.respond(b"Game Reset")
+                elif client_message == b"reset_tracers":
+                    self.message_queue.put(("reset_tracers",))
+                    self.comm.respond(b"Tracers Reset")
                 elif client_message == b"Nxy":
                     self.comm.send(obj=(self.opts.Nx, self.opts.Ny))
                 elif client_message == b"Start":

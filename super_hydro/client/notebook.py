@@ -92,6 +92,8 @@ class NotebookApp(App):
         self._density.width = self.width
         self._reset = special_widgets['reset']
         self._reset.on_click(self.on_click)
+        self._reset_tracers = special_widgets['reset_tracers']
+        self._reset_tracers.on_click(self.on_click)
         self._quit = special_widgets['quit']
         self._quit.on_click(self.on_click)
         self._msg = special_widgets['messages']
