@@ -102,14 +102,14 @@ class BEC(ModelBase):
         self._kxy = kx, ky = (2*np.pi * np.fft.fftfreq(Nx, dx)[:, None],
                               2*np.pi * np.fft.fftfreq(Ny, dy)[None, :])
 
-        self.n0 = n0 = self.hbar**2/2.0/self.healing_length**2/self.g
-        self.mu = self.g*n0
+        self.n0 = self.hbar**2/2.0/self.healing_length**2/self.g
+        self.mu = self.g*self.n0
         mu_min = max(0, min(self.mu, self.mu*(1-self.V0_mu)))
         self.c_s = np.sqrt(self.mu/self.m)
         self.c_min = np.sqrt(mu_min/self.m)
         # self.v_max = 1.1*self.c_min
 
-        self.data = np.ones(self.Nxy, dtype=complex) * np.sqrt(n0)
+        self.data = np.ones(self.Nxy, dtype=complex)
 
         if mmfutils and False:
             self._fft = mmfutils.performance.fft.get_fftn_pyfftw(self.data)
@@ -117,8 +117,6 @@ class BEC(ModelBase):
         else:
             self._fft = np.fft.fftn
             self._ifft = np.fft.ifftn
-
-        self._N = self.get_density().sum()
 
         self.z_finger = 0 + 0j
         self.pot_k_m = 10.0
@@ -129,18 +127,10 @@ class BEC(ModelBase):
         self.c_s = np.sqrt(self.mu/self.m)
 
         self.init()
+        self.set_initial_data()
 
-        self.t = -10000
-        self.dt = self.dt_t_scale*self.t_scale
-
-        self.cooling_phase, cooling_phase = 1j, self.cooling_phase
-        self.step(self.cooling_steps, tracer_particles=None)
-
-        if self.cylinder:
-            self.data *= np.exp(1j*self.winding*np.angle(x+1j*y))
+        self._N = self.get_density().sum()
         self.t = 0
-
-        self.cooling_phase = cooling_phase
 
     def init(self):
         cooling_phase = 1+self.cooling*1j
@@ -149,6 +139,21 @@ class BEC(ModelBase):
         self.K = self.hbar**2*(kx**2 + ky**2)/2.0/self.m
         self._V_trap = self.get_V_trap()
         self.dt = self.dt_t_scale*self.t_scale
+
+    def set_initial_data(self):
+        self.data = np.ones(self.Nxy, dtype=complex) * np.sqrt(self.n0)
+
+        # Cool a bit to remove transients.
+        self.t = -10000
+        self.dt = self.dt_t_scale*self.t_scale
+
+        self.cooling_phase, cooling_phase = 1j, self.cooling_phase
+        self.step(self.cooling_steps, tracer_particles=None)
+        self.cooling_phase = cooling_phase
+
+        if self.cylinder:
+            x, y = self.xy
+            self.data *= np.exp(1j*self.winding*np.angle(x+1j*y))
 
     def fft(self, y):
         return self._fft(y, axes=(-1, -2))
@@ -427,6 +432,44 @@ class BECFlow(BEC):
         mv = self.mv_mu*self.mu
         return mv/self.hbar
 
+
+class BECSoliton(BECFlow):
+    """Demonstrate the snaking instability of a dark soliton.
+
+    Here we assume that the box is
+    """
+    params = dict(BECFlow.params, V0_mu=0.0, v_c=0)
+
+    layout = w.VBox([
+        w.FloatSlider(name='v_c',
+                      min=-1, max=1, step=0.1,
+                      description='v/c'),
+        BECFlow.layout])
+
+    def set_initial_data(self):
+        x, y = self.xy
+        v_c = self.v_c
+        c_s = np.sqrt(self.g*self.n0/self.m)
+        length = self.hbar/self.m/c_s/np.sqrt(1-v_c**2)
+
+        Lx, Ly = self.Lxy
+
+        # Error here...
+        # theta_twist = np.arccos(1-2*v_c**2)
+        # phase = np.exp(-1j*theta_twist*x/Lx)
+
+        def psi(x):
+            return np.sqrt(self.n0)*(1j*v_c + np.sqrt(1-v_c**2)*np.tanh(x/length))
+
+        theta = np.angle(psi(Lx/2)/psi(-Lx/2))
+        phase = np.exp(1j*theta*x/Lx)
+        self.data[...] = psi(x)/phase
+
+    @property
+    def k_B(self):
+        """Return the Bloch momentum"""
+        mv = self.mv_mu*self.mu
+        return mv/self.hbar
 
 interfaces.classImplements(BEC, interfaces.IModel)
 interfaces.classImplements(BECFlow, interfaces.IModel)
