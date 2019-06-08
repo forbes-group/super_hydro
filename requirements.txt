@@ -1,4 +1,14 @@
+python>=3
 attrs
+configargparse
+cython
 matplotlib
 numpy
 scipy
+zope.interface
+ipykernel
+numexpr
+ipywidgets
+pillow
+mmf_setup
+mmfutils>=0.4.11
