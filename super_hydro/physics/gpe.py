@@ -438,13 +438,18 @@ class BECSoliton(BECFlow):
 
     Here we assume that the box is
     """
-    params = dict(BECFlow.params, V0_mu=0.0, v_c=0)
+    params = dict(BECFlow.params, V0_mu=0.1, v_c=0)
 
     layout = w.VBox([
         w.FloatSlider(name='v_c',
-                      min=-1, max=1, step=0.1,
+                      min=-0.99, max=0.99, step=0.01,
                       description='v/c'),
         BECFlow.layout])
+
+    def set(self, param, value):
+        super().set(param, value)
+        if param in set(['v_c', 'Nx']):
+            self.set_initial_data()
 
     def set_initial_data(self):
         x, y = self.xy
@@ -459,7 +464,8 @@ class BECSoliton(BECFlow):
         # phase = np.exp(-1j*theta_twist*x/Lx)
 
         def psi(x):
-            return np.sqrt(self.n0)*(1j*v_c + np.sqrt(1-v_c**2)*np.tanh(x/length))
+            return np.sqrt(self.n0)*(
+                1j*v_c + np.sqrt(1-v_c**2)*np.tanh(x/length))
 
         theta = np.angle(psi(Lx/2)/psi(-Lx/2))
         phase = np.exp(1j*theta*x/Lx)
@@ -471,5 +477,7 @@ class BECSoliton(BECFlow):
         mv = self.mv_mu*self.mu
         return mv/self.hbar
 
+
 interfaces.classImplements(BEC, interfaces.IModel)
 interfaces.classImplements(BECFlow, interfaces.IModel)
+interfaces.classImplements(BECSoliton, interfaces.IModel)

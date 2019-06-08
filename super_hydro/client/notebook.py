@@ -26,7 +26,7 @@ log_task = _LOGGER.log_task
 
 
 class App(object):
-    def __init__(self, opts, width="80%"):
+    def __init__(self, opts, width="50%"):
         self.width = width
         self.opts = opts
         with log_task("Connecting to server"):
