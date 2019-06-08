@@ -1,12 +1,21 @@
+"""Two-component systems.
+
+Here we model two-component systems with spin-orbit coupling along the
+x axis.  We assume that the coupling constants g_ab = g_bb = g_ab are
+equal which is a good approximation for Rubidium.
+"""
+
 import attr
 
 import numpy as np
 import numpy.fft
 
+from .. import utils
+
 
 @attr.s
 class Dispersion(object):
-    """Tools for computing porperties of the lower band dispersion.
+    r"""Tools for computing porperties of the lower band dispersion.
 
     Everything is expressed in dimensionless units with $k/k_r$,
     $d=\delta/4E_R$, $w=\Omega/4E_R$, and $E_\pm/2E_R$.
@@ -56,33 +65,63 @@ class Dispersion(object):
             k0 = self.newton(k0)
         return k0
 
+    def get_ab(self, branch=-1):
+        """Return the wavefunction factors `(psi_a, psi_b)` for the
+        specified band.
+
+        Parameters
+        ----------
+        branch : -1 or 1
+           1 for upper branch, -1 for lower branch (default).
+        """
+        d_ = self.d
+        C_ = w_ = self.w
+        k_ = self.get_k0()
+
+        D_ = -branch*np.sqrt((k_-d_)**2 + w_**2)
+        B_ = k_ - d_
+        theta = np.arctan2(-B_ - D_, C_)
+
+        return np.cos(theta), np.sin(theta)
+
 
 class State(object):
     """
 
     Parameters
     ----------
+    r0 : float
+       Finger radius.
+    soc_w : float
+       SOC strength: w=Omega/4/E_R
+    soc_d : float
+       SOC detuning (chemical potential difference): d=delta/4/E_R
     V0_mu : float
        Potential strength in units of mu
     healing_length
 
     """
+    dim = 2
+
     def __init__(self, Nxy=(32, 32), dx=0.1,
-                 healing_length=1.0, r0=1.0, V0_mu=0.5,
+                 healing_length=1.0,
+                 r0=1.0, V0_mu=0.5,
                  cooling_phase=1.0+0.01j,
                  cooling_steps=100, dt_t_scale=0.1,
-                 soc=False,
-                 soc_d=0.05, soc_w=0.5,
+                 g=1.0, m=1.0, hbar=1.0,
+                 # k_R=2.0, soc_d=0.05, soc_w=0.5,
+                 k_R=5.0, soc_d=0.5/4.0, soc_w=0.25,
                  test_finger=False):
-        g = hbar = m = 1.0
         self.g = g
         self.hbar = hbar
         self.m = m
-        self.r0 = r0
-        self.V0_mu = V0_mu
+
         self.Nxy = Nx, Ny = Nxy
         self.dx = dx
         self.Lxy = Lx, Ly = Lxy = np.asarray(Nxy)*dx
+
+        self.r0 = r0
+        self.V0_mu = V0_mu
         self.healing_length = healing_length
         self.cooling_phase = cooling_phase
         dx, dy = np.divide(Lxy, Nxy)
@@ -90,30 +129,44 @@ class State(object):
         y = (np.arange(Ny)*dy - Ly/2.0)[None, :]
         self.xy = (x, y)
 
-        kx = 2*np.pi * np.fft.fftfreq(Nx, dx)[:, None]
-        ky = 2*np.pi * np.fft.fftfreq(Ny, dy)[None, :]
+        kx = 2*np.pi * np.fft.fftfreq(Nx, dy)[:, None]
+        ky = 2*np.pi * np.fft.fftfreq(Ny, dx)[None, :]
         self.kxy = (kx, ky)
-
-        if soc:
-            self._dispersion = Dispersion(d=soc_d, w=soc_w)
-            kR = 3 / self.healing_length
-            kR = 1.0/self.r0
-            k0 = self._dispersion.get_k0()
-            E0 = self._dispersion(k0)[0]
-            kx2 = 2*kR**2 * (self._dispersion(kx/kR + k0) - E0)[0]
-        else:
-            kx2 = kx**2
-        self._kx2 = kx2
-        self.K = hbar**2*(kx2 + ky**2)/2.0/self.m
+        self.K = hbar**2*(kx**2 + ky**2)/2.0/self.m
 
         self.n0 = n0 = hbar**2/2.0/healing_length**2/g
         self.mu = g*n0
         mu_min = max(0, min(self.mu, self.mu*(1-self.V0_mu)))
         self.c_s = np.sqrt(self.mu/self.m)
         self.c_min = np.sqrt(mu_min/self.m)
-        #self.v_max = 1.1*self.c_min
-        self.data = np.ones(Nxy, dtype=complex) * np.sqrt(n0)
+        # self.v_max = 1.1*self.c_min
+
+        # SOC Parameters
+        # Make sure k_R and k0 are lattice momenta
+        kx_ = kx.ravel()
+        self.k_R = kx_[np.argmin(abs(kx_ - k_R))]
+        self.E_R = (hbar*self.k_R)**2/2/m
+        self.Omega = soc_w*4*self.E_R
+        self.delta = soc_d*4*self.E_R
+        self.dispersion = Dispersion(w=soc_w, d=soc_d)
+        k0 = self.dispersion.get_k0() * self.k_R
+        self.k0 = kx_[np.argmin(abs(kx_ - k0))]
+
+        psi_ab = np.asarray(self.dispersion.get_ab())[self.bcast]
+
+        ka = self.k0 + self.k_R
+        kb = self.k0 - self.k_R
+        assert np.allclose(0, [abs(ka - kx_).min(),
+                               abs(kb - kx_).min()])
+
+        phase = np.exp(1j*np.array([ka, kb])[self.bcast]*(x + 0*y))
+        # phase = 1.0
+        self.data = (np.ones(Nxy, dtype=complex)[None, ...]
+                     * np.sqrt(n0) * psi_ab * phase)
         self._N = self.get_density().sum()
+
+        # Precompute off-diagonal potential for speed.
+        self._Vab = self.Omega/2.0 * np.exp(2j*k_R*x) + 0*y
 
         self.test_finger = test_finger
         self.z_finger = 0 + 0j
@@ -133,11 +186,15 @@ class State(object):
 
     @property
     def v_max(self):
-        c_min = 0.8*np.sqrt(self.g*self.get_density().min()/self.m)
+        return self.c_s
+        c_min = np.sqrt(self.g*self.get_density().min()/self.m)
         return c_min
 
-    def get_density(self):
+    def get_densities(self):
         return abs(self.data)**2
+
+    def get_density(self):
+        return self.get_densities().sum(axis=0)
 
     def set_xy0(self, x0, y0):
         self.z_finger = x0 + 1j*y0
@@ -145,6 +202,11 @@ class State(object):
     @property
     def t_scale(self):
         return self.hbar/self.K.max()
+
+    @property
+    def bcast(self):
+        """Return a set of indices suitable for broadcasting masses etc."""
+        return (slice(None), ) + (None,)*self.dim
 
     @property
     def z_finger(self):
@@ -170,8 +232,6 @@ class State(object):
         x, y = self.xy
         x0, y0 = self.pot_z.real, self.pot_z.imag
         Lx, Ly = self.Lxy
-
-        # Wrap displaced x and y in periodic box.
         x = (x - x0 + Lx/2) % Lx - Lx/2
         y = (y - y0 + Ly/2) % Ly - Ly/2
         r2 = x**2 + y**2
@@ -186,7 +246,12 @@ class State(object):
         y = self.data
         n = self.get_density()
         V = self.get_Vext() + self.g*n - self.mu
-        self.data[...] = np.exp(self._phase*dt*V*factor) * y
+        Va = V - self.delta/2.0
+        Vb = V + self.delta/2.0
+        Vab = self._Vab
+        _tmp = self._phase*dt*factor * np.array([[Va, Vab],
+                                                 [Vab.conj(), Vb]])
+        self.data[...] = utils.dot2(utils.expm2(_tmp), y)
         self.data *= np.sqrt(self._N/n.sum())
 
     def mod(self, z):

@@ -1,0 +1,16 @@
+name: _super_hydro_server
+channels:
+  - defaults
+  - conda-forge
+dependencies:
+  - python>=3
+  - configargparse
+  - scipy
+  - matplotlib
+  - pyzmq
+  - attrs
+  - zope.interface
+
+  # For performance
+  - numexpr
+  

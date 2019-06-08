@@ -1,3 +1,9 @@
-syntax: glob
 
-.cache/
+syntax: glob
+__pycache__
+\.git/
+\.cache/
+\.pytest_cache/
+home.bat
+htmlcov
+\.coverage

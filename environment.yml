@@ -1,0 +1,28 @@
+name: super_hydro
+channels:
+  - defaults
+  - conda-forge
+dependencies:
+  - python>=3
+  - ipykernel
+  - configargparse
+  - cython
+  - scipy
+  - matplotlib
+  - pyzmq
+  - attrs
+  - zope.interface
+  
+  # For performance
+  - numexpr
+
+  # For display
+  - ipywidgets
+  - pillow
+  - ipympl
+  
+
+  - pip:
+    - kivy
+    - mmf_setup
+    - mmfutils>=0.4.11

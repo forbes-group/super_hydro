@@ -1,0 +1,30 @@
+name: _super_hydro_test
+channels:
+  - defaults
+  - conda-forge
+dependencies:
+  - python>=3
+  - ipykernel
+  - configargparse
+  - cython
+  - scipy
+  - matplotlib
+  - pyzmq
+  - attrs
+  - zope.interface
+  
+  # For performance
+  - numexpr
+
+  - pip:
+    - kivy
+    - mmf_setup
+    - mmfutils>=0.4.11
+
+  # For testing
+  - pytest-flake8
+  - pytest-cov
+  - pytest-runner
+
+  # For profiling
+  - snakeviz
