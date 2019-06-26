@@ -10,7 +10,15 @@ import attr
 import numpy as np
 import numpy.fft
 
-from .. import utils
+from .. import utils, interfaces
+from .. import widgets as w
+
+try:
+    import numexpr
+except ImportError:
+    numexpr = None
+
+from .gpe import ModelBase
 
 
 @attr.s
@@ -85,8 +93,8 @@ class Dispersion(object):
         return np.cos(theta), np.sin(theta)
 
 
-class State(object):
-    """
+class SOC(ModelBase):
+    """Two-component BEC with spin orbit coupling (SOC).
 
     Parameters
     ----------
@@ -103,57 +111,66 @@ class State(object):
     """
     dim = 2
 
-    def __init__(self, Nxy=(32, 32), dx=0.1,
-                 healing_length=1.0,
-                 r0=1.0, V0_mu=0.5,
-                 cooling_phase=1.0+0.01j,
-                 cooling_steps=100, dt_t_scale=0.1,
-                 g=1.0, m=1.0, hbar=1.0,
-                 # k_R=2.0, soc_d=0.05, soc_w=0.5,
-                 k_R=5.0, soc_d=0.5/4.0, soc_w=0.25,
-                 test_finger=False):
-        self.g = g
-        self.hbar = hbar
-        self.m = m
+    params = dict(
+        ModelBase.params,
+        m=1.0,
+        g_aa=1.0, g_bb=1.0, g_ab=1.0,
+        Nx=32, Ny=32, dx=0.1,
+        healing_length=1.0, r0=1.0, V0_mu=0.5,
+        coolinge=0.01,
+        cooling_steps=100, dt_t_scale=0.1,
+        m_a=1.0, m_b=1.0, hbar=1.0,
+        k_R=5.0, soc_d=0.5/4.0, soc_w=0.25,
+        test_finger=False)
 
-        self.Nxy = Nx, Ny = Nxy
-        self.dx = dx
-        self.Lxy = Lx, Ly = Lxy = np.asarray(Nxy)*dx
+    layout = w.VBox([
+        w.FloatLogSlider(name='cooling',
+                         base=10, min=-10, max=1, step=0.2,
+                         description='Cooling'),
+        w.FloatSlider(name='V0_mu',
+                      min=-2, max=2, step=0.1,
+                      description='V0/mu'),
+        w.density])
 
-        self.r0 = r0
-        self.V0_mu = V0_mu
-        self.healing_length = healing_length
-        self.cooling_phase = cooling_phase
-        dx, dy = np.divide(Lxy, Nxy)
-        x = (np.arange(Nx)*dx - Lx/2.0)[:, None]
-        y = (np.arange(Ny)*dy - Ly/2.0)[None, :]
-        self.xy = (x, y)
+    def __init__(self, opts):
+        super().__init__(opts=opts)
 
-        kx = 2*np.pi * np.fft.fftfreq(Nx, dy)[:, None]
-        ky = 2*np.pi * np.fft.fftfreq(Ny, dx)[None, :]
-        self.kxy = (kx, ky)
-        self.K = hbar**2*(kx**2 + ky**2)/2.0/self.m
+        self.init()
+        self.set_initial_data()
 
-        self.n0 = n0 = hbar**2/2.0/healing_length**2/g
-        self.mu = g*n0
-        mu_min = max(0, min(self.mu, self.mu*(1-self.V0_mu)))
-        self.c_s = np.sqrt(self.mu/self.m)
-        self.c_min = np.sqrt(mu_min/self.m)
-        # self.v_max = 1.1*self.c_min
+        self._N = self.get_density().sum()
+        self.t = 0
+
+    def init(self):
+        super().init()
+        kx, ky = self.kxy
+        self.K = self.hbar**2*(kx**2 + ky**2)/2.0/self.m
 
         # SOC Parameters
         # Make sure k_R and k0 are lattice momenta
         kx_ = kx.ravel()
-        self.k_R = kx_[np.argmin(abs(kx_ - k_R))]
-        self.E_R = (hbar*self.k_R)**2/2/m
-        self.Omega = soc_w*4*self.E_R
-        self.delta = soc_d*4*self.E_R
-        self.dispersion = Dispersion(w=soc_w, d=soc_d)
+        self.k_R = kx_[np.argmin(abs(kx_ - self.k_R))]
+        self.E_R = (self.hbar*self.k_R)**2/2/self.m
+        self.Omega = self.soc_w*4*self.E_R
+        self.delta = self.soc_d*4*self.E_R
+        self.dispersion = Dispersion(w=self.soc_w, d=self.soc_d)
         k0 = self.dispersion.get_k0() * self.k_R
         self.k0 = kx_[np.argmin(abs(kx_ - k0))]
 
+        # Precompute off-diagonal potential for speed.
+        x, y = self.xy
+        self._Vab = self.Omega/2.0 * np.exp(2j*self.k_R*x) + 0*y
+        self._V_trap = self.get_V_trap()
+        self.dt = self.dt_t_scale*self.t_scale
+
+        
+    def set_initial_data(self):
         psi_ab = np.asarray(self.dispersion.get_ab())[self.bcast]
 
+        x, y = self.xy
+        kx, ky = self.kxy
+        kx_ = kx.ravel()
+        
         ka = self.k0 + self.k_R
         kb = self.k0 - self.k_R
         assert np.allclose(0, [abs(ka - kx_).min(),
@@ -161,34 +178,21 @@ class State(object):
 
         phase = np.exp(1j*np.array([ka, kb])[self.bcast]*(x + 0*y))
         # phase = 1.0
-        self.data = (np.ones(Nxy, dtype=complex)[None, ...]
+
+        self.mu = self.hbar**2/2.0/self.m/self.healing_length**2        
+        na0, nb0 = self.mu/self.g_aa, self.mu/self.g_bb
+        n0 = na0 + nb0
+        self.c_s = np.sqrt(self.mu/self.m)
+
+        self.data = (np.ones(self.Nxy, dtype=complex)[None, ...]
                      * np.sqrt(n0) * psi_ab * phase)
         self._N = self.get_density().sum()
 
-        # Precompute off-diagonal potential for speed.
-        self._Vab = self.Omega/2.0 * np.exp(2j*k_R*x) + 0*y
-
-        self.test_finger = test_finger
-        self.z_finger = 0 + 0j
-        self.pot_k_m = 10.0
-        self.pot_z = 0 + 0j
-        self.pot_v = 0 + 0j
-        self.pot_damp = 4.0
-
         self.t = -10000
-        self.dt = dt_t_scale*self.t_scale
-        self._phase = -1.0/self.hbar
-        self.step(cooling_steps)
+        _phase, self._phase = self._phase, -1.0/self.hbar
+        self.step(self.cooling_steps)
         self.t = 0
-        self._phase = -1j/self.hbar/cooling_phase
-        self.dt = dt_t_scale*self.t_scale
-        self.c_s = np.sqrt(self.mu/self.m)
-
-    @property
-    def v_max(self):
-        return self.c_s
-        c_min = np.sqrt(self.g*self.get_density().min()/self.m)
-        return c_min
+        self._phase = _phase
 
     def get_densities(self):
         return abs(self.data)**2
@@ -196,8 +200,26 @@ class State(object):
     def get_density(self):
         return self.get_densities().sum(axis=0)
 
+    def get_v(self, y=None):
+        """Return the velocity field as a complex number."""
+        if y is None:
+            y = self.data[0]
+        yt = self.fft(y)
+        kx, ky = self.kxy
+        vx, vy = (self.ifft([kx*yt, ky*yt])/y).real * self.hbar / self.m
+        return vx + 1j*vy
+
+    # End of interface
+    ######################################################################
     def set_xy0(self, x0, y0):
         self.z_finger = x0 + 1j*y0
+
+    def get_v_max(self, density):
+        return self.c_s
+        c_min = np.sqrt(self.g*density.min()/self.m)
+        c_mean = 1.0*np.sqrt(self.g*density.mean()/self.m)
+        return c_mean        
+        return c_min
 
     @property
     def t_scale(self):
@@ -222,11 +244,15 @@ class State(object):
     def z_finger(self, z_finger):
         self._z_finger = z_finger
 
-    def fft(self, y):
-        return np.fft.fftn(y)
-
-    def ifft(self, y):
-        return np.fft.ifftn(y)
+    def get_V_trap(self):
+        """Return any static trapping potential."""
+        if False and self.cylinder:
+            x, y = self.xy
+            Lx, Ly = self.Lxy
+            r2_ = (2*x/Lx)**2 + (2*y/Ly)**2
+            return 100*self.mu*utils.mstep(r2_ - 0.8, 0.2)
+        else:
+            return 0
 
     def get_Vext(self):
         x, y = self.xy
@@ -235,40 +261,57 @@ class State(object):
         x = (x - x0 + Lx/2) % Lx - Lx/2
         y = (y - y0 + Ly/2) % Ly - Ly/2
         r2 = x**2 + y**2
-        return self.V0_mu*self.mu * np.exp(-r2/2.0/self.r0**2)
+        return self._V_trap + self.V0_mu*self.mu * np.exp(-r2/2.0/self.r0**2)
 
     def apply_expK(self, dt, factor=1.0):
         y = self.data
-        self.data[...] = self.ifft(np.exp(self._phase*dt*self.K*factor)
-                                   * self.fft(y))
+        if numexpr:
+            yt = self.fft(y)
+            self.data[...] = self.ifft(
+                numexpr.evaluate(
+                    'exp(f*K)*y',
+                    local_dict=dict(
+                        f=self._phase*dt*factor,
+                        K=self.K,
+                        y=yt)))
+        else:
+            self.data[...] = self.ifft(np.exp(self._phase*dt*self.K*factor)
+                                       * self.fft(y))
 
     def apply_expV(self, dt, factor=1.0):
         y = self.data
-        n = self.get_density()
-        V = self.get_Vext() + self.g*n - self.mu
-        Va = V - self.delta/2.0
-        Vb = V + self.delta/2.0
+        n_a, n_b = self.get_densities()
+        V = self.get_Vext()
+        Va = V + self.g_aa*n_a + self.g_ab*n_b - self.mu - self.delta/2.0
+        Vb = V + self.g_bb*n_b + self.g_ab*n_a - self.mu + self.delta/2.0
         Vab = self._Vab
         _tmp = self._phase*dt*factor * np.array([[Va, Vab],
                                                  [Vab.conj(), Vb]])
         self.data[...] = utils.dot2(utils.expm2(_tmp), y)
-        self.data *= np.sqrt(self._N/n.sum())
+        self.data *= np.sqrt(self._N/(n_a + n_b).sum())
 
     def mod(self, z):
         """Make sure the point z lies in the box."""
         return complex(*[(_x + _L/2) % (_L) - _L/2
                          for _x, _L in zip((z.real, z.imag), self.Lxy)])
 
-    def step(self, N):
+    def step(self, N, tracer_particles=None):
         dt = self.dt
         self.apply_expK(dt=dt, factor=0.5)
         self.t += dt/2.0
         for n in range(N):
+            if tracer_particles is not None:
+                # Update tracer particle positions.
+                # Maybe defer if too expensive
+                tracer_particles.update_tracer_velocity(state=self)
+                tracer_particles.update_tracer_pos(dt, state=self)
+
+            density = self.get_density()
             self.pot_z += dt * self.pot_v
-            pot_a = -self.pot_k_m * (self.pot_z - self.z_finger)
-            pot_a += -self.pot_damp * self.pot_v
+            pot_a = -self.finger_k_m * (self.pot_z - self.z_finger)
+            pot_a += -self.finger_damp * self.pot_v
             self.pot_v += dt * pot_a
-            if abs(self.pot_v) > self.v_max:
+            if abs(self.pot_v) > self.get_v_max(density=density):
                 self.pot_v *= self.v_max/abs(self.pot_v)
 
             self.pot_z = self.mod(self.pot_z)

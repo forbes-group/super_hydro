@@ -23,8 +23,38 @@ log_task = _LOGGER.log_task
 
 
 class ModelBase(object):
-    """Helper class for models."""
-    params = {}
+    """Helper class for models.
+
+    This class assumes that the underlying problem is of a quantum
+    nature, involving hbar, and solved on a Fourier lattice.  A such,
+    some of the requisite calculations are performed in the init()
+    method to avoid duplicating code.
+
+    Parameters
+    ----------
+    hbar : float
+       Planck's constant.
+    Nx, Ny : int
+       Size of the grid.
+    dx : float
+       Lattice spacing (assumed to be the same in each direction).
+    cooling : float
+       Amount of cooling to apply to the system during evolution.
+
+    finger_k_m : float
+       Spring constant of the finger-potential spring.
+    finger_damp : float
+       Damping of the finger-potential spring.
+    test_finger : bool
+       If True, then artificially move the finger to test the behaviour
+    """
+    params = dict(
+        hbar=1.0,
+        Nx=32, Ny=32, dx=1.0,
+        cooling=0.01,
+        finger_k_m=10.0, finger_damp=4.0,
+        test_finger=False,
+    )
 
     def __init__(self, opts):
         """Default constructor simply sets attributes defined in params."""
@@ -40,7 +70,36 @@ class ModelBase(object):
         Provides an alternative to having to define setters for each
         sensitive parameters.
         """
-        pass
+        Nx, Ny = self.Nxy = self.Nx, self.Ny
+        Lx, Ly = self.Lxy = np.asarray(self.Nxy)*self.dx
+        dx, dy = np.divide(self.Lxy, self.Nxy)
+        x = (np.arange(Nx)*dx - Lx/2.0)[:, None]
+        y = (np.arange(Ny)*dy - Ly/2.0)[None, :]
+        self.xy = (x, y)
+
+        self.kxy = kx, ky = (2*np.pi * np.fft.fftfreq(Nx, dx)[:, None],
+                             2*np.pi * np.fft.fftfreq(Ny, dy)[None, :])
+        
+        cooling_phase = 1+self.cooling*1j
+        cooling_phase = cooling_phase/abs(cooling_phase)
+        self._phase = -1j/self.hbar/cooling_phase
+
+        self.z_finger = 0 + 0j
+        self.pot_z = 0 + 0j
+        self.pot_v = 0 + 0j
+        
+        if mmfutils and False:
+            self._fft = mmfutils.performance.fft.get_fftn_pyfftw(self.data)
+            self._ifft = mmfutils.performance.fft.get_ifftn_pyfftw(self.data)
+        else:
+            self._fft = np.fft.fftn
+            self._ifft = np.fft.ifftn
+
+    def fft(self, y):
+        return self._fft(y, axes=(-1, -2))
+
+    def ifft(self, y):
+        return self._ifft(y, axes=(-1, -2))
 
     def set(self, param, value):
         """Set the param attribute to value.
@@ -70,14 +129,14 @@ class BEC(ModelBase):
     healing_length:
     """
     params = dict(
-        g=1.0, hbar=1.0, m=1.0,
-        Nx=32, Ny=32, dx=1.0,
+        ModelBase.params,
+        g=1.0, m=1.0,
         healing_length=10.0, r0=10.0, V0_mu=0.5,
         cooling=0.01,
         cooling_steps=100, dt_t_scale=0.1,
         winding=10,
         cylinder=True,
-        test_finger=False)
+        )
 
     layout = w.VBox([
         w.FloatLogSlider(name='cooling',
@@ -92,74 +151,42 @@ class BEC(ModelBase):
     def __init__(self, opts):
         super().__init__(opts=opts)
 
-        self.Nxy = Nxy = Nx, Ny = self.Nx, self.Ny
-        self.Lxy = Lx, Ly = Lxy = np.asarray(self.Nxy)*self.dx
-        dx, dy = np.divide(Lxy, Nxy)
-        x = (np.arange(Nx)*dx - Lx/2.0)[:, None]
-        y = (np.arange(Ny)*dy - Ly/2.0)[None, :]
-        self.xy = (x, y)
-
-        self._kxy = kx, ky = (2*np.pi * np.fft.fftfreq(Nx, dx)[:, None],
-                              2*np.pi * np.fft.fftfreq(Ny, dy)[None, :])
-
-        self.n0 = self.hbar**2/2.0/self.healing_length**2/self.g
-        self.mu = self.g*self.n0
+        self.mu = self.hbar**2/2.0/self.m/self.healing_length**2
+        self.n0 = self.mu/self.g
         mu_min = max(0, min(self.mu, self.mu*(1-self.V0_mu)))
         self.c_s = np.sqrt(self.mu/self.m)
         self.c_min = np.sqrt(mu_min/self.m)
         # self.v_max = 1.1*self.c_min
 
-        self.data = np.ones(self.Nxy, dtype=complex)
-
-        if mmfutils and False:
-            self._fft = mmfutils.performance.fft.get_fftn_pyfftw(self.data)
-            self._ifft = mmfutils.performance.fft.get_ifftn_pyfftw(self.data)
-        else:
-            self._fft = np.fft.fftn
-            self._ifft = np.fft.ifftn
-
-        self.z_finger = 0 + 0j
-        self.pot_k_m = 10.0
-        self.pot_z = 0 + 0j
-        self.pot_v = 0 + 0j
-        self.pot_damp = 4.0
-
         self.c_s = np.sqrt(self.mu/self.m)
 
         self.init()
         self.set_initial_data()
-
         self._N = self.get_density().sum()
+        
         self.t = 0
 
     def init(self):
-        cooling_phase = 1+self.cooling*1j
-        self.cooling_phase = cooling_phase/abs(cooling_phase)
-        kx, ky = self.kxy = self._kxy
+        super().init()
+        kx, ky = self.kxy
         self.K = self.hbar**2*(kx**2 + ky**2)/2.0/self.m
         self._V_trap = self.get_V_trap()
         self.dt = self.dt_t_scale*self.t_scale
-
+        
     def set_initial_data(self):
         self.data = np.ones(self.Nxy, dtype=complex) * np.sqrt(self.n0)
+        self._N = self.get_density().sum()
 
         # Cool a bit to remove transients.
+        _phase, self._phase = self._phase, -1j/self.hbar
         self.t = -10000
-        self.dt = self.dt_t_scale*self.t_scale
-
-        self.cooling_phase, cooling_phase = 1j, self.cooling_phase
         self.step(self.cooling_steps, tracer_particles=None)
-        self.cooling_phase = cooling_phase
+        self.t = 0
+        self._phase = self._phase
 
         if self.cylinder:
             x, y = self.xy
             self.data *= np.exp(1j*self.winding*np.angle(x+1j*y))
-
-    def fft(self, y):
-        return self._fft(y, axes=(-1, -2))
-
-    def ifft(self, y):
-        return self._ifft(y, axes=(-1, -2))
 
     def get_density(self):
         y = self.data
@@ -170,8 +197,8 @@ class BEC(ModelBase):
         if y is None:
             y = self.data
         yt = self.fft(y)
-        px, py = self.kxy
-        vx, vy = (self.ifft([px*yt, py*yt])/y).real / self.m
+        kx, ky = self.kxy
+        vx, vy = (self.ifft([kx*yt, ky*yt])/y).real * self.hbar / self.m
         return vx + 1j*vy
 
     # End of interface
@@ -179,10 +206,6 @@ class BEC(ModelBase):
     def set_xy0(self, xy0):
         x0, y0 = xy0
         self.z_finger = x0 + 1j*y0
-
-    @property
-    def _phase(self):
-        return -1j/self.hbar/self.cooling_phase
 
     def get_v_max(self, density):
         # c_min = 1.0*np.sqrt(self.g*density.min()/self.m)
@@ -283,8 +306,8 @@ class BEC(ModelBase):
 
             density = self.get_density()
             self.pot_z += dt * self.pot_v
-            pot_a = -self.pot_k_m * (self.pot_z - self.z_finger)
-            pot_a += -self.pot_damp * self.pot_v
+            pot_a = -self.finger_k_m * (self.pot_z - self.z_finger)
+            pot_a += -self.finger_damp * self.pot_v
             self.pot_v += dt * pot_a
             v_max = self.get_v_max(density=density)
             if abs(self.pot_v) > v_max:
@@ -389,7 +412,7 @@ class BECSOC(BEC):
 
     def init(self):
         super().init()
-        kx, ky = self._kxy
+        kx, ky = self.kxy
         if self.soc:
             self._dispersion = Dispersion(d=self.soc_d, w=self.soc_w)
             kR = 3 / self.healing_length
@@ -422,7 +445,7 @@ class BECFlow(BEC):
 
     def init(self):
         super().init()
-        kx, ky = self._kxy
+        kx, ky = self.kxy
         kx, ky = self.kxy = (kx + self.k_B, ky)
         self.K = self.hbar**2*(kx**2 + ky**2)/2.0/self.m
 
