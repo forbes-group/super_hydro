@@ -7,8 +7,6 @@ import threading
 import queue
 import time
 
-from matplotlib import cm
-
 import numpy as np
 
 from .. import config, communication, utils, widgets
@@ -134,8 +132,10 @@ class Computation(object):
     def do_get_density(self):
         self.density_queue.put(self.state.get_density())
 
-    def do_get_tracer(self):
-        self.tracer_queue.put(self.tracer_particles.get_tracer_particles())
+    def do_get_tracers(self):
+        trpos = self.tracer_particles.get_tracer_particles()
+        trinds = self.tracer_particles.get_inds(trpos, state=self.state)
+        self.tracer_queue.put(np.asarray(trinds))
 
     def do_update_finger(self, x, y):
         self.state.set('xy0', (x, y))
@@ -211,8 +211,10 @@ class Server(object):
                 except communication.TimeoutError:
                     continue
 
-                if client_message == b"Frame":
-                    self.send_frame()
+                if client_message == b"density":
+                    self.send_density()
+                elif client_message == b"Frame":
+                    self.send_Frame()
                 elif client_message == b"Vpos":
                     self.message_queue.put(("get_pot",))
                     pot_z = self.pot_queue.get()
@@ -245,11 +247,11 @@ class Server(object):
                 elif client_message == b"Pause":
                     self.message_queue.put(("pause",))
                     self.comm.respond(b"Paused")
+                elif client_message == b"tracers":
+                    self.send_tracers()
                 elif client_message == b"quit":
                     self.comm.respond(b"Quitting")
                     finished = True
-                elif client_message == b"Tracer":
-                    self.send_tracer()
                 else:
                     print("Unknown data type")
                     print("client message:", client_message)
@@ -266,43 +268,31 @@ class Server(object):
             w.value = self.state.params[w.name]
         self.comm.send(repr(layout))
 
+    def send_density(self):
+        """Send the density data."""
+        self.message_queue.put(("get_density",))
+        density = np.ascontiguousarray(self.density_queue.get())
+        self.comm.send_array(density)
+
     def send_frame(self):
-        """Send the RGB frame to draw."""
+        """Send the RGB frame to draw.
+
+        Deprecated: Get density and make frame on client.
+        """
         self.message_queue.put(("get_density",))
         n_ = self.density_queue.get().T
         # array = cm.viridis((n_-n_.min())/(n_.max()-n_.min()))
+        from matplotlib import cm
         array = cm.viridis(n_/n_.max())
-
         array = self._update_frame_with_tracer_particles(array)
-
         array *= int(255/array.max())  # normalize values
         data = array.astype(dtype='uint8')
         self.comm.send_array(data)
 
-    def send_tracer(self):
-        self.message_queue.put(("get_tracer",))
-        trpos = self.tracer_queue.get()
-        i = 0
-        while i < len(trpos):
-            xy = self.xy_to_pos((trpos[i].real, trpos[i].imag))
-            trpos[i] = xy
-            i = i + 1
-        array = trpos
-        trdata = array.astype(dtype='uint8')
+    def send_tracers(self):
+        self.message_queue.put(("get_tracers",))
+        trdata = self.tracer_queue.get()
         self.comm.send_array(trdata)
-
-    def _update_frame_with_tracer_particles(self, array):
-        # Note: array has x and y swapped...
-        self.message_queue.put(("get_tracer",))
-        pos = self.tracer_queue.get()  # Complex array of positions
-
-        ix, iy = self.computation.tracer_particles.get_inds(
-            pos, state=self.state)
-        alpha = self.opts.tracer_alpha
-        array[iy, ix, ...] = (
-            (1-alpha)*array[iy, ix, ...]
-            + alpha*np.array(self.opts.tracer_color))
-        return array
 
     def pos_to_xy(self, pos):
         """Return the (x, y) coordinates of (pos_x, pos_y) in the frame."""

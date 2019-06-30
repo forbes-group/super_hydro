@@ -31,15 +31,17 @@ class TracerParticles(object):
         return (np.asarray(particles))
 
     def get_inds(self, pos, state):
-        """Return the indices (ix, iy) to the nearest point on the
-        grid.
+        """Return the indices (ix, iy) on the grid.
+
+        Note: these are floating point values.  We keep them as floats
+        so that the clients can display with higher accuracy if desired.
         """
         x, y = state.xy
         Lx, Ly = state.Lxy
         Nx, Ny = state.Nxy
         pos = (pos + (Lx+1j*Ly)/2.0)
-        ix = np.round((pos.real / Lx) * Nx).astype(int) % Nx
-        iy = np.round((pos.imag / Ly) * Ny).astype(int) % Ny
+        ix = (pos.real % Lx) / Lx * (Nx - 1)
+        iy = (pos.imag % Ly) / Ly * (Ny - 1)
         return (ix, iy)
 
     def update_tracer_velocity(self, state):
@@ -62,7 +64,8 @@ class TracerParticles(object):
         if not hasattr(self, 'v_trace'):
             self.update_tracer_velocity()
         pos = self._par_pos
-        ix, iy = self.get_inds(pos, state=state)
+        ix, iy = [np.round(_i).astype(int)
+                  for _i in self.get_inds(pos, state=state)]
         v = self.v_trace[ix, iy]
         pos += dt*v
 

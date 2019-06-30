@@ -1,5 +1,3 @@
-import attr
-
 import numpy as np
 import numpy.fft
 from .. import utils, interfaces
@@ -163,7 +161,7 @@ class BEC(ModelBase):
         self.init()
         self.set_initial_data()
         self._N = self.get_density().sum()
-        
+
         self.t = 0
 
     def init(self):
@@ -336,7 +334,6 @@ class BEC(ModelBase):
         plt.colorbar()
 
 
-@attr.s
 class Dispersion(object):
     r"""Tools for computing porperties of the lower band dispersion.
 
@@ -359,8 +356,10 @@ class Dispersion(object):
     >>> np.allclose(ddEs[1:-1], ddEs__, rtol=0.04)
     True
     """
-    d = attr.ib()
-    w = attr.ib()
+
+    def __init__(self, d, w):
+        self.d = d
+        self.w = w
 
     def Es(self, k, d=0):
         D = np.sqrt((k-self.d)**2 + self.w**2)

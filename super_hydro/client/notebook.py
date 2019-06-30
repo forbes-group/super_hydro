@@ -13,6 +13,9 @@ import time
 import threading
 import IPython
 
+from matplotlib import cm
+
+import numpy as np
 
 import ipywidgets
 
@@ -33,11 +36,11 @@ class App(object):
             self.comm = communication.Client(opts=self.opts)
 
     @property
-    def data(self):
-        """Return data to plot: initiates call to server."""
+    def density(self):
+        """Return the density data to plot: initiates call to server."""
         with log_task("Get density from server."):
-            data = self.comm.get_array(b"Frame")
-        return data
+            density = self.comm.get_array(b"density")
+        return density
 
 
 class NotebookApp(App):
@@ -101,12 +104,12 @@ class NotebookApp(App):
 
         return layout
 
-    def get_image(self, data):
+    def get_image(self, rgba):
         import PIL
         if self.fmt.lower() == 'jpeg':
             # Discard alpha channel
-            data = data[..., :3]
-        img = PIL.Image.fromarray(data)
+            rgba = rgba[..., :3]
+        img = PIL.Image.fromarray(rgba)
         b = io.BytesIO()
         img.save(b, self.fmt)
         return b.getvalue()
@@ -115,6 +118,10 @@ class NotebookApp(App):
         """Return the model specified layout."""
         layout = eval(self.comm.get(b"layout"), widgets.__dict__)
         return layout
+
+    def get_tracer_particles(self):
+        """Return the location of the tracer particles."""
+        return self.comm.get_array(b"tracers")
 
     @nointerrupt
     def run(self, interrupted):
@@ -130,10 +137,31 @@ class NotebookApp(App):
             tic0 = time.time()
             with self.sync():
                 frame += 1
-                data = self.data
-                self._density.value = self.get_image(data)
+                density = self.density
+                rgba = self.get_rgba_from_density(density)
+                self._density.value = self.get_image(rgba=rgba)
             toc = time.time()
             self._msg.value = "{:.2f}fps".format(frame/(toc-tic0))
+
+    def get_rgba_from_density(self, density):
+        """Convert the density array into an rgba array for display."""
+        density = density.T
+        # array = cm.viridis((n_-n_.min())/(n_.max()-n_.min()))
+        array = cm.viridis(density/density.max())
+        array = self._update_frame_with_tracer_particles(array)
+        array *= int(255/array.max())  # normalize values
+        rgba = array.astype(dtype='uint8')
+        return rgba
+
+    def _update_frame_with_tracer_particles(self, array):
+        #import pdb;pdb.set_trace()
+        tracers = self.get_tracer_particles()
+        ix, iy = [np.round(_i).astype(int) for _i in tracers]
+        alpha = self.opts.tracer_alpha
+        array[iy, ix, ...] = (
+            (1-alpha)*array[iy, ix, ...]
+            + alpha*np.array(self.opts.tracer_color))
+        return array
 
     @contextmanager
     def sync(self):

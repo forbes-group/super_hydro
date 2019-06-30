@@ -5,8 +5,6 @@ x axis.  We assume that the coupling constants g_ab = g_bb = g_ab are
 equal which is a good approximation for Rubidium.
 """
 
-import attr
-
 import numpy as np
 import numpy.fft
 
@@ -21,7 +19,6 @@ except ImportError:
 from .gpe import ModelBase
 
 
-@attr.s
 class Dispersion(object):
     r"""Tools for computing porperties of the lower band dispersion.
 
@@ -44,8 +41,9 @@ class Dispersion(object):
     >>> np.allclose(ddEs[1:-1], ddEs__, rtol=0.04)
     True
     """
-    d = attr.ib()
-    w = attr.ib()
+    def __init__(self, d, w):
+        self.d = d
+        self.w = w
 
     def Es(self, k, d=0):
         D = np.sqrt((k-self.d)**2 + self.w**2)
