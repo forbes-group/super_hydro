@@ -1,5 +1,8 @@
 import numpy as np
 import numpy.fft
+
+from .helpers import ModelBase, FingerMixin
+
 from .. import utils, interfaces
 from .. import widgets as w
 
@@ -20,7 +23,7 @@ warn = _LOGGER.warn
 log_task = _LOGGER.log_task
 
 
-class ModelBase(object):
+class GPEBase(ModelBase, FingerMixin):
     """Helper class for models.
 
     This class assumes that the underlying problem is of a quantum
@@ -39,29 +42,18 @@ class ModelBase(object):
     cooling : float
        Amount of cooling to apply to the system during evolution.
 
-    finger_k_m : float
-       Spring constant of the finger-potential spring.
-    finger_damp : float
-       Damping of the finger-potential spring.
-    test_finger : bool
-       If True, then artificially move the finger to test the behaviour
     """
     params = dict(
         hbar=1.0,
         Nx=32, Ny=32, dx=1.0,
         cooling=0.01,
-        finger_k_m=10.0, finger_damp=4.0,
-        test_finger=False,
     )
 
-    def __init__(self, opts):
-        """Default constructor simply sets attributes defined in params."""
-        self._initializing = True
-        self.params = {_key: getattr(opts, _key, self.params[_key])
-                       for _key in self.params}
-        for _key in self.params:
-            setattr(self, _key, self.params[_key])
-        self._initializing = False
+    layout = w.VBox([
+        w.FloatLogSlider(name='cooling',
+                         base=10, min=-10, max=1, step=0.2,
+                         description='Cooling'),
+        FingerMixin.layout])
 
     def init(self):
         """Perform any calculations needed when parameters change.
@@ -81,10 +73,6 @@ class ModelBase(object):
         cooling_phase = 1+self.cooling*1j
         cooling_phase = cooling_phase/abs(cooling_phase)
         self._phase = -1j/self.hbar/cooling_phase
-
-        self.z_finger = 0 + 0j
-        self.pot_z = 0 + 0j
-        self.pot_v = 0 + 0j
         
         if mmfutils and False:
             self._fft = mmfutils.performance.fft.get_fftn_pyfftw(self.data)
@@ -92,6 +80,8 @@ class ModelBase(object):
         else:
             self._fft = np.fft.fftn
             self._ifft = np.fft.ifftn
+
+        super().init()
 
     def fft(self, y):
         return self._fft(y, axes=(-1, -2))
@@ -116,20 +106,53 @@ class ModelBase(object):
     def get(self, param):
         return getattr(self, param)
 
+    def step(self, N, tracer_particles=None):
+        dt = self.dt
+        self.apply_expK(dt=dt, factor=0.5)
+        self.t += dt/2.0
+        for n in range(N):
+            if tracer_particles is not None:
+                # Update tracer particle positions.
+                # Maybe defer if too expensive
+                tracer_particles.update_tracer_velocity(state=self)
+                tracer_particles.update_tracer_pos(dt, state=self)
 
-class BEC(ModelBase):
+            density = self.get_density()
+            if isinstance(self, FingerMixin) and self.t > 0:
+                # Don't move finger potential while preparing state.
+                self._step_finger_potential(dt=dt, density=density)
+
+            self.apply_expV(dt=dt, factor=1.0, density=density)
+            self.apply_expK(dt=dt, factor=1.0)
+            self.t += dt
+
+        self.apply_expK(dt=dt, factor=-0.5)
+        self.t -= dt/2.0
+
+        # Update tracer particle velocities after each full loop for speed
+        # self.update_tracer_velocity()
+
+    ######################################################################
+    # Required by subclasses
+    dt = NotImplemented
+    t = NotImplemented
+
+    def apply_expK(self, dt, factor):
+        raise NotImplementedError()
+
+    def apply_expV(self, dt, factor, density):
+        raise NotImplementedError()
+
+
+class BEC(GPEBase):
     """Single component BEC.
 
     Parameters
     ----------
-    V0_mu : float
-       Potential strength in units of mu
-    healing_length:
     """
     params = dict(
-        ModelBase.params,
         g=1.0, m=1.0,
-        healing_length=10.0, r0=10.0, V0_mu=0.5,
+        healing_length=10.0,
         cooling=0.01,
         cooling_steps=100, dt_t_scale=0.1,
         winding=10,
@@ -137,21 +160,15 @@ class BEC(ModelBase):
         )
 
     layout = w.VBox([
-        w.FloatLogSlider(name='cooling',
-                         base=10, min=-10, max=1, step=0.2,
-                         description='Cooling'),
-        w.FloatSlider(name='V0_mu',
-                      min=-2, max=2, step=0.1,
-                      description='V0/mu'),
         w.Checkbox(True, name='cylinder', description="Trap"),
-        w.density])
+        GPEBase.layout])
 
     def __init__(self, opts):
         super().__init__(opts=opts)
 
         self.mu = self.hbar**2/2.0/self.m/self.healing_length**2
         self.n0 = self.mu/self.g
-        mu_min = max(0, min(self.mu, self.mu*(1-self.V0_mu)))
+        mu_min = max(0, min(self.mu, self.mu*(1-self.finger_V0_mu)))
         self.c_s = np.sqrt(self.mu/self.m)
         self.c_min = np.sqrt(mu_min/self.m)
         # self.v_max = 1.1*self.c_min
@@ -201,11 +218,8 @@ class BEC(ModelBase):
 
     # End of interface
     ######################################################################
-    def set_xy0(self, xy0):
-        x0, y0 = xy0
-        self.z_finger = x0 + 1j*y0
-
-    def get_v_max(self, density):
+    def get_finger_v_max(self, density):
+        """Return the maximum speed finger potential will move at."""
         # c_min = 1.0*np.sqrt(self.g*density.min()/self.m)
         c_mean = 1.0*np.sqrt(self.g*density.mean()/self.m)
         return c_mean
@@ -213,20 +227,6 @@ class BEC(ModelBase):
     @property
     def t_scale(self):
         return self.hbar/self.K.max()
-
-    @property
-    def z_finger(self):
-        if self.test_finger:
-            if self.t >= 0:
-                return 3.0*np.exp(1j*self.t/5)
-            else:
-                return 3.0
-        else:
-            return self._z_finger
-
-    @z_finger.setter
-    def z_finger(self, z_finger):
-        self._z_finger = z_finger
 
     def get_V_trap(self):
         """Return any static trapping potential."""
@@ -240,15 +240,7 @@ class BEC(ModelBase):
 
     def get_Vext(self):
         """Return the full external potential."""
-        x, y = self.xy
-        x0, y0 = self.pot_z.real, self.pot_z.imag
-        Lx, Ly = self.Lxy
-
-        # Wrap displaced x and y in periodic box.
-        x = (x - x0 + Lx/2) % Lx - Lx/2
-        y = (y - y0 + Ly/2) % Ly - Ly/2
-        r2 = x**2 + y**2
-        return self._V_trap + self.V0_mu*self.mu * np.exp(-r2/2.0/self.r0**2)
+        return self._V_trap + super().get_Vext()
 
     def apply_expK(self, dt, factor=1.0):
         y = self.data
@@ -285,42 +277,6 @@ class BEC(ModelBase):
             V = self.get_Vext() + self.g*n - self.mu
             self.data[...] = np.exp(self._phase*dt*V*factor) * y
             self.data *= np.sqrt(self._N/n.sum())
-
-    def mod(self, z):
-        """Make sure the point z lies in the box."""
-        return complex(*[(_x + _L/2) % (_L) - _L/2
-                         for _x, _L in zip((z.real, z.imag), self.Lxy)])
-
-    def step(self, N, tracer_particles=None):
-        dt = self.dt
-        self.apply_expK(dt=dt, factor=0.5)
-        self.t += dt/2.0
-        for n in range(N):
-            if tracer_particles is not None:
-                # Update tracer particle positions.
-                # Maybe defer if too expensive
-                tracer_particles.update_tracer_velocity(state=self)
-                tracer_particles.update_tracer_pos(dt, state=self)
-
-            density = self.get_density()
-            self.pot_z += dt * self.pot_v
-            pot_a = -self.finger_k_m * (self.pot_z - self.z_finger)
-            pot_a += -self.finger_damp * self.pot_v
-            self.pot_v += dt * pot_a
-            v_max = self.get_v_max(density=density)
-            if abs(self.pot_v) > v_max:
-                self.pot_v *= v_max/abs(self.pot_v)
-            self.pot_z = self.mod(self.pot_z)
-
-            self.apply_expV(dt=dt, factor=1.0, density=density)
-            self.apply_expK(dt=dt, factor=1.0)
-            self.t += dt
-
-        self.apply_expK(dt=dt, factor=-0.5)
-        self.t -= dt/2.0
-
-        # Update tracer particle velocities after each full loop for speed
-        # self.update_tracer_velocity()
 
     def plot(self):
         from matplotlib import pyplot as plt
@@ -460,7 +416,7 @@ class BECSoliton(BECFlow):
 
     Here we assume that the box is
     """
-    params = dict(BECFlow.params, V0_mu=0.1, v_c=0)
+    params = dict(BECFlow.params, finger_V0_mu=0.1, v_c=0)
 
     layout = w.VBox([
         w.FloatSlider(name='v_c',
@@ -474,6 +430,8 @@ class BECSoliton(BECFlow):
             self.set_initial_data()
 
     def set_initial_data(self):
+        self.data = np.empty(self.Nxy, dtype=complex)
+
         x, y = self.xy
         v_c = self.v_c
         c_s = np.sqrt(self.g*self.n0/self.m)

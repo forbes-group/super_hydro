@@ -132,6 +132,12 @@ class NotebookApp(App):
 
         display(self.get_widget())
 
+        # Broken!  Fix aspect ratio better with reasonable sliders.
+        Nx = max(500, self.Nx)
+        Ny = int(self.Ny/self.Nx*Nx)
+        self._density.layout.width = f"{Nx}px"
+        self._density.layout.height = f"{Ny}px"
+
         while not interrupted and self._running:
             frame = 0
             tic0 = time.time()
