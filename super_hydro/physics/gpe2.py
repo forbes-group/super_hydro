@@ -4,6 +4,7 @@ Here we model two-component systems with spin-orbit coupling along the
 x axis.  We assume that the coupling constants g_ab = g_bb = g_ab are
 equal which is a good approximation for Rubidium.
 """
+import math
 
 import numpy as np
 import numpy.fft
@@ -105,6 +106,8 @@ class SOC2(GPEBase):
     soc_d : float
        SOC detuning (chemical potential difference): d=delta/4/E_R
     healing_length
+    mv_mu : float
+       Velocity of the moving frame in units of the chemical potential.
     """
     dim = 2
 
@@ -116,13 +119,20 @@ class SOC2(GPEBase):
         healing_length=1.0,
         coolinge=0.01,
         cooling_steps=100, dt_t_scale=0.1,
-        k_R=5.0, soc_d=0.5/4.0, soc_w=0.25)
+        k_R=5.0, soc_d=0.5/4.0, soc_w=0.25,
+        v_v_c=0,
+    )
 
-    layout = GPEBase.layout
+    layout = w.VBox([
+        w.FloatSlider(name='v_v_c',
+                      min=-5, max=5, step=0.1,
+                      description=r'v/v_c'),
+        GPEBase.layout])
 
     def __init__(self, opts):
         super().__init__(opts=opts)
 
+        self.mu = self.hbar**2/2.0/self.m/self.healing_length**2
         self.init()
         self.set_initial_data()
 
@@ -132,6 +142,9 @@ class SOC2(GPEBase):
     def init(self):
         super().init()
         kx, ky = self.kxy
+
+        # Add flow
+        kx, ky = self.kxy = (kx + self.k_B, ky)
 
         # SOC Parameters
         # Make sure k_R and k0 are lattice momenta
@@ -166,7 +179,6 @@ class SOC2(GPEBase):
         phase = np.exp(1j*np.array([ka, kb])[self.bcast]*(x + 0*y))
         # phase = 1.0
 
-        self.mu = self.hbar**2/2.0/self.m/self.healing_length**2        
         na0, nb0 = self.mu/self.g_aa, self.mu/self.g_bb
         n0 = na0 + nb0
         self.c_s = np.sqrt(self.mu/self.m)
@@ -198,8 +210,12 @@ class SOC2(GPEBase):
 
     # End of interface
     ######################################################################
-    def set_xy0(self, x0, y0):
-        self.z_finger = x0 + 1j*y0
+    @property
+    def k_B(self):
+        """Return the Bloch momentum.  This implements an overall flow."""
+        v_c = math.sqrt(self.mu/self.m)
+        v = self.v_v_c*v_c
+        return self.m * v / self.hbar
 
     def get_v_max(self, density):
         return self.c_s

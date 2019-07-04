@@ -1,3 +1,5 @@
+import math
+
 import numpy as np
 import numpy.fft
 
@@ -390,12 +392,12 @@ class BECFlow(BEC):
     velocity.  This velocity is implemented by shifting the momenta by
     k_B = m*v/hbar
     """
-    params = dict(BEC.params, cylinder=False, mv_mu=0)
+    params = dict(BEC.params, cylinder=False, v_v_c=0)
 
     layout = w.VBox([
-        w.FloatSlider(name='mv_mu',
+        w.FloatSlider(name='v_v_c',
                       min=-5, max=5, step=0.1,
-                      description='v/(mu/m)'),
+                      description=r'v/v_c'),
         BEC.layout])
 
     def init(self):
@@ -407,8 +409,9 @@ class BECFlow(BEC):
     @property
     def k_B(self):
         """Return the Bloch momentum"""
-        mv = self.mv_mu*self.mu
-        return mv/self.hbar
+        v_c = math.sqrt(self.mu/self.m)
+        v = self.v_v_c*v_c
+        return self.m * v / self.hbar
 
 
 class BECSoliton(BECFlow):
@@ -450,12 +453,6 @@ class BECSoliton(BECFlow):
         theta = np.angle(psi(Lx/2)/psi(-Lx/2))
         phase = np.exp(1j*theta*x/Lx)
         self.data[...] = psi(x)/phase
-
-    @property
-    def k_B(self):
-        """Return the Bloch momentum"""
-        mv = self.mv_mu*self.mu
-        return mv/self.hbar
 
 
 interfaces.classImplements(BEC, interfaces.IModel)
