@@ -79,6 +79,8 @@ class NotebookApp(App):
 
         extra_widgets = []
 
+        # Add the density and control widgets if they have not been
+        # provided yet.
         if 'density' not in special_widgets:
             extra_widgets.append(widgets.density)
         if 'controls' not in special_widgets:
