@@ -5,6 +5,7 @@ use to associate the widget with appropriate parameters in the client.
 """
 import traitlets
 import ipywidgets
+from .client.canvas_widget import Canvas
 
 __all__ = ['density',
            'Checkbox',
@@ -50,7 +51,8 @@ __all__ = ['density',
            'Controller',
            'Image',
            'Video',
-           'Audio']
+           'Audio',
+           'Canvas']
 
 
 class Checkbox(ipywidgets.Checkbox):
@@ -231,7 +233,7 @@ class Audio(ipywidgets.Audio):
 
 ######################################################################
 # Special widgets that should always be included.
-density = Image(name='density')
+density = Canvas(name='density')
 reset = Button(name='reset', description="Reset", layout=dict(width="5em"))
 reset_tracers = Button(name='reset_tracers',
                        description="Reset Tracers",

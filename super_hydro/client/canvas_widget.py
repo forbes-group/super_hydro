@@ -7,10 +7,12 @@ import os.path
 
 import numpy as np
 
+import traitlets
 from traitlets import Unicode, Bool, validate, TraitError, Instance, Int, Bytes
+
 from ipywidgets import DOMWidget, register
 from ipywidgets.widgets.trait_types import bytes_serialization
-
+from ipywidgets.widgets.widget import CallbackDispatcher
 
 _JS_FILE = __file__[:-3] + '.js'
 
@@ -35,12 +37,22 @@ class Canvas(DOMWidget):
     _image_width = Int(help="Image width").tag(sync=True)
 
     # Attributes
+    name = traitlets.ObjectName("_").tag(sync=True)
     width = Int(0, help="Width of canvas").tag(sync=True)
     height = Int(0, help="Height of canvas").tag(sync=True)
     clicks = Int(0, help="Number of clicks").tag(sync=True)
 
     indexing = Unicode(
         'xy', help="Indexing: 'xy' (faster) or 'ij'.  See np.meshgrid")
+
+    def __init__(self, *v, **kw):
+        super().__init__(*v, **kw)
+
+        #self._update_handlers = CallbackDispatcher()
+
+        # Until we properly install this, display the javascript to
+        # load the widget in the notebook.
+        display_js()
 
     @property
     def rgba(self):
@@ -67,7 +79,18 @@ class Canvas(DOMWidget):
             self._image_width = rgba_data.shape[1]
             self._rgba = rgba_data.tobytes()
 
+    def on_update(self, callback, remove=False):
+        """Register a callback to execute when the browser is ready
+        for an update.
 
+        Parameters
+        ----------
+        remove: bool (optional)
+            Set to true to remove the callback from the list of callbacks.
+        """
+        self._update_handlers.register_callback(callback, remove=remove)
+
+        
 def display_js():
     from IPython.display import Javascript, display
     with open(_JS_FILE) as f:

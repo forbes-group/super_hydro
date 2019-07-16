@@ -9,13 +9,14 @@ define('canvas_widget', ["@jupyter-widgets/base"], function(widgets) {
       this.canvas = document.createElement("canvas");
       this._ctx = this.canvas.getContext('2d');
       this.el.appendChild(this.canvas);
-	  
-	  //adds listener which triggers on click, issue with communication, this.model.get and
-	  //this.model.set not working
-	  this.canvas.addEventListener("mousedown", function(){
-		  this.handle_mouse_event();
-		  alert(click_number);
-	  });
+
+	    // adds listener which triggers on click, issue with communication,
+      // this.model.get and this.model.set not working
+      var events = ["mousedown", "mouseup", "mouseleave",
+                    "mouseenter", "mousemove"];
+      for (event of events) {
+	      this.canvas.addEventListener(event, this.handle_mouse_event.bind(this));
+      }
 	  
       // Background for rendering on Safari etc.
       this._bg_canvas = document.createElement("canvas");
@@ -51,8 +52,7 @@ define('canvas_widget', ["@jupyter-widgets/base"], function(widgets) {
       var height = this.model.get('height');
       var im_width = image_data.width;
       var im_height = image_data.height;
-	  
-      debugger;
+
       if (0 == width && 0 == height) {
         width = im_width;
         height = im_height;
@@ -82,18 +82,16 @@ define('canvas_widget', ["@jupyter-widgets/base"], function(widgets) {
                             0, 0, width, height);
       }
     },
-	
-	
-	// handles events using the mouse
-	handle_mouse_event: function () {
-		var click_number = this.model.get('clicks');
-		click_number += 1;
-		this.model.set('clicks', click_number);
-        this.model.save_changes();
-	},
-	
+	  
+	  handle_mouse_event: function (event) {
+	    // handles events using the mouse
+		  var click_number = this.model.get('clicks');
+		  click_number += 1;
+		  this.model.set('clicks', click_number);
+      this.model.save_changes();
+      console.log(event.type);
+	  },
   });
-  
   
   
   return {

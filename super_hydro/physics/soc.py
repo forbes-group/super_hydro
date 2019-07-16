@@ -27,6 +27,20 @@ class Dispersion(object):
     Everything is expressed in dimensionless units with $k/k_r$,
     $d=\delta/4E_R$, $w=\Omega/4E_R$, and $E_\pm/2E_R$.
 
+    Arguments
+    ---------
+    w, d : float
+       SOC parameters.
+    k0, E0 : float
+       If provided, the dispersion relationship is shifted so that the
+       bottom of the lower band is centered here.  Typically one will
+       set these as follows:
+
+           dispersion = Dispersion(w=... d=...)
+           k0 = dispersion.get_k0()
+           E0 = dispersion.Es(k0)[0]
+           dispersion.Dispersion(w=... d=..., k0=k0, E0=E0)
+
     Examples
     --------
     >>> E = Dispersion(w=1.5/4, d=0.543/4)
@@ -43,9 +57,11 @@ class Dispersion(object):
     >>> np.allclose(ddEs[1:-1], ddEs__, rtol=0.04)
     True
     """
-    def __init__(self, d, w):
+    def __init__(self, d, w, k0=0, E0=0):
         self.d = d
         self.w = w
+        self.k0 = k0
+        self.E0 = E0
 
     def Es(self, k, d=0):
         D = np.sqrt((k-self.d)**2 + self.w**2)
@@ -73,7 +89,7 @@ class Dispersion(object):
             k0 = self.newton(k0)
         return k0
 
-    def get_ab(self, branch=-1):
+    def get_ab(self, k_=None, branch=-1):
         """Return the wavefunction factors `(psi_a, psi_b)` for the
         specified band.
 
@@ -84,7 +100,8 @@ class Dispersion(object):
         """
         d_ = self.d
         C_ = w_ = self.w
-        k_ = self.get_k0()
+        if k_ is None:
+            k_ = self.get_k0()
 
         D_ = -branch*np.sqrt((k_-d_)**2 + w_**2)
         B_ = k_ - d_
@@ -150,6 +167,7 @@ class SOC2(GPEBase):
         # Make sure k_R and k0 are lattice momenta
         kx_ = kx.ravel()
         self.k_R = kx_[np.argmin(abs(kx_ - self.k_R))]
+        self.v_R = self.hbar*self.k_R/self.m
         self.E_R = (self.hbar*self.k_R)**2/2/self.m
         self.Omega = self.soc_w*4*self.E_R
         self.delta = self.soc_d*4*self.E_R
@@ -215,7 +233,13 @@ class SOC2(GPEBase):
         """Return the Bloch momentum.  This implements an overall flow."""
         v_c = math.sqrt(self.mu/self.m)
         v = self.v_v_c*v_c
-        return self.m * v / self.hbar
+        k_B = self.m * v / self.hbar
+
+        # Round to make sure it is commensurate with box.
+        Lx, Ly = self.Lxy
+        n = round(Lx*k_B/2/np.pi)
+        k_B = 2*np.pi * n / Lx
+        return k_B
 
     def get_v_max(self, density):
         return self.c_s
@@ -287,7 +311,13 @@ class SOC2(GPEBase):
 
 class SOC1(GPEBase):
     """Two-component BEC with spin orbit coupling (SOC) along the
-    x-axis (equal Rashba and Dresselhaus terms).
+    x-axis (equal Rashba and Dresselhaus terms).  Here we model the
+    system with a single band model which is much faster, but misses
+    some physics (notably, the phonon dispersion relationship is
+    different.)
+
+    Note: This class shifts the dispersion so that the minimum sits at
+          k0 = E0 = 0.
 
     Parameters
     ----------
@@ -295,11 +325,18 @@ class SOC1(GPEBase):
        SOC strength: w=Omega/4/E_R
     soc_d : float
        SOC detuning (chemical potential difference): d=delta/4/E_R
-    healing_length
-    single_band : bool
-       If `True`, then a single component is modeled with an
-       appropriately modified dispersion.  This is significantly
-       faster but misses physics if the second band is occupied.
+    l_R : float
+       SOC lattice spacing.  This sets the scale for the SOC with the
+       recoil momentum `k_R = 2*pi/l_R` and energy `E_R = (hbar*k_R)**2/2/m`.
+
+    healing_length : float
+       Length-scale on which the kinetic energy and potential are
+       similar.  This defines how quickly the gas will vanish near
+       boundaries and in the core of vortices etc.  This is used to
+       set the chemical potential.
+    dx : float
+       Basis lattice spacing.  Should be smaller than all other length scales.
+
     """
     dim = 2
 
@@ -309,7 +346,16 @@ class SOC1(GPEBase):
         healing_length=1.0,
         coolinge=0.01,
         cooling_steps=100, dt_t_scale=0.1,
-        k_R=5.0, soc_d=0.5/4.0, soc_w=0.25)
+        l_R=0.2, soc_d=0.5/4.0, soc_w=0.25)
+
+    layout = w.VBox([
+        w.FloatSlider(name='soc_w',
+                      min=-3, max=3, step=0.1,
+                      description=r'w'),
+        w.FloatSlider(name='soc_d',
+                      min=-2, max=2, step=0.1,
+                      description=r'd'),
+        GPEBase.layout])
 
     def __init__(self, opts):
         super().__init__(opts=opts)
@@ -320,22 +366,36 @@ class SOC1(GPEBase):
         self._N = self.get_density().sum()
         self.t = 0
 
+    def get_psi(self):
+        return self.data
+
+    def set_psi(self, psi):
+        self.data[...] = psi
+
     def init(self):
         super().init()
         kx, ky = self.kxy
 
         # SOC Parameters
-        # Make sure k_R and k0 are lattice momenta
-        kx_ = kx.ravel()
-        self.k_R = kx_[np.argmin(abs(kx_ - self.k_R))]
+        # For the single-band model, we do not need to ensure that k_R
+        # is a lattice momentum like we do with the 2-component case.
+        self.k_R = 2*np.pi / self.l_R
+        self.v_R = self.hbar*self.k_R/self.m
         self.E_R = (self.hbar*self.k_R)**2/2/self.m
         self.Omega = self.soc_w*4*self.E_R
         self.delta = self.soc_d*4*self.E_R
-        self.dispersion = Dispersion(w=self.soc_w, d=self.soc_d)
-        k0 = self.dispersion.get_k0() * self.k_R
-        self.k0 = kx_[np.argmin(abs(kx_ - k0))]
 
-        Ex = 2*self.E_R * self.dispersion(self.kx/self.k_R)[0]
+        # Compute the dispersion relationship and shift it so that the
+        # initial minimum is at k0 = 0.
+        _dispersion = Dispersion(w=self.soc_w, d=self.soc_d)
+        k0 = _dispersion.get_k0()
+        E0 = _dispersion.Es(k0)[0]
+        self.dispersion = Dispersion(w=self.soc_w, d=self.soc_d,
+                                     k0=k0, E0=E0)
+        self.k0 = 0.0
+
+        # Compute the kinetic energy.
+        Ex = 2*self.E_R * self.dispersion.Es(kx/self.k_R)[0]
         kx2 = 2*self.m * Ex / self.hbar**2
         self.K = self.hbar**2*(kx2 + ky**2)/2.0/self.m
 
@@ -345,24 +405,18 @@ class SOC1(GPEBase):
         self.dt = self.dt_t_scale*self.t_scale
 
     def set_initial_data(self):
-        psi_ab = np.asarray(self.dispersion.get_ab())[self.bcast]
-
-        x, y = self.xy
-        kx, ky = self.kxy
-        kx_ = kx.ravel()
-
-        ka = self.k0 + self.k_R
-        kb = self.k0 - self.k_R
-        assert np.allclose(0, [abs(ka - kx_).min(),
-                               abs(kb - kx_).min()])
-
         self.mu = self.hbar**2/2.0/self.m/self.healing_length**2
-        n0 = self.mu/self.g
         self.c_s = np.sqrt(self.mu/self.m)
 
-        self.data = np.ones(self.Nxy, dtype=complex) * np.sqrt(n0)
+        mu_eff = self.mu - self.get_V_trap()
+        psi0 = np.ma.divide(mu_eff, self.g)
+        if not np.isscalar(psi0):
+            psi0 = psi0.filled(0)
+
+        self.data = np.ones(self.Nxy, dtype=complex) * psi0
         self._N = self.get_density().sum()
 
+        # Cool a bit.
         self.t = -10000
         _phase, self._phase = self._phase, -1.0/self.hbar
         self.step(self.cooling_steps)
@@ -370,8 +424,17 @@ class SOC1(GPEBase):
         self._phase = _phase
 
     def get_densities(self):
-        """Return the densities (n_a, n_b)."""
-        raise NotImplementedError()
+        """Return the densities (n_a, n_b).
+
+        This version uses the spin-quasi-momentum map.
+        """
+        kx, ky = self.kxy
+        y = self.get_psi()
+
+        # Should formally have y.conj() in both terms, but it cancels.
+        k = np.ma.divide(self.ifft(kx * self.fft(y)), y).filled(0).real
+        psi_a, psi_b = self.dispersion.get_ab(k_=k/self.k_R)
+        return abs(psi_a)**2, abs(psi_b)**2
 
     def get_density(self):
         return abs(self.get_psi())**2
@@ -379,10 +442,12 @@ class SOC1(GPEBase):
     def get_v(self, y=None):
         """Return the velocity field as a complex number."""
         if y is None:
-            y = self.data
+            y = self.get_psi()
         yt = self.fft(y)
         kx, ky = self.kxy
-        vx, vy = (self.ifft([kx*yt, ky*yt])/y).real * self.hbar / self.m
+        k_x, k_y = np.ma.divide(self.ifft([kx*yt, ky*yt]), y).filled(0).real
+        vy = k_y * self.hbar / self.m
+        vx = self.dispersion.Es(k_x/self.k_R, d=1)[0]*self.v_R
         return vx + 1j*vy
 
     # End of interface
@@ -432,24 +497,61 @@ class SOC1(GPEBase):
                                        * self.fft(y))
 
     def apply_expV(self, dt, factor=1.0, density=None):
-        y = self.data
-        n_a, n_b = self.get_densities()
-        V = self.get_Vext()
-        Va = V + self.g_aa*n_a + self.g_ab*n_b - self.mu - self.delta/2.0
-        Vb = V + self.g_bb*n_b + self.g_ab*n_a - self.mu + self.delta/2.0
-        Vab = self._Vab
-        _tmp = self._phase*dt*factor * np.array([[Va, Vab],
-                                                 [Vab.conj(), Vb]])
-        self.data[...] = utils.dot2(utils.expm2(_tmp), y)
-        self.data *= np.sqrt(self._N/(n_a + n_b).sum())
+        n = self.get_density()
+        V = self.get_Vext() + self.g*n - self.mu
+        self.data *= np.exp(self._phase*dt*factor * V)
+        self.data *= np.sqrt(self._N/(n).sum())
 
     def plot(self):
-        from matplotlib import pyplot as plt
-        n = self.get_density()
+        """Simple plotting for debugging."""
+        from mmfutils import plot as mmfplt
         x, y = self.xy
-        plt.pcolormesh(x.ravel(), y.ravel(), n.T)
-        plt.gca().set_aspect(1)
-        plt.plot([self.pot_z.real], [self.pot_z.imag], 'ro')
-        plt.plot([self.z_finger.real], [self.z_finger.imag], 'go')
-        plt.title("{:.2f}".format(self.t))
-        plt.colorbar()
+        n = self.get_density()
+        mmfplt.imcontourf(x, y, n, aspect=1)
+
+
+class SuperSolid2(SOC2):
+    """SuperSolid Explorer.
+
+    Explore the supersolid phase in a two-component BEC with SOC.
+
+    Parameters
+    ----------
+    lattice_k_k_R : float
+       External lattice potential wavenumber in units of k_R.
+    lattice_V0_mu : float
+       Strength of external lattice potential in units of the chemical potential.
+    lattice_x0 : float
+       Center of external lattice potential.
+    """
+    params = dict(
+        SOC2.params,
+        lattice_k_k_R=2.0,
+        lattice_V0_mu=0.1,
+        lattice_x0=0.0,
+    )
+
+    layout = w.VBox([
+        w.FloatSlider(name='lattice_k_k_R',
+                      min=-3, max=3, step=0.1,
+                      description=r'k_L/k_R'),
+        w.FloatSlider(name='lattice_V0_mu',
+                      min=-2, max=2, step=0.1,
+                      description=r'V_L'),
+        w.FloatSlider(name='lattice_x0',
+                      min=-5, max=5, step=0.1,
+                      description=r'x_0'),
+        SOC2.layout])
+
+    def init(self):
+        super().init()
+
+    def get_V_trap(self):
+        """Return any static trapping potential."""
+        x, y = self.xy
+        Lx, Ly = self.Lxy
+        k_L = self.lattice_k_k_R * self.k_R
+        cells_L = np.round(Lx / (2*np.pi/k_L))
+        k_L = 2*np.pi * cells_L / Lx
+        V0 = self.lattice_V0_mu * self.mu
+        return V0 * np.cos(k_L * (x - self.lattice_x0))

@@ -189,7 +189,7 @@ class BEC(GPEBase):
         self.K = self.hbar**2*(kx**2 + ky**2)/2.0/self.m
         self._V_trap = self.get_V_trap()
         self.dt = self.dt_t_scale*self.t_scale
-        
+
     def set_initial_data(self):
         self.data = np.ones(self.Nxy, dtype=complex) * np.sqrt(self.n0)
         self._N = self.get_density().sum()

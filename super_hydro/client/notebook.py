@@ -1,11 +1,15 @@
 """Jupyter Notebook interface.
 
-For performance here, we directly use IPyWidgets, displaying the
-result as an image.  This allows reasonable frame-rates, an order of
-magnitude faster than using matplotlib.imshow for example.
+For performance here, we use IPyWidgets and our custom Canvas widget.
+This allows reasonable frame-rates, an order of magnitude faster than
+using matplotlib.imshow for example.
 
 By stacking various elements, we can allow the user to update
 components of the simulation.
+
+Control is driven by alternating between python and javascript.  We
+register the update function which the Canvas will then call after the
+browser is finished displaying the last frame.
 """
 from contextlib import contextmanager
 import io
@@ -46,6 +50,7 @@ class App(object):
 class NotebookApp(App):
     fmt = 'PNG'
     _running = True
+    browser_control = False
 
     def _get_widget(self):
         layout = self.get_layout()
@@ -92,7 +97,7 @@ class NotebookApp(App):
             widgets.get_interactive_and_special_widgets(layout))
 
         self._density = special_widgets['density']
-        self._density.width = self.width
+        self._density.width = 500#self.width
         self._reset = special_widgets['reset']
         self._reset.on_click(self.on_click)
         self._reset_tracers = special_widgets['reset_tracers']
@@ -137,20 +142,32 @@ class NotebookApp(App):
         # Broken!  Fix aspect ratio better with reasonable sliders.
         Nx = max(500, self.Nx)
         Ny = int(self.Ny/self.Nx*Nx)
-        self._density.layout.width = f"{Nx}px"
-        self._density.layout.height = f"{Ny}px"
+        self._density.width = Nx
+        #self._density.height = Ny
 
-        while not interrupted and self._running:
-            frame = 0
-            tic0 = time.time()
+        self._frame = 0
+        if self.browser_control:
+            pass
+        else:
+            while not interrupted and self._running:
+                tic0 = time.time()
+                with self.sync():
+                    self._frame += 1
+                    density = self.density
+                    rgba = self.get_rgba_from_density(density)
+                    self._density.rgba = rgba
+                toc = time.time()
+                self._msg.value = "{:.2f}fps".format(self._frame/(toc-tic0))
+
+    def update(self):
+        """Callback to update frame when browser is ready."""
+        if self._running:
             with self.sync():
-                frame += 1
+                self._frame += 1
                 density = self.density
                 rgba = self.get_rgba_from_density(density)
-                self._density.value = self.get_image(rgba=rgba)
-            toc = time.time()
-            self._msg.value = "{:.2f}fps".format(frame/(toc-tic0))
-
+                self._density.rgba = rgba
+        
     def get_rgba_from_density(self, density):
         """Convert the density array into an rgba array for display."""
         density = density.T

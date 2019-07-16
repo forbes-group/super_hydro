@@ -1,3 +1,5 @@
+import argparse
+import collections.abc
 import inspect
 
 import numpy as np
@@ -13,6 +15,11 @@ class ModelBase(object):
         """Default constructor simply sets attributes defined in params."""
         self._initializing = True
 
+        # Sometimes a user might pass in a dictionary instead of a
+        # Namespace for opts:
+        if isinstance(opts, collections.abc.Mapping):
+            opts = argparse.Namespace(**opts)
+            
         # Collect all parameters from base classes
         params = {}
         mro = inspect.getmro(type(self))
