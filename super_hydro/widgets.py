@@ -238,11 +238,12 @@ reset = Button(name='reset', description="Reset", layout=dict(width="5em"))
 reset_tracers = Button(name='reset_tracers',
                        description="Reset Tracers",
                        layout=dict(width="8em"))
+fps = IntSlider(20, 0, 60, name='fps')
 quit = Button(name='quit', description="Quit", layout=dict(width="4em"))
 messages = Label("Messages", name="messages")
-controls = HBox([quit, reset, reset_tracers, messages], name='controls')
+controls = HBox([quit, reset, reset_tracers, fps, messages], name='controls')
 special_widget_names = set(['density',
-                            'quit', 'reset', 'reset_tracers',
+                            'quit', 'reset', 'reset_tracers', 'fps', 
                             'messages',
                             'controls'])
 

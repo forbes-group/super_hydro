@@ -38,6 +38,7 @@ class Canvas(DOMWidget):
 
     # Attributes
     name = traitlets.ObjectName("_").tag(sync=True)
+    fps = Int(20, help="Maximum fps for update requests.").tag(sync=True)
     width = Int(0, help="Width of canvas").tag(sync=True)
     height = Int(0, help="Height of canvas").tag(sync=True)
     clicks = Int(0, help="Number of clicks").tag(sync=True)
@@ -48,7 +49,8 @@ class Canvas(DOMWidget):
     def __init__(self, *v, **kw):
         super().__init__(*v, **kw)
 
-        #self._update_handlers = CallbackDispatcher()
+        self._update_handlers = CallbackDispatcher()
+        self.on_msg(self._handle_update_request)
 
         # Until we properly install this, display the javascript to
         # load the widget in the notebook.
@@ -90,7 +92,14 @@ class Canvas(DOMWidget):
         """
         self._update_handlers.register_callback(callback, remove=remove)
 
-        
+    def update(self):
+        self._update_handlers()
+
+    def _handle_update_request(self, canvas, content, buffers):
+        if content.get('request', '') == 'update':
+            self.update()
+
+
 def display_js():
     from IPython.display import Javascript, display
     with open(_JS_FILE) as f:

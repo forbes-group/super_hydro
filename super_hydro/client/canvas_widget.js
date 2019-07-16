@@ -1,9 +1,15 @@
 // -*- mode: js; js-indent-level: 2; -*-
 require.undef('canvas_widget');
 
+function sleep(ms) {
+  return new Promise(resolve => setTimeout(resolve, ms));
+}
+
+
+
 define('canvas_widget', ["@jupyter-widgets/base"], function(widgets) {
   var CanvasView = widgets.DOMWidgetView.extend({
-  
+    
     // Render the view.
     render: function() {
       this.canvas = document.createElement("canvas");
@@ -21,8 +27,12 @@ define('canvas_widget', ["@jupyter-widgets/base"], function(widgets) {
       // Background for rendering on Safari etc.
       this._bg_canvas = document.createElement("canvas");
       this._bg_ctx = this._bg_canvas.getContext('2d');
+      
+      // Timing control
+      this._tic = Date.now();
 
-      this.update()
+      // Start the event loop.
+      this.start()
       
       // Python -> JavaScript update
       //this.model.on('change:width', this.update, this);
@@ -32,18 +42,49 @@ define('canvas_widget', ["@jupyter-widgets/base"], function(widgets) {
       // JavaScript -> Python update
       //this.value.onchange = this.value_changed.bind(this);
     },
+
+    /**
+     * Start the event loop.  This sends a message to the server to update.
+     */
+    start: function() {
+      requestAnimationFrame(this.send_update_request.bind(this));
+    },
+
+    /**
+     * Send an update request message to the python side.
+     */
+    send_update_request: function() {
+      this.send({'request': 'update'});
+    },
     
+    /**
+     * This function is called whenever the model changes and does not
+     * need to be registered. This behaviour is defined in
+     * packages/base/src/widget.ts
+     */
     update: function() {
+      this.do_update();
+      var fps = this.model.get('fps');
+      var toc = Date.now();
+      var elapsed_time = toc - this._tic;
+      this._tic = toc;
+      var wait = 1000/fps - elapsed_time;
+      console.log(wait);
+      setTimeout(this.start.bind(this), 1000);
+    },
+
+    do_update: function() {
       var _data = this.model.get('_rgba');
       if (_data && _data.byteLength) {
         var _raw_data = new Uint8ClampedArray(_data.buffer);
         var _width = this.model.get('_image_width');
         this._image_data = new ImageData(_raw_data, _width);
-        //requestAnimationFrame(this.draw_image.bind(this));
         this.draw_image();
       }
-    },
 
+      this.send({'event': 'update'});
+    },
+    
     draw_image: function() {
       // Draws the image data on the canvas, scaling up if the size
       // does not match.
@@ -89,7 +130,7 @@ define('canvas_widget', ["@jupyter-widgets/base"], function(widgets) {
 		  click_number += 1;
 		  this.model.set('clicks', click_number);
       this.model.save_changes();
-      console.log(event.type);
+      //console.log(event.type);
 	  },
   });
   

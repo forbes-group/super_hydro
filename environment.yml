@@ -20,7 +20,7 @@ dependencies:
   - ipywidgets
   - pillow
   - ipympl
-  
+  - husl  
 
   - pip:
     - kivy

@@ -50,7 +50,7 @@ class App(object):
 class NotebookApp(App):
     fmt = 'PNG'
     _running = True
-    browser_control = False
+    browser_control = True
 
     def _get_widget(self):
         layout = self.get_layout()
@@ -104,7 +104,12 @@ class NotebookApp(App):
         self._reset_tracers.on_click(self.on_click)
         self._quit = special_widgets['quit']
         self._quit.on_click(self.on_click)
+        self._fps = special_widgets['fps']
         self._msg = special_widgets['messages']
+
+        # Link fps slider and density fps value.
+        _l = ipywidgets.jslink((self._fps, 'value'),
+                               (self._density, 'fps'))
 
         for w in self._interactive_widgets:
             w.observe(self.on_value_change, names='value')
@@ -147,7 +152,8 @@ class NotebookApp(App):
 
         self._frame = 0
         if self.browser_control:
-            pass
+            self._density.on_update(callback=self.update)
+            self.update()
         else:
             while not interrupted and self._running:
                 tic0 = time.time()
@@ -165,9 +171,8 @@ class NotebookApp(App):
             with self.sync():
                 self._frame += 1
                 density = self.density
-                rgba = self.get_rgba_from_density(density)
-                self._density.rgba = rgba
-        
+                self._density.rgba = self.get_rgba_from_density(density)
+
     def get_rgba_from_density(self, density):
         """Convert the density array into an rgba array for display."""
         density = density.T
