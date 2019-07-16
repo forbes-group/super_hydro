@@ -37,6 +37,7 @@ class Canvas(DOMWidget):
     # Attributes
     width = Int(0, help="Width of canvas").tag(sync=True)
     height = Int(0, help="Height of canvas").tag(sync=True)
+    clicks = Int(0, help="Number of clicks").tag(sync=True)
 
     indexing = Unicode(
         'xy', help="Indexing: 'xy' (faster) or 'ij'.  See np.meshgrid")
