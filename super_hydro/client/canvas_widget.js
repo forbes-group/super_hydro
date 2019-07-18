@@ -16,17 +16,17 @@ define('canvas_widget', ["@jupyter-widgets/base"], function(widgets) {
       this._ctx = this.canvas.getContext('2d');
       this.el.appendChild(this.canvas);
 
-	// adds listener which triggers on mouse events
+	    // adds listener which triggers on mouse events
       var events = ["mousedown", "mouseup", "mouseleave",
                     "mouseenter", "mousemove"];
       for (event of events) {
 	      this.canvas.addEventListener(event, this.handle_mouse_event.bind(this));
       }
-	  
-	 // adds listener whih triggers on key events
-	 this.canvas.tabIndex = 1
-	  var key_events = ["keydown", "keyup"];
-	  for (event of key_events) {
+	   
+	    // adds listener whih triggers on key events
+      this.canvas.tabIndex = 1;
+	    var key_events = ["keydown", "keyup"];
+	    for (event of key_events) {
 	      this.canvas.addEventListener(event, this.handle_key_event.bind(this));
       }
 	  
@@ -36,14 +36,15 @@ define('canvas_widget', ["@jupyter-widgets/base"], function(widgets) {
       
       // Timing control
       this._tic = Date.now();
-
+      this._update_requests = [];
+      
       // Start the event loop.
       this.start()
       
       // Python -> JavaScript update
       //this.model.on('change:width', this.update, this);
       //this.model.on('change:height', this.update, this);
-      //this.model.on('change:_rgba', this.update, this);
+      this.model.on('change:_rgba', this.update_rgba, this);
       
       // JavaScript -> Python update
       //this.value.onchange = this.value_changed.bind(this);
@@ -69,14 +70,28 @@ define('canvas_widget', ["@jupyter-widgets/base"], function(widgets) {
      * packages/base/src/widget.ts
      */
     update: function() {
+    },
+
+    /**
+     * This function is called whenever the model changes and does not
+     * need to be registered. This behaviour is defined in
+     * packages/base/src/widget.ts
+     */
+    update_rgba: function() {
+      // Remove all old requests
+      while (this._update_requests.length) {
+        clearTimeout(this._update_requests.pop());
+      }
+      
       this.do_update();
       var fps = this.model.get('fps');
       var toc = Date.now();
       var elapsed_time = toc - this._tic;
       this._tic = toc;
       var wait = 1000/fps - elapsed_time;
+      wait = Math.max(0, wait);
       console.log(wait);
-      setTimeout(this.start.bind(this), 1000);
+      this._update_requests.push(setTimeout(this.start.bind(this), wait));
     },
 
     do_update: function() {
@@ -87,8 +102,6 @@ define('canvas_widget', ["@jupyter-widgets/base"], function(widgets) {
         this._image_data = new ImageData(_raw_data, _width);
         this.draw_image();
       }
-
-      this.send({'event': 'update'});
     },
     
     draw_image: function() {
