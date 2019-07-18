@@ -16,12 +16,18 @@ define('canvas_widget', ["@jupyter-widgets/base"], function(widgets) {
       this._ctx = this.canvas.getContext('2d');
       this.el.appendChild(this.canvas);
 
-	    // adds listener which triggers on click, issue with communication,
-      // this.model.get and this.model.set not working
+	// adds listener which triggers on mouse events
       var events = ["mousedown", "mouseup", "mouseleave",
                     "mouseenter", "mousemove"];
       for (event of events) {
 	      this.canvas.addEventListener(event, this.handle_mouse_event.bind(this));
+      }
+	  
+	 // adds listener whih triggers on key events
+	 this.canvas.tabIndex = 1
+	  var key_events = ["keydown", "keyup"];
+	  for (event of key_events) {
+	      this.canvas.addEventListener(event, this.handle_key_event.bind(this));
       }
 	  
       // Background for rendering on Safari etc.
@@ -124,14 +130,56 @@ define('canvas_widget', ["@jupyter-widgets/base"], function(widgets) {
       }
     },
 	  
+	  // handles events using the mouse
 	  handle_mouse_event: function (event) {
-	    // handles events using the mouse
-		  var click_number = this.model.get('clicks');
-		  click_number += 1;
-		  this.model.set('clicks', click_number);
+	    
+		  var ev = {};
+		  
+		  ev.type = event.type;
+		  
+		  //distinguish left and right click
+		  if (ev.type == "mousedown" || ev.type == "mouseup"){
+			  switch (event.button){
+				  case 0:
+					ev.type = '' + ev.type + '_left'
+				  break;
+				  
+				  case 1:
+					ev.type = '' + ev.type + '_middle'
+				  break;
+				  
+				  case 2:
+					ev.type = '' + ev.type + '_right'
+				  break;
+				  
+				  default:
+					ev.type = 'unexpected'
+			  }
+		  }
+		  
+		  // handles coordinates of mouse
+		  ev.coor_X = event.offsetX;
+		  ev.coor_Y = event.offsetY;
+		  
+		  //sends ev back to python as dictionary
+		  this.model.set('mouse_event_data', ev);
+		  
       this.model.save_changes();
       //console.log(event.type);
 	  },
+	  
+	  // handle key presses
+	  handle_key_event: function (event) {
+		  var kev = {};
+		  kev.keyCode = event.keyCode;
+		  kev.type = event.type;
+		  
+		  this.model.set('key_event_data', kev);
+		  
+	  this.model.save_changes();
+	  },
+	  
+	  
   });
   
   

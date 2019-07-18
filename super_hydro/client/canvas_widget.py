@@ -8,7 +8,7 @@ import os.path
 import numpy as np
 
 import traitlets
-from traitlets import Unicode, Bool, validate, TraitError, Instance, Int, Bytes
+from traitlets import Unicode, Bool, validate, TraitError, Instance, Int, Bytes, Dict
 
 from ipywidgets import DOMWidget, register
 from ipywidgets.widgets.trait_types import bytes_serialization
@@ -41,7 +41,10 @@ class Canvas(DOMWidget):
     fps = Int(20, help="Maximum fps for update requests.").tag(sync=True)
     width = Int(0, help="Width of canvas").tag(sync=True)
     height = Int(0, help="Height of canvas").tag(sync=True)
-    clicks = Int(0, help="Number of clicks").tag(sync=True)
+	
+	
+    mouse_event_data = Dict(help="Data from mouse event").tag(sync=True)
+    key_event_data = Dict(help="Data from key event").tag(sync=True)
 
     indexing = Unicode(
         'xy', help="Indexing: 'xy' (faster) or 'ij'.  See np.meshgrid")
