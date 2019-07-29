@@ -8,11 +8,13 @@ import os.path
 import numpy as np
 
 import traitlets
-from traitlets import Unicode, Bool, validate, TraitError, Instance, Int, Bytes, Dict
+from traitlets import Unicode, Bool, validate, TraitError, Instance, Int, Bytes, Dict, List
 
 from ipywidgets import DOMWidget, register
 from ipywidgets.widgets.trait_types import bytes_serialization
 from ipywidgets.widgets.widget import CallbackDispatcher
+
+import json
 
 _JS_FILE = __file__[:-3] + '.js'
 
@@ -41,10 +43,15 @@ class Canvas(DOMWidget):
     fps = Int(20, help="Maximum fps for update requests.").tag(sync=True)
     width = Int(0, help="Width of canvas").tag(sync=True)
     height = Int(0, help="Height of canvas").tag(sync=True)
+    tracer_size = Unicode(help="Tracer particle size relative to image in pixels").tag(sync=True)
+    _fg_object = Unicode(help="foreground object information").tag(sync=True)
 	
 	
     mouse_event_data = Dict(help="Data from mouse event").tag(sync=True)
     key_event_data = Dict(help="Data from key event").tag(sync=True)
+	
+
+
 
     indexing = Unicode(
         'xy', help="Indexing: 'xy' (faster) or 'ij'.  See np.meshgrid")
@@ -83,6 +90,16 @@ class Canvas(DOMWidget):
         else:
             self._image_width = rgba_data.shape[1]
             self._rgba = rgba_data.tobytes()
+
+    @property
+    def fg_object(self):
+        return self._fg_object_data
+
+    @fg_object.setter
+    def fg_object(self, value):
+        self._fg_object_data = value
+        self._fg_object = json.dumps(self._fg_object_data)
+
 
     def on_update(self, callback, remove=False):
         """Register a callback to execute when the browser is ready
