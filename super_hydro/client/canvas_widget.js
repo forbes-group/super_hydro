@@ -6,7 +6,6 @@ function sleep(ms) {
 }
 
 
-
 define('canvas_widget', ["@jupyter-widgets/base"], function(widgets) {
   var CanvasView = widgets.DOMWidgetView.extend({
     
@@ -47,8 +46,6 @@ define('canvas_widget', ["@jupyter-widgets/base"], function(widgets) {
       //this.model.on('change:height', this.update, this);
       this.model.on('change:_rgba', this.update_rgba, this);
       this.model.on('change:_fg_object', this.handle_foreground_object_update, this);
-      
-      console.log(this.model.get('_fg_object'));
       
       //declare foreground object container
       this.fg_object_latest = {};
@@ -212,6 +209,7 @@ define('canvas_widget', ["@jupyter-widgets/base"], function(widgets) {
       // uses the fg_object data to render the objects
       handle_foreground_rendering: function (im_width) {
           
+          
           // Should be moved to seperate module to keep canvas generic
           if (this.fg_object_latest.tracer !== undefined){
               
@@ -231,14 +229,16 @@ define('canvas_widget', ["@jupyter-widgets/base"], function(widgets) {
                   var render_size = input_size * factor;
 
                   //update positions from velocity data
-                  this.fg_object.tracer[i][1] += this.fg_object_latest.tracer[i][6]
-                  this.fg_object.tracer[i][2] += this.fg_object_latest.tracer[i][7]
+                  /*if (this.fg_object.tracer[i].length >= 7){
+                      this.fg_object.tracer[i][1] += this.fg_object_latest.tracer[i][6]
+                      this.fg_object.tracer[i][2] += this.fg_object_latest.tracer[i][7]
+                  }*/
                   
                   // render a circle at the specified position with the specified properties
                   this._ctx.beginPath();
                   this._ctx.globalAlpha = this.fg_object.tracer[i][5];
                   this._ctx.fillStyle = this.fg_object.tracer[i][4];
-                  this._ctx.arc(this.fg_object.tracer[i][1], this.fg_object.tracer[i][2], render_size, 0, 2 * Math.PI);
+                  this._ctx.arc(this.fg_object_latest.tracer[i][1] * factor, this.fg_object_latest.tracer[i][2] * factor, render_size, 0, 2 * Math.PI);
                   this._ctx.fill();
               }
           }
