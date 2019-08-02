@@ -23,9 +23,11 @@ import numpy as np
 
 import ipywidgets
 
+from mmfutils.contexts import nointerrupt, NoInterrupt
+#from ..contexts import nointerrupt, NoInterrupt
 
 from .. import config, communication, utils, widgets
-from ..contexts import nointerrupt
+
 
 _LOGGER = utils.Logger(__name__)
 log = _LOGGER.log
@@ -36,20 +38,49 @@ class App(object):
     def __init__(self, opts, width="50%"):
         self.width = width
         self.opts = opts
+        self._running = True
+
+    def connect(self):
         with log_task("Connecting to server"):
-            self.comm = communication.Client(opts=self.opts)
+            self._comm = communication.Client(opts=self.opts)
+
+    @property
+    def comm(self):
+        """Return the communication object, but only if running."""
+        if self._running:
+            return self._comm
 
     @property
     def density(self):
         """Return the density data to plot: initiates call to server."""
         with log_task("Get density from server."):
-            density = self.comm.get_array(b"density")
-        return density
+            return self.comm.get_array(b"density")
+
+    @property
+    def interrupted(self):
+        """Return a flag that can be used to signal the server that
+        the App has been interrupted.
+        """
+        return _Interrupted(app=self)
+
+
+class _Interrupted(object):
+    """Flag to indicate the the App has been interrupted.
+
+    Pass as the interrupted flag to the server to allow the client App
+    to terminate it.
+    """
+    def __init__(self, app):
+        self.app = app
+
+    def __bool__(self):
+        # Don't check interrupted flag - that might stop the server
+        # too early.
+        return not self.app._running
 
 
 class NotebookApp(App):
     fmt = 'PNG'
-    _running = True
     browser_control = True
 
     def _get_widget(self):
@@ -69,13 +100,40 @@ class NotebookApp(App):
                                      self._img, self._msg])
         return self._wid
 
+    ######################################################################
+    # Event Handlers and Callbacks.
+    #
+    # These allow the Javascript to drive the application, but should
+    # only function if running.
     def on_value_change(self, change):
+        if not self._running:
+            return
         self.comm.send(b"set", (change['owner'].name, change['new']))
 
     def on_click(self, button):
+        if not self._running:
+            return
         if button.name == "quit":
-            self._running = False
-        self.comm.request(button.name.encode())
+            self.quit()
+        else:
+            self.comm.request(button.name.encode())
+
+    def on_update(self):
+        """Callback to update frame when browser is ready."""
+        if not self._running:
+            return
+        with self.sync():
+            self._frame += 1
+            density = self.density
+            self._density.rgba = self.get_rgba_from_density(density)
+
+    ######################################################################
+    # Server Communication
+    #
+    # These methods communicate with the server.
+    def quit(self):
+        self.comm.request(b"quit")
+        self._running = False
 
     def get_widget(self):
         layout = self.get_layout()
@@ -117,6 +175,8 @@ class NotebookApp(App):
         return layout
 
     def get_image(self, rgba):
+        if not self._running:
+            return
         import PIL
         if self.fmt.lower() == 'jpeg':
             # Discard alpha channel
@@ -135,8 +195,11 @@ class NotebookApp(App):
         """Return the location of the tracer particles."""
         return self.comm.get_array(b"tracers")
 
+    ######################################################################
+    # Client Application
     @nointerrupt
-    def run(self, interrupted):
+    def run(self, interrupted=False):
+        self.connect()
         from IPython.display import display
         self.Nx, self.Ny = self.comm.get(b"Nxy")
         self._frame = 0
@@ -152,8 +215,17 @@ class NotebookApp(App):
 
         self._frame = 0
         if self.browser_control:
-            self._density.on_update(callback=self.update)
-            self.update()
+            self._density.on_update(callback=self.on_update)
+            self.on_update()
+            kernel = IPython.get_ipython().kernel
+            while not interrupted and self._running:
+                # This should not strictly be needed since the
+                # javascript will drive the handlers, but due to
+                # issues with interrupts etc. we can't seem to rely on
+                # being able to catch an interrupt if we return.  So
+                # we do a dummy event loop here.
+                kernel.do_one_iteration()
+                time.sleep(kernel._poll_interval)
         else:
             while not interrupted and self._running:
                 tic0 = time.time()
@@ -164,14 +236,8 @@ class NotebookApp(App):
                     self._density.rgba = rgba
                 toc = time.time()
                 self._msg.value = "{:.2f}fps".format(self._frame/(toc-tic0))
-
-    def update(self):
-        """Callback to update frame when browser is ready."""
         if self._running:
-            with self.sync():
-                self._frame += 1
-                density = self.density
-                self._density.rgba = self.get_rgba_from_density(density)
+            self.quit()
 
     def get_rgba_from_density(self, density):
         """Convert the density array into an rgba array for display."""
@@ -184,7 +250,6 @@ class NotebookApp(App):
         return rgba
 
     def _update_frame_with_tracer_particles(self, array):
-        #import pdb;pdb.set_trace()
         tracers = self.get_tracer_particles()
         ix, iy = [np.round(_i).astype(int) for _i in tracers]
         alpha = self.opts.tracer_alpha
@@ -216,20 +281,28 @@ class NotebookApp(App):
 _OPTS = None
 
 
-def get_app(notebook=True):
+def get_app(run_server=True, notebook=True, **kwargs):
+    NoInterrupt.unregister()
     global _OPTS
     if _OPTS is None:
         with log_task("Reading configuration"):
             parser = config.get_client_parser()
             _OPTS, _other_opts = parser.parse_known_args(args="")
     if notebook:
-        return NotebookApp(opts=_OPTS)
+        app = NotebookApp(opts=_OPTS)
     else:
-        return App(opts=_OPTS)
+        app = App(opts=_OPTS)
+
+    if run_server:
+        # Delay import because server requires many more modules than
+        # the client.
+        from ..server import server
+        server.run(args='', interrupted=app.interrupted, block=False,
+                   kwargs=kwargs)
+    return app
 
 
-@nointerrupt
-def run(run_server=True, interrupted=False, **kwargs):
+def run(run_server=True, **kwargs):
     """Start the notebook client.
 
     Arguments
@@ -238,11 +311,6 @@ def run(run_server=True, interrupted=False, **kwargs):
        If True, then first run a server, otherwise expect to connect
        to an existing server.
     """
-    if run_server:
-        # Delay import because server requires many more modules than
-        # the client.
-        from ..server import server
-        server.run(args='', block=False, interrupted=interrupted,
-                   kwargs=kwargs)
-
-    return get_app().run()
+    NoInterrupt.unregister()
+    app = get_app(run_server=run_server, **kwargs)
+    return app.run()

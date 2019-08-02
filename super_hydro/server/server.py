@@ -46,7 +46,18 @@ log = _LOGGER.log
 log_task = _LOGGER.log_task
 
 
-class Computation(object):
+class ThreadMixin(object):
+    """Couple of useful methods for threads."""
+    def heartbeat(self, msg="", timeout=1):
+        """Log a heartbeat to show if the server is running."""
+        tic = getattr(self, '_heartbeat_tic', 0)
+        toc = time.time()
+        if toc - tic > timeout:
+            log(f"Alive: {msg}", level=100)
+            self._heartbeat_tic = time.time()
+
+
+class Computation(ThreadMixin):
     """Class which manages the actual computation and a queue for
     interacting with the clients.
     """
@@ -92,12 +103,14 @@ class Computation(object):
         """Start the computation."""
         while self.running:
             with self.sync():
+                self.heartbeat("Computation")
                 if self.paused:
                     time.sleep(self.pause_timeout)
                 else:
                     self.state.step(self.steps,
                                     tracer_particles=self.tracer_particles)
                 self.process_queue()
+        log("Computation Finished.", level=100)
 
     def process_queue(self):
         """Process all messages in the queue."""
@@ -167,7 +180,7 @@ class Computation(object):
         raise ValueError(f"Unknown Command {msg}(*{v})")
 
 
-class Server(object):
+class Server(ThreadMixin):
     _poll_interval = 0.1
 
     def __init__(self, opts, **kwargs):
@@ -186,9 +199,9 @@ class Server(object):
         self.state = opts.State(opts=opts)
         super().__init__(**kwargs)
 
-    @nointerrupt
     def run(self, interrupted, block=True):
         """Run the server, blocking if desired."""
+        self.interrupted = interrupted
         kwargs = dict(interrupted=interrupted)
         if block:
             return self.run_server(**kwargs)
@@ -203,6 +216,7 @@ class Server(object):
         self.message_queue.put(("start",))
         try:
             while not finished and not interrupted:
+                self.heartbeat("Server")
                 try:
                     # Do this so we can receive interrupted messages
                     # if the user interrupts.
@@ -256,6 +270,7 @@ class Server(object):
                     print("Unknown data type")
                     print("client message:", client_message)
                     self.comm.respond(b"Unknown Message")
+            print("Done")
         finally:
             self.message_queue.put(("quit",))
             self.computation_thread.join()
@@ -314,8 +329,8 @@ class Server(object):
         self.state = self.opts.State(opts=self.opts)
 
 
-@nointerrupt
-def run(block=True, args=None, interrupted=False, kwargs={}):
+#@nointerrupt
+def run(block=True, interrupted=False, args=None, kwargs={}):
     """Load the configuration and start the server.
 
     This can also be called programmatically to start a server.
@@ -342,4 +357,6 @@ def run(block=True, args=None, interrupted=False, kwargs={}):
     cls = opts.model.split('.')[-1]
     pkg = "super_hydro"
     opts.State = getattr(importlib.import_module("." + module, pkg), cls)
-    Server(opts=opts).run(block=block, interrupted=interrupted)
+    server = Server(opts=opts)
+    server.run(block=block, interrupted=interrupted)
+    return server

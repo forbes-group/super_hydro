@@ -41,8 +41,7 @@ class Canvas(DOMWidget):
     fps = Int(20, help="Maximum fps for update requests.").tag(sync=True)
     width = Int(0, help="Width of canvas").tag(sync=True)
     height = Int(0, help="Height of canvas").tag(sync=True)
-	
-	
+
     mouse_event_data = Dict(help="Data from mouse event").tag(sync=True)
     key_event_data = Dict(help="Data from key event").tag(sync=True)
 
