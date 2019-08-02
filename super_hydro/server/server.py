@@ -11,7 +11,9 @@ import numpy as np
 
 from .. import config, communication, utils, widgets
 from ..physics import tracer_particles
+#from mmfutils.conexts import nointerrupt
 from ..contexts import nointerrupt
+
 
 PROFILE = False
 if PROFILE:
@@ -329,7 +331,7 @@ class Server(ThreadMixin):
         self.state = self.opts.State(opts=self.opts)
 
 
-#@nointerrupt
+@nointerrupt
 def run(block=True, interrupted=False, args=None, kwargs={}):
     """Load the configuration and start the server.
 

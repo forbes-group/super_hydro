@@ -14,7 +14,6 @@ browser is finished displaying the last frame.
 from contextlib import contextmanager
 import io
 import time
-import threading
 import IPython
 
 from matplotlib import cm
@@ -23,8 +22,8 @@ import numpy as np
 
 import ipywidgets
 
-from mmfutils.contexts import nointerrupt, NoInterrupt
-#from ..contexts import nointerrupt, NoInterrupt
+#from mmfutils.contexts import nointerrupt, NoInterrupt
+from ..contexts import nointerrupt, NoInterrupt
 
 from .. import config, communication, utils, widgets
 
@@ -126,7 +125,8 @@ class NotebookApp(App):
             self._frame += 1
             density = self.density
             self._density.rgba = self.get_rgba_from_density(density)
-            self._density.fg_object = self._update_fg_object_with_tracer_particles()
+            tracers = self.get_tracer_particles()
+            #self._density.fg_objects = self._update_fg_objects()
 
     ######################################################################
     # Server Communication
@@ -230,12 +230,7 @@ class NotebookApp(App):
         else:
             while not interrupted and self._running:
                 tic0 = time.time()
-                with self.sync():
-                    self._frame += 1
-                    density = self.density
-                    rgba = self.get_rgba_from_density(density)
-                    self._density.fg_tracer = self._update_fg_object_with_tracer_particles()
-                    self._density.rgba = rgba
+                self.on_update()
                 toc = time.time()
                 self._msg.value = "{:.2f}fps".format(self._frame/(toc-tic0))
         if self._running:
@@ -246,7 +241,7 @@ class NotebookApp(App):
         density = density.T
         # array = cm.viridis((n_-n_.min())/(n_.max()-n_.min()))
         array = cm.viridis(density/density.max())
-        array = self._update_frame_with_tracer_particles(array)
+        #array = self._update_frame_with_tracer_particles(array)
         array *= int(255/array.max())  # normalize values
         rgba = array.astype(dtype='uint8')
         return rgba
@@ -259,8 +254,8 @@ class NotebookApp(App):
             (1-alpha)*array[iy, ix, ...]
             + alpha*np.array(self.opts.tracer_color))
         return array
-        
-    def _update_fg_object_with_tracer_particles(self):
+
+    def _update_fg_objects(self):
         tracers = self.get_tracer_particles()
         ix, iy = tracers
         alpha = 1
@@ -268,7 +263,8 @@ class NotebookApp(App):
         tracer_container = {"tracer": []}
         _num = 0
         for _i in ix:
-            tracer_container["tracer"].append(["tracer", ix[_num], iy[_num], 0.5, color, alpha, 0, 0])
+            tracer_container["tracer"].append(
+                ["tracer", ix[_num], iy[_num], 0.5, color, alpha, 0, 0])
             _num += 1
         return tracer_container
 
@@ -325,6 +321,5 @@ def run(run_server=True, **kwargs):
        If True, then first run a server, otherwise expect to connect
        to an existing server.
     """
-    NoInterrupt.unregister()
     app = get_app(run_server=run_server, **kwargs)
     return app.run()

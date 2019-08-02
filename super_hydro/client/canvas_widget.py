@@ -33,9 +33,11 @@ class Canvas(DOMWidget):
     _view_module = Unicode('canvas_widget').tag(sync=True)
     _view_module_version = Unicode('0.1.0').tag(sync=True)
 
-    _rgba = Bytes(help="RGBA image data").tag(sync=True, **bytes_serialization)
-    _image_width = Int(help="Image width").tag(sync=True)
-    _fg_object = Unicode(help="Foreground object information").tag(sync=True)
+    _view_rgba = Bytes(help="RGBA image data").tag(
+        sync=True, **bytes_serialization)
+    _view_image_width = Int(help="Image width").tag(sync=True)
+    _view_fg_objects = Unicode(
+        help="Foreground object information").tag(sync=True)
 
     # Attributes
     name = traitlets.ObjectName("_").tag(sync=True)
@@ -79,21 +81,21 @@ class Canvas(DOMWidget):
     def rgba(self, rgba_data):
         self._rgba_data = rgba_data
         if self.indexing == 'ij':
-            self._image_width = rgba_data.shape[0]
+            self._view_image_width = rgba_data.shape[0]
             # Swap axes to go from ij indexing to HTML convention.
-            self._rgba = np.swapaxes(rgba_data, 0, 1).tobytes()
+            self._view_rgba = np.swapaxes(rgba_data, 0, 1).tobytes()
         else:
-            self._image_width = rgba_data.shape[1]
-            self._rgba = rgba_data.tobytes()
+            self._view_image_width = rgba_data.shape[1]
+            self._view_rgba = rgba_data.tobytes()
 
     @property
-    def fg_object(self):
-        return self._fg_object_data
+    def fg_objects(self):
+        return self._fg_objects_data
 
-    @fg_object.setter
-    def fg_object(self, value):
-        self._fg_object_data = value
-        self._fg_object = json.dumps(self._fg_object_data)
+    @fg_objects.setter
+    def fg_objects(self, value):
+        self._fg_objects_data = value
+        self._view_fg_objects = json.dumps(self._fg_objects_data)
 
     def on_update(self, callback, remove=False):
         """Register a callback to execute when the browser is ready
