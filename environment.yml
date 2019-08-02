@@ -1,4 +1,4 @@
-name: super-hydro
+name: super_hydro
 channels:
   - defaults
   - conda-forge

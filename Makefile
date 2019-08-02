@@ -9,7 +9,7 @@ jupyter-canvas-widget:
 	pip uninstall fastcanvas                                           && \
 	conda deactivate
 	. /data/apps/conda/etc/profile.d/conda.sh                          && \
-	conda activate super-hydro                                         && \
+	conda activate super_hydro                                         && \
 	pip install -e _ext/jupyter-canvas-widget                          && \
 	conda deactivate
 
@@ -22,7 +22,7 @@ Jupyter_Canvas_Widget:
 	pip uninstall jpy_canvas                                           && \
 	conda deactivate
 	. /data/apps/conda/etc/profile.d/conda.sh                          && \
-	conda activate super-hydro                                         && \
+	conda activate super_hydro                                         && \
 	pip install -e _ext/Jupyter_Canvas_Widget                          && \
 	conda deactivate
 
@@ -35,6 +35,6 @@ uninstall:
 	jupyter nbextension uninstall --sys-prefix jpy_canvas              && \
 	conda deactivate
 	. /data/apps/conda/etc/profile.d/conda.sh                          && \
-	conda activate super-hydro                                         && \
+	conda activate super_hydro                                         && \
 	pip uninstall fastcanvas jpy_canvas                                && \
 	conda deactivate
