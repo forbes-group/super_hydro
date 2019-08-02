@@ -1,28 +1,34 @@
-name: super_hydro
+name: super-hydro
 channels:
   - defaults
   - conda-forge
+  - mforbes
 dependencies:
+  # Clients and Servers
   - python>=3
-  - ipykernel
   - configargparse
-  - cython
-  - scipy
-  - matplotlib
+  - numpy
   - pyzmq
-  - attrs
   - zope.interface
+  - matplotlib
   
+  # Server
+  - scipy
+
   # For performance
   - numexpr
+  #- cython
 
-  # For display
+  # Notebook Client
+  - ipykernel
   - ipywidgets
   - pillow
-  - ipympl
-  - husl  
+  - mmf_setup
+  #- mmfutils
+  #- ipympl
+  #- husl  
 
+  - pip
   - pip:
     - kivy
-    - mmf_setup
     - mmfutils>=0.4.11
