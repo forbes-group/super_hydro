@@ -126,6 +126,7 @@ class NotebookApp(App):
             self._frame += 1
             density = self.density
             self._density.rgba = self.get_rgba_from_density(density)
+            self._density.fg_object = self._update_fg_object_with_tracer_particles()
 
     ######################################################################
     # Server Communication
@@ -233,6 +234,7 @@ class NotebookApp(App):
                     self._frame += 1
                     density = self.density
                     rgba = self.get_rgba_from_density(density)
+                    self._density.fg_tracer = self._update_fg_object_with_tracer_particles()
                     self._density.rgba = rgba
                 toc = time.time()
                 self._msg.value = "{:.2f}fps".format(self._frame/(toc-tic0))
@@ -257,6 +259,18 @@ class NotebookApp(App):
             (1-alpha)*array[iy, ix, ...]
             + alpha*np.array(self.opts.tracer_color))
         return array
+        
+    def _update_fg_object_with_tracer_particles(self):
+        tracers = self.get_tracer_particles()
+        ix, iy = tracers
+        alpha = 1
+        color = self.opts.tracer_color
+        tracer_container = {"tracer": []}
+        _num = 0
+        for _i in ix:
+            tracer_container["tracer"].append(["tracer", ix[_num], iy[_num], 0.5, color, alpha, 0, 0])
+            _num += 1
+        return tracer_container
 
     @contextmanager
     def sync(self):
