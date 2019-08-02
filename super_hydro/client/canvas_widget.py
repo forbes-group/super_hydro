@@ -3,12 +3,10 @@
 This version displays the required javascript in the notebook so does
 not require any installation.
 """
-import os.path
-
 import numpy as np
 
 import traitlets
-from traitlets import Unicode, Bool, validate, TraitError, Instance, Int, Bytes, Dict, List
+from traitlets import Bytes, Dict, Int, Unicode
 
 from ipywidgets import DOMWidget, register
 from ipywidgets.widgets.trait_types import bytes_serialization

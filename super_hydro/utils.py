@@ -83,6 +83,10 @@ class Logger(object):
         logging.getLogger(self.name).log(level=level,
                                          msg=self.indent + msg)
 
+    def debug(self, msg, level=logging.DEBUG):
+        """Log debug msg to the logger."""
+        self.log(msg, level=level)
+
     def warn(self, msg, level=logging.WARNING):
         """Log warning msg to the logger."""
         self.log(msg, level=level)

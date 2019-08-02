@@ -53,7 +53,7 @@ class ThreadMixin(object):
         tic = getattr(self, '_heartbeat_tic', 0)
         toc = time.time()
         if toc - tic > timeout:
-            log(f"Alive: {msg}", level=100)
+            _LOGGER.debug(f"Alive: {msg}")
             self._heartbeat_tic = time.time()
 
 
