@@ -37,21 +37,18 @@ class Canvas(DOMWidget):
 
     _rgba = Bytes(help="RGBA image data").tag(sync=True, **bytes_serialization)
     _image_width = Int(help="Image width").tag(sync=True)
+    _fg_object = Unicode(help="Foreground object information").tag(sync=True)
 
     # Attributes
     name = traitlets.ObjectName("_").tag(sync=True)
     fps = Int(20, help="Maximum fps for update requests.").tag(sync=True)
     width = Int(0, help="Width of canvas").tag(sync=True)
     height = Int(0, help="Height of canvas").tag(sync=True)
-    tracer_size = Unicode(help="Tracer particle size relative to image in pixels").tag(sync=True)
-    _fg_object = Unicode(help="foreground object information").tag(sync=True)
-	
-	
+    tracer_size = Unicode(
+        help="Tracer particle size relative to image in pixels").tag(sync=True)
+
     mouse_event_data = Dict(help="Data from mouse event").tag(sync=True)
     key_event_data = Dict(help="Data from key event").tag(sync=True)
-	
-
-
 
     indexing = Unicode(
         'xy', help="Indexing: 'xy' (faster) or 'ij'.  See np.meshgrid")
@@ -99,7 +96,6 @@ class Canvas(DOMWidget):
     def fg_object(self, value):
         self._fg_object_data = value
         self._fg_object = json.dumps(self._fg_object_data)
-
 
     def on_update(self, callback, remove=False):
         """Register a callback to execute when the browser is ready

@@ -15,18 +15,18 @@ define('canvas_widget', ["@jupyter-widgets/base"], function(widgets) {
       this._ctx = this.canvas.getContext('2d');
       this.el.appendChild(this.canvas);
 
-        // adds listener which triggers on mouse events
+	    // adds listener which triggers on mouse events
       var events = ["mousedown", "mouseup", "mouseleave",
                     "mouseenter", "mousemove"];
       for (event of events) {
-          this.canvas.addEventListener(event, this.handle_mouse_event.bind(this));
+        this.canvas.addEventListener(event, this.handle_mouse_event.bind(this));
       }
-       
-        // adds listener whih triggers on key events
+	   
+	    // adds listener whih triggers on key events
       this.canvas.tabIndex = 1;
-        var key_events = ["keydown", "keyup"];
-        for (event of key_events) {
-          this.canvas.addEventListener(event, this.handle_key_event.bind(this));
+	    var key_events = ["keydown", "keyup"];
+	    for (event of key_events) {
+	      this.canvas.addEventListener(event, this.handle_key_event.bind(this));
       }
       
       // Background for rendering on Safari etc.
@@ -36,7 +36,6 @@ define('canvas_widget', ["@jupyter-widgets/base"], function(widgets) {
       // Timing control
       this._tic = Date.now();
       this._update_requests = [];
-      
       
       // Start the event loop.
       this.start()
@@ -50,7 +49,6 @@ define('canvas_widget', ["@jupyter-widgets/base"], function(widgets) {
       //declare foreground object container
       this.fg_object_latest = {};
       this.fg_object = {};
-      
       
       // JavaScript -> Python update
       //this.value.onchange = this.value_changed.bind(this);
@@ -118,7 +116,7 @@ define('canvas_widget', ["@jupyter-widgets/base"], function(widgets) {
       var height = this.model.get('height');
       var im_width = image_data.width;
       var im_height = image_data.height;
-
+      
       if (0 == width && 0 == height) {
         width = im_width;
         height = im_height;
@@ -140,7 +138,7 @@ define('canvas_widget', ["@jupyter-widgets/base"], function(widgets) {
         this._bg_canvas.width = im_width;
         this._bg_canvas.height = im_height;
         this._bg_ctx.putImageData(image_data, 0, 0);
-
+        
         this.canvas.width = width;
         this.canvas.height = height;                 
         this._ctx.drawImage(this._bg_canvas,
@@ -150,103 +148,102 @@ define('canvas_widget', ["@jupyter-widgets/base"], function(widgets) {
       this.handle_foreground_rendering(im_width);
       
     },
+    
+    // handles events using the mouse
+    handle_mouse_event: function (event) {
       
-      // handles events using the mouse
-      handle_mouse_event: function (event) {
-        
-          var ev = {};
+      var ev = {};
+      
+      ev.type = event.type;
+      
+      //distinguish left and right click
+      if (ev.type == "mousedown" || ev.type == "mouseup"){
+        switch (event.button){
+        case 0:
+          ev.type = '' + ev.type + '_left'
+          break;
           
-          ev.type = event.type;
+        case 1:
+          ev.type = '' + ev.type + '_middle'
+          break;
           
-          //distinguish left and right click
-          if (ev.type == "mousedown" || ev.type == "mouseup"){
-              switch (event.button){
-                  case 0:
-                    ev.type = '' + ev.type + '_left'
-                  break;
-                  
-                  case 1:
-                    ev.type = '' + ev.type + '_middle'
-                  break;
-                  
-                  case 2:
-                    ev.type = '' + ev.type + '_right'
-                  break;
-                  
-                  default:
-                    ev.type = 'unexpected'
-              }
-          }
+        case 2:
+          ev.type = '' + ev.type + '_right'
+          break;
           
-          // handles coordinates of mouse
-          ev.coor_X = event.offsetX;
-          ev.coor_Y = event.offsetY;
-          
-          //sends ev back to python as dictionary
-          this.model.set('mouse_event_data', ev);
+        default:
+          ev.type = 'unexpected'
+        }
+      }
+      
+      // handles coordinates of mouse
+      ev.coor_X = event.offsetX;
+      ev.coor_Y = event.offsetY;
+      
+      //sends ev back to python as dictionary
+      this.model.set('mouse_event_data', ev);
           
       this.model.save_changes();
       //console.log(event.type);
-      },
+    },
       
-      // handle key presses
-      handle_key_event: function (event) {
-          var kev = {};
-          kev.keyCode = event.keyCode;
-          kev.type = event.type;
-          
-          this.model.set('key_event_data', kev);
-          
+    // handle key presses
+    handle_key_event: function (event) {
+      var kev = {};
+      kev.keyCode = event.keyCode;
+      kev.type = event.type;
+      
+      this.model.set('key_event_data', kev);
+      
       this.model.save_changes();
-      },
+    },
+    
+    // adds foreground objects from python to the container
+    handle_foreground_object_update: function () {
+      this.fg_object_latest = JSON.parse(this.model.get('_fg_object'));
+    },
+    
+    // uses the fg_object data to render the objects
+    handle_foreground_rendering: function (im_width) {
       
       
-      // adds foreground objects from python to the container
-      handle_foreground_object_update: function () {
-          this.fg_object_latest = JSON.parse(this.model.get('_fg_object'));
-      },
-      
-      // uses the fg_object data to render the objects
-      handle_foreground_rendering: function (im_width) {
+      // Should be moved to seperate module to keep canvas generic
+      if (this.fg_object_latest.tracer !== undefined){
+        
+        //if the object has not been defined use the latest model.get
+        if (this.fg_object.tracer == undefined){
+          this.fg_object.tracer = this.fg_object_latest.tracer;
+        }
+        
+        //loop through each tracer particle
+        var fg_object_length = this.fg_object.tracer.length;
+        
+        for (let i = 0; i < fg_object_length; i++) {
           
+          //convert size from image dimensions to canvas dimensions
+          var factor = this.canvas.width / im_width;
+          var input_size = this.fg_object.tracer[i][3];
+          var render_size = input_size * factor;
           
-          // Should be moved to seperate module to keep canvas generic
-          if (this.fg_object_latest.tracer !== undefined){
-              
-              //if the object has not been defined use the latest model.get
-              if (this.fg_object.tracer == undefined){
-                  this.fg_object.tracer = this.fg_object_latest.tracer;
-              }
-              
-              //loop through each tracer particle
-              var fg_object_length = this.fg_object.tracer.length;
-              
-              for (let i = 0; i < fg_object_length; i++) {
-                  
-                  //convert size from image dimensions to canvas dimensions
-                  var factor = this.canvas.width / im_width;
-                  var input_size = this.fg_object.tracer[i][3];
-                  var render_size = input_size * factor;
-
-                  //update positions from velocity data
-                  /*if (this.fg_object.tracer[i].length >= 7){
-                      this.fg_object.tracer[i][1] += this.fg_object_latest.tracer[i][6]
-                      this.fg_object.tracer[i][2] += this.fg_object_latest.tracer[i][7]
-                  }*/
-                  
-                  // render a circle at the specified position with the specified properties
-                  this._ctx.beginPath();
-                  this._ctx.globalAlpha = this.fg_object.tracer[i][5];
-                  this._ctx.fillStyle = this.fg_object.tracer[i][4];
-                  this._ctx.arc(this.fg_object_latest.tracer[i][1] * factor, this.fg_object_latest.tracer[i][2] * factor, render_size, 0, 2 * Math.PI);
-                  this._ctx.fill();
-              }
-          }
-      },
-      
-      
+          //update positions from velocity data
+          /*if (this.fg_object.tracer[i].length >= 7){
+            this.fg_object.tracer[i][1] += this.fg_object_latest.tracer[i][6]
+            this.fg_object.tracer[i][2] += this.fg_object_latest.tracer[i][7]
+            }*/
+          
+          // render a circle at the specified position with the specified properties
+          this._ctx.beginPath();
+          this._ctx.globalAlpha = this.fg_object.tracer[i][5];
+          this._ctx.fillStyle = this.fg_object.tracer[i][4];
+          this._ctx.arc(this.fg_object_latest.tracer[i][1] * factor,
+                        this.fg_object_latest.tracer[i][2] * factor, render_size,
+                        0,
+                        2 * Math.PI);
+          this._ctx.fill();
+        }
+      }
+    },
   });
-  
   
   return {
     CanvasView: CanvasView
