@@ -76,11 +76,6 @@ define('canvas_widget', ["@jupyter-widgets/base"], function(widgets) {
     update: function() {
     },
 
-    /**
-     * This function is called whenever the model changes and does not
-     * need to be registered. This behaviour is defined in
-     * packages/base/src/widget.ts
-     */
     update_rgba: function() {
       // Remove all old requests
       while (this._update_requests.length) {

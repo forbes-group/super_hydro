@@ -125,8 +125,7 @@ class NotebookApp(App):
             self._frame += 1
             density = self.density
             self._density.rgba = self.get_rgba_from_density(density)
-            tracers = self.get_tracer_particles()
-            #self._density.fg_objects = self._update_fg_objects()
+            self._density.fg_objects = self._update_fg_objects()
 
     ######################################################################
     # Server Communication
@@ -278,14 +277,11 @@ class NotebookApp(App):
         try:
             yield
         finally:
-            ip = IPython.get_ipython()
-            while True:
-                ip.kernel.do_one_iteration()
-                dt = time.perf_counter() - tic
-                t_sleep = min(1./self.opts.fps - dt, ip.kernel._poll_interval)
-                if t_sleep <= 0:
-                    break
+            dt = time.perf_counter() - tic
+            t_sleep = 1./self.opts.fps - dt
+            if t_sleep > 0:
                 time.sleep(t_sleep)
+            return
 
 
 _OPTS = None
