@@ -230,7 +230,8 @@ define('canvas_widget', ["@jupyter-widgets/base"], function(widgets) {
           this._ctx.globalAlpha = this.fg_objects.tracer[i][5];
           this._ctx.fillStyle = this.fg_objects.tracer[i][4];
           this._ctx.arc(this.fg_objects_latest.tracer[i][1] * factor,
-                        this.fg_objects_latest.tracer[i][2] * factor, render_size,
+                        this.fg_objects_latest.tracer[i][2] * factor,
+                        2+0*render_size,
                         0,
                         2 * Math.PI);
           this._ctx.fill();

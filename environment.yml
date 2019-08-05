@@ -28,7 +28,7 @@ dependencies:
   #- ipympl
   #- husl  
 
-  - pip
-  - pip:
-    - kivy
-    - mmfutils>=0.4.11
+  #- pip
+  #- pip:
+    #- kivy
+    #- mmfutils>=0.4.11
