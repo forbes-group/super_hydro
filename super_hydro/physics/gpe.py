@@ -362,6 +362,10 @@ class BECSoliton(BECFlow):
         self.data[...] = psi(x)/phase
 
 
+class BECQuantumFriction(BEC):
+    """Class with local quantum friction."""
+
+
 interfaces.classImplements(BEC, interfaces.IModel)
 interfaces.classImplements(BECFlow, interfaces.IModel)
 interfaces.classImplements(BECSoliton, interfaces.IModel)
