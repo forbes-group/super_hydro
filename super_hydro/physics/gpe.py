@@ -159,6 +159,7 @@ class BEC(GPEBase):
         cooling_steps=100, dt_t_scale=0.1,
         winding=10,
         cylinder=True,
+        random_phase=False,
         )
 
     layout = w.VBox([
@@ -204,6 +205,10 @@ class BEC(GPEBase):
         if self.cylinder:
             x, y = self.xy
             self.data *= np.exp(1j*self.winding*np.angle(x+1j*y))
+        if self.random_phase:
+            phase = 2*np.pi * np.random.random(self.Nxy)
+            self.data *= np.exp(1j*phase)
+            
 
     def get_density(self):
         y = self.data
