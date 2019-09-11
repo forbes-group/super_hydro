@@ -70,7 +70,7 @@ class StateBase(object):
         n = self.get_density(psi)
         N_tot = n.sum() * self.metric
         Hpsi = self.apply_H(psi)
-        Vc = 2*(psi.conj()*Hpsi).imag * self.metric / N_tot
+        Vc = 2*(psi.conj()*Hpsi).imag / N_tot
         return Vc
 
     def get_Kc(self, psi):
