@@ -4,7 +4,7 @@ from matplotlib import pyplot as plt
 
 
 class StateBase(object):
-    g = hbar = m = 1.0
+    g = hbar = m = w = 1.0
 
     def __init__(self, Nxyz=(256,), dx=0.1,
                  beta_0=1.0, beta_V=0.0, beta_K=0.0,
@@ -54,14 +54,20 @@ class StateBase(object):
     ######################################################################
     # Members that subclasses might wish to override.
     def get_Vext(self):
-        """Return the external potential."""
-        return 0.0
+        """Return the external potential.
 
-    def apply_Hc(self, psi):
+        This version is a harmonic oscillator.
+        """
+        r2 = sum(_x**2 for _x in self.xyz)
+        return self.m * self.w**2 * r2 / 2.0
+
+    def apply_Hc(self, psi, psi0=None):
         """Apply the cooling Hamiltonian."""
-        H_psi = self.apply_H(psi)
-        Vc_psi = self.get_Vc(psi)*psi
-        Kc_psi = self.ifft(self.get_Kc(psi)*self.fft(psi))
+        if psi0 is None:
+            psi0 = psi
+        H_psi = self.apply_H(psi, psi0=psi0)
+        Vc_psi = self.get_Vc(psi0)*psi
+        Kc_psi = self.ifft(self.get_Kc(psi0)*self.fft(psi))
         return (self.beta_0 * H_psi
                 + self.beta_V * Vc_psi
                 + self.beta_K * Kc_psi)
@@ -71,7 +77,10 @@ class StateBase(object):
         N_tot = n.sum() * self.metric
         Hpsi = self.apply_H(psi)
         Vc = 2*(psi.conj()*Hpsi).imag / N_tot
-        return Vc
+        return Vc/n
+        Vc0 = abs(Vc).max()
+        return 2*Vc/(abs(Vc) + 0.0001*Vc0)*Vc0
+        return np.sign(Vc)
 
     def get_Kc(self, psi):
         n = self.get_density(psi)
@@ -118,10 +127,12 @@ class StateBase(object):
         """Return the density."""
         return abs(psi)**2
 
-    def apply_H(self, psi):
+    def apply_H(self, psi, psi0=None):
+        if psi0 is None:
+            psi0 = psi
         psi_k = self.fft(psi)
         Kpsi = self.ifft(self._K2*psi_k)
-        Vpsi = self.get_V(psi)*psi
+        Vpsi = self.get_V(psi0)*psi
         return Kpsi + Vpsi
 
     ######################################################################
@@ -180,7 +191,7 @@ class StateBase(object):
                * Hpsi.conj().reshape(size)[None, :])
         Hc_ += Hc_.conj().T
         n = self.get_density(psi=psi)
-        Hc_ /= n.sum()
+        Hc_ /= (n.sum() * self.metric)
         return Hc_
 
     def plot(self, psi, **kw):
