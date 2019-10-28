@@ -6,6 +6,7 @@ import numpy.fft
 from .helpers import ModelBase, FingerMixin
 
 from .. import utils, interfaces
+from ..interfaces import implementer
 from .. import widgets as w
 
 try:
@@ -146,6 +147,7 @@ class GPEBase(ModelBase, FingerMixin):
         raise NotImplementedError()
 
 
+@implementer(interfaces.IModel)
 class BEC(GPEBase):
     """Single component BEC.
 
@@ -208,7 +210,6 @@ class BEC(GPEBase):
         if self.random_phase:
             phase = 2*np.pi * np.random.random(self.Nxy)
             self.data *= np.exp(1j*phase)
-            
 
     def get_density(self):
         y = self.data
@@ -297,12 +298,13 @@ class BEC(GPEBase):
         plt.colorbar()
 
 
+@implementer(interfaces.IModel)
 class BECFlow(BEC):
     """Model implementing variable flow in a BEC.
 
     This model provides a way of demonstrating Landau's critical
     velocity.  This velocity is implemented by shifting the momenta by
-    k_B = m*v/hbar
+    kv = m*v/hbar
     """
     params = dict(BEC.params, cylinder=False, v_v_c=0)
 
@@ -315,17 +317,54 @@ class BECFlow(BEC):
     def init(self):
         super().init()
         kx, ky = self.kxy
-        kx, ky = self.kxy = (kx + self.k_B, ky)
-        self.K = self.hbar**2*(kx**2 + ky**2)/2.0/self.m
+        self.K = self.hbar**2*(kx**2 + kx*self.kv + ky**2)/2.0/self.m
 
     @property
-    def k_B(self):
+    def kv(self):
         """Return the Bloch momentum"""
         v_c = math.sqrt(self.mu/self.m)
         v = self.v_v_c*v_c
         return self.m * v / self.hbar
 
 
+@implementer(interfaces.IModel)
+class BECVortexRing(BECFlow):
+    """Model implementing variable flow in a BEC with imprinted vortex
+    "rings"."""
+    params = dict(BEC.params, cylinder=False, v_v_c=0, R=0.5)
+
+    layout = w.VBox([
+        BECFlow.layout])
+
+    def init(self):
+        super().init()
+        kx, ky = self.kxy
+        self.K = self.hbar**2*(kx**2 + kx*self.kv + ky**2)/2.0/self.m
+        
+    @property
+    def kv(self):
+        """Return the Bloch momentum"""
+        v_c = math.sqrt(self.mu/self.m)
+        v = self.v_v_c*v_c
+        return self.m * v / self.hbar
+
+    def get_V_trap(self):
+        """Return any static trapping potential."""
+        x, y = self.xy
+        Lx, Ly = self.Lxy
+        r2_ = 0*x + (2*y/Ly)**2
+        return 100*self.mu*utils.mstep(r2_ - 0.8, 0.2)
+    
+    def set_initial_data(self):
+        super().set_initial_data()
+        x, y = self.xy
+        Lx, Ly = self.Lxy        
+        z0 = x + 1j*(y - self.R*Ly/2)
+        z1 = x - 1j*(y + self.R*Ly/2)
+        self.data *= np.exp(1j*np.angle(z0*z1))
+        
+
+@implementer(interfaces.IModel)
 class BECSoliton(BECFlow):
     """Demonstrate the snaking instability of a dark soliton.
 
@@ -371,6 +410,47 @@ class BECQuantumFriction(BEC):
     """Class with local quantum friction."""
 
 
-interfaces.classImplements(BEC, interfaces.IModel)
-interfaces.classImplements(BECFlow, interfaces.IModel)
-interfaces.classImplements(BECSoliton, interfaces.IModel)
+@implementer(interfaces.IModel)
+class BECBreather(BEC):
+    """Demonstrate scale-invariant breathing solutions.
+
+    Dalibard et al.: PRX 9, 021035 (2019)
+    """
+    params = dict(BECFlow.params,
+                  a_HO=0.5,  # Fraction of Lx/2
+                  R=0.5,     # Fraction of Lx/2
+                  Nshape=3,
+                  finger_V0_mu=0.1)
+
+    layout = w.VBox([
+        BEC.layout])
+
+    def get_V_trap(self):
+        """Return any static trapping potential."""
+        x, y = self.xy
+        r2 = x**2 + y**2
+        Lx, Ly = self.Lxy
+        a_HO = self.a_HO*Lx/2.0
+        mw2 = self.hbar**2/a_HO**4/self.m
+        
+        return mw2*r2/2.0
+
+    def _set(self, param, value):
+        super().set(param, value)
+        if param in set(['v_c', 'Nx']):
+            self.set_initial_data()
+
+    def set_initial_data(self):
+        self.data = np.empty(self.Nxy, dtype=complex)
+
+        x, y = self.xy
+        Lx, Ly = self.Lxy
+        z = x + 1j*y
+        r = abs(z)
+        theta = (
+            (np.angle(z) + np.pi) % (2*np.pi/self.Nshape)
+            - np.pi/self.Nshape)
+        n = np.where((r*np.exp(1j*theta)).real <= self.R*Lx/2,
+                     self.n0,
+                     0)
+        self.data[...] = np.sqrt(n)

@@ -148,9 +148,13 @@ class Computation(ThreadMixin):
         self.density_queue.put(self.state.get_density())
 
     def do_get_tracers(self):
-        trpos = self.tracer_particles.get_tracer_particles()
-        trinds = self.tracer_particles.get_inds(trpos, state=self.state)
-        self.tracer_queue.put(np.asarray(trinds))
+        tracers = np.empty(0)
+        if self.opts.tracer_particles:
+            trpos = self.tracer_particles.get_tracer_particles()
+            trinds = self.tracer_particles.get_inds(trpos,
+                                                    state=self.state)
+            tracers = np.asarray(trinds)
+        self.tracer_queue.put(tracers)
 
     def do_update_finger(self, x, y):
         self.state.set('xy0', (x, y))

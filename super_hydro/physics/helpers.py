@@ -19,7 +19,7 @@ class ModelBase(object):
         # Namespace for opts:
         if isinstance(opts, collections.abc.Mapping):
             opts = argparse.Namespace(**opts)
-            
+
         # Collect all parameters from base classes
         params = {}
         mro = inspect.getmro(type(self))

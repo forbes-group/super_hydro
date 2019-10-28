@@ -1,6 +1,6 @@
 """Interfaces for various components of the system.
 """
-from zope.interface import Interface, Attribute, classImplements
+from zope.interface import Interface, Attribute, implementer
 
 
 class IModel(Interface):
