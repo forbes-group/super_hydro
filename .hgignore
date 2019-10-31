@@ -8,3 +8,4 @@ __pycache__
 home.bat
 htmlcov
 \.coverage
+node_modules
