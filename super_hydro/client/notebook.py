@@ -255,16 +255,17 @@ class NotebookApp(App):
         return array
 
     def _update_fg_objects(self):
-        tracers = self.get_tracer_particles()
-        ix, iy = tracers
-        alpha = 1
-        color = self.opts.tracer_color
         tracer_container = {"tracer": []}
-        _num = 0
-        for _i in ix:
-            tracer_container["tracer"].append(
-                ["tracer", ix[_num], iy[_num], 0.5, color, alpha, 0, 0])
-            _num += 1
+        tracers = self.get_tracer_particles()
+        if tracers is not None and len(tracers) > 0:
+            ix, iy = tracers
+            alpha = 1
+            color = self.opts.tracer_color
+            _num = 0
+            for _i in ix:
+                tracer_container["tracer"].append(
+                    ["tracer", ix[_num], iy[_num], 0.5, color, alpha, 0, 0])
+                _num += 1
         return tracer_container
 
     @contextmanager
@@ -281,7 +282,7 @@ class NotebookApp(App):
             t_sleep = 1./self.opts.fps - dt
             if t_sleep > 0:
                 time.sleep(t_sleep)
-            return
+        return
 
 
 _OPTS = None
