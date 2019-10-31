@@ -202,7 +202,7 @@ class BEC(GPEBase):
         self.t = -10000
         self.step(self.cooling_steps, tracer_particles=None)
         self.t = 0
-        self._phase = self._phase
+        self._phase = _phase
 
         if self.cylinder:
             x, y = self.xy
@@ -420,7 +420,9 @@ class BECBreather(BEC):
                   a_HO=0.5,  # Fraction of Lx/2
                   R=0.5,     # Fraction of Lx/2
                   Nshape=3,
-                  finger_V0_mu=0.1)
+                  cooling=1e-10,
+                  tracer_particles=0,
+                  finger_V0_mu=0.0)
 
     layout = w.VBox([
         BEC.layout])

@@ -17,6 +17,7 @@ dependencies:
 
   # For performance
   - numexpr
+  - pyfftw
   #- cython
 
   # Notebook Client
