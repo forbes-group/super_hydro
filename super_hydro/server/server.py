@@ -187,6 +187,13 @@ class Computation(ThreadMixin):
 
 
 class Server(ThreadMixin):
+    """Server Class.
+
+    This server runs in a separate thread and allows clients to
+    interact via the IServer interface.  This can directly used by
+    python clients, or encapsulated by the NetworkServer class which
+    allows clients to connect through a socket.
+    """
     _poll_interval = 0.1
 
     def __init__(self, opts, **kwargs):
@@ -201,7 +208,6 @@ class Server(ThreadMixin):
                                        pot_queue=self.pot_queue,
                                        tracer_queue=self.tracer_queue)
         self.computation_thread = threading.Thread(target=self.computation.run)
-        self.comm = communication.Server(opts=opts)
         self.state = opts.State(opts=opts)
         super().__init__(**kwargs)
 
@@ -220,8 +226,107 @@ class Server(ThreadMixin):
         finished = False
         self.computation_thread.start()
         self.message_queue.put(("start",))
+        self.finished = False
         try:
-            while not finished and not interrupted:
+            while not self.finished and not interrupted:
+                self.heartbeat("Server")
+                time.sleep(min(self._poll_interval, 1/self.opts.fps))
+            print("Done")
+        finally:
+            self.message_queue.put(("quit",))
+            self.computation_thread.join()
+
+    def get_array_density(self, client=None):
+        """Return the density data."""
+        self.message_queue.put(("get_density",))
+        density = np.ascontiguousarray(self.density_queue.get())
+        return density
+        
+    def get_Vpos(self, client=None):
+        """Return the position of the external potential."""
+        self.message_queue.put(("get_pot",))
+        pot_z = self.pot_queue.get()
+        xy = self.xy_to_pos((pot_z.real, pot_z.imag))
+        return tuple(xy.tolist())
+
+    def get_layout(self, client=None):
+        """Return the widget layout."""
+        layout = self.state.layout
+        interactive_widgets = widgets.get_interactive_widgets(layout)
+        for w in interactive_widgets:
+            w.value = self.state.params[w.name]
+        return repr(layout)
+
+    def set_touch_pos(self, touch_pos, client=None):
+        """Set the coordinates of the user's touch."""
+        x0, y0 = self.pos_to_xy(touch_pos)
+        self.message_queue.put(("update_finger", x0, y0))
+
+    def set_cooling(self, cooling, client=None):
+        """Set the cooling power."""
+        cooling_phase = complex(1, 10**float(cooling))
+        self.message_queue.put(("update_cooling_phase", cooling_phase))
+
+    def do_reset(self, client=None):
+        """Reset the server."""
+        self.message_queue.put(("reset",))
+        self.state = self.opts.State(opts=self.opts)
+
+    def do_reset_tracers(self, client=None):
+        """Reset the tracers."""
+        self.message_queue.put(("reset_tracers",))
+
+    def get_Nxy(self, client=None):
+        """Return the size of the frame."""
+        return (self.opts.Nx, self.opts.Ny)
+    
+    def set(self, param, value, client=None):
+        """Set specified parameter."""
+        log("Got set {}={}".format(param, value))
+        self.message_queue.put(("update", param, value))
+
+    def do_start(self, client=None):
+        self.message_queue.put(("start",))
+
+    def do_pause(self, client=None):
+        self.message_queue.put(("pause",))
+
+    def get_array_tracers(self, client=None):
+        """Return the positions of the tracers."""
+        self.message_queue.put(("get_tracers",))
+        trdata = self.tracer_queue.get()
+        return trdata
+
+    def do_quit(self, client=None):
+        self.comm.respond(b"Quitting")
+        self.finished = True
+
+    def pos_to_xy(self, pos):
+        """Return the (x, y) coordinates of (pos_x, pos_y) in the frame."""
+        return (np.asarray(pos) - 0.5)*self.state.get('Lxy')
+
+    def xy_to_pos(self, xy):
+        """Return the frame (pos_x, pos_y) from (x, y) coordinates."""
+        return np.asarray(xy)/self.state.get('Lxy') + 0.5
+
+
+class NetworkServer(Server):
+    """Network Server.
+
+    Wraps the Server class, provding all interface through sockets so
+    that non-python clients can interact with the server.
+    """
+    def __init__(self, opts, **kwargs):
+        self.comm = communication.Server(opts=opts)
+        super().__init__(opts=opts, **kwargs)
+        
+    def run_server(self, interrupted=None):
+        finished = False
+        self.computation_thread.start()
+        self.message_queue.put(("start",))
+        self.finished = False
+        try:
+            while not self.finished and not interrupted:
                 self.heartbeat("Server")
                 try:
                     # Do this so we can receive interrupted messages
@@ -232,46 +337,36 @@ class Server(ThreadMixin):
                     continue
 
                 if client_message == b"density":
-                    self.send_density()
-                elif client_message == b"Frame":
-                    self.send_Frame()
+                    self.comm.send_array(self.get_array_density())
                 elif client_message == b"Vpos":
-                    self.message_queue.put(("get_pot",))
-                    pot_z = self.pot_queue.get()
-                    xy = self.xy_to_pos((pot_z.real, pot_z.imag))
-                    self.comm.send(tuple(xy.tolist()))
+                    self.comm.send(self.get_Vpos())
                 elif client_message == b"layout":
-                    self.send_layout()
+                    self.comm.send(self.get_layout())
                 elif client_message == b"OnTouch":
-                    self.on_touch(self.comm.get())
+                    self.set_touch_pos(self.comm.get())
                 elif client_message == b"set":
                     param, value = self.comm.get()
-                    log("Got set {}={}".format(param, value))
-                    self.on_set(param=param, value=value)
+                    self.set(param=param, value=value)
                 elif client_message == b"Cooling":
-                    cooling = self.comm.get()
-                    cooling_phase = complex(1, 10**int(cooling))
-                    self.message_queue.put(("update_cooling_phase",
-                                            cooling_phase))
+                    self.set_cooling(self.comm.get())
                 elif client_message == b"reset":
-                    self.reset_game()
+                    self.do_reset()
                     self.comm.respond(b"Game Reset")
                 elif client_message == b"reset_tracers":
-                    self.message_queue.put(("reset_tracers",))
+                    self.do_reset_tracers()
                     self.comm.respond(b"Tracers Reset")
                 elif client_message == b"Nxy":
-                    self.comm.send(obj=(self.opts.Nx, self.opts.Ny))
+                    self.comm.send(self.get_Nxy())
                 elif client_message == b"Start":
-                    self.message_queue.put(("start",))
+                    self.do_start()
                     self.comm.respond(b"Starting")
                 elif client_message == b"Pause":
-                    self.message_queue.put(("pause",))
+                    self.do_pause()
                     self.comm.respond(b"Paused")
                 elif client_message == b"tracers":
-                    self.send_tracers()
+                    self.comm.send_array(self.get_array_tracers())
                 elif client_message == b"quit":
-                    self.comm.respond(b"Quitting")
-                    finished = True
+                    self.do_quit()
                 else:
                     print("Unknown data type")
                     print("client message:", client_message)
@@ -280,59 +375,6 @@ class Server(ThreadMixin):
         finally:
             self.message_queue.put(("quit",))
             self.computation_thread.join()
-
-    def send_layout(self):
-        """Send the layout to the client."""
-        layout = self.state.layout
-        interactive_widgets = widgets.get_interactive_widgets(layout)
-        for w in interactive_widgets:
-            w.value = self.state.params[w.name]
-        self.comm.send(repr(layout))
-
-    def send_density(self):
-        """Send the density data."""
-        self.message_queue.put(("get_density",))
-        density = np.ascontiguousarray(self.density_queue.get())
-        self.comm.send_array(density)
-
-    def send_frame(self):
-        """Send the RGB frame to draw.
-
-        Deprecated: Get density and make frame on client.
-        """
-        self.message_queue.put(("get_density",))
-        n_ = self.density_queue.get().T
-        # array = cm.viridis((n_-n_.min())/(n_.max()-n_.min()))
-        from matplotlib import cm
-        array = cm.viridis(n_/n_.max())
-        array = self._update_frame_with_tracer_particles(array)
-        array *= int(255/array.max())  # normalize values
-        data = array.astype(dtype='uint8')
-        self.comm.send_array(data)
-
-    def send_tracers(self):
-        self.message_queue.put(("get_tracers",))
-        trdata = self.tracer_queue.get()
-        self.comm.send_array(trdata)
-
-    def pos_to_xy(self, pos):
-        """Return the (x, y) coordinates of (pos_x, pos_y) in the frame."""
-        return (np.asarray(pos) - 0.5)*self.state.get('Lxy')
-
-    def xy_to_pos(self, xy):
-        """Return the frame (pos_x, pos_y) from (x, y) coordinates."""
-        return np.asarray(xy)/self.state.get('Lxy') + 0.5
-
-    def on_set(self, param, value):
-        self.message_queue.put(("update", param, value))
-
-    def on_touch(self, touch_pos):
-        x0, y0 = self.pos_to_xy(touch_pos)
-        self.message_queue.put(("update_finger", x0, y0))
-
-    def reset_game(self):
-        self.message_queue.put(("reset",))
-        self.state = self.opts.State(opts=self.opts)
 
 
 @nointerrupt
@@ -363,6 +405,6 @@ def run(block=True, interrupted=False, args=None, kwargs={}):
     cls = opts.model.split('.')[-1]
     pkg = "super_hydro"
     opts.State = getattr(importlib.import_module("." + module, pkg), cls)
-    server = Server(opts=opts)
+    server = NetworkServer(opts=opts)
     server.run(block=block, interrupted=interrupted)
     return server
