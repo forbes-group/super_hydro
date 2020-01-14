@@ -33,27 +33,44 @@ log = _LOGGER.log
 log_task = _LOGGER.log_task
 
 
+class NetworkServer(object):
+    """Wrapper for the `server.Server` class which provides network access."""
+    def __init__(self, opts):
+        self.opts = opts
+        with log_task("Connecting to server"):
+            self.comm = communication.Client(opts=self.opts)
+
+    def set(self, param, value, client=None):
+        """Set specified parameter."""
+        self.comm.send(b"set", (param, value))
+
+    def do(self, request, client=None):
+        self.comm.request(request.encode())
+
+    def get(self, param, client=None):
+        return self.comm.get(param.encode())
+
+    def get_array(self, param, client=None):
+        return self.comm.get_array(param.encode())
+        
+        
 class App(object):
     def __init__(self, opts, width="50%"):
         self.width = width
         self.opts = opts
         self._running = True
 
-    def connect(self):
-        with log_task("Connecting to server"):
-            self._comm = communication.Client(opts=self.opts)
-
     @property
     def comm(self):
         """Return the communication object, but only if running."""
         if self._running:
-            return self._comm
+            return self.server.comm
 
     @property
     def density(self):
         """Return the density data to plot: initiates call to server."""
         with log_task("Get density from server."):
-            return self.comm.get_array(b"density")
+            return self.server.get_array("density")
 
     @property
     def interrupted(self):
@@ -107,7 +124,7 @@ class NotebookApp(App):
     def on_value_change(self, change):
         if not self._running:
             return
-        self.comm.send(b"set", (change['owner'].name, change['new']))
+        self.server.set(param=change['owner'].name, value=change['new'])
 
     def on_click(self, button):
         if not self._running:
@@ -115,7 +132,7 @@ class NotebookApp(App):
         if button.name == "quit":
             self.quit()
         else:
-            self.comm.request(button.name.encode())
+            self.server.do(button.name)
 
     def on_update(self):
         """Callback to update frame when browser is ready."""
@@ -132,7 +149,7 @@ class NotebookApp(App):
     #
     # These methods communicate with the server.
     def quit(self):
-        self.comm.request(b"quit")
+        self.server.do("quit")
         self._running = False
 
     def get_widget(self):
@@ -188,20 +205,20 @@ class NotebookApp(App):
 
     def get_layout(self):
         """Return the model specified layout."""
-        layout = eval(self.comm.get(b"layout"), widgets.__dict__)
+        layout = eval(self.server.get("layout"), widgets.__dict__)
         return layout
 
     def get_tracer_particles(self):
         """Return the location of the tracer particles."""
-        return self.comm.get_array(b"tracers")
+        return self.server.get_array("tracers")
 
     ######################################################################
     # Client Application
     @nointerrupt
     def run(self, interrupted=False):
-        self.connect()
+        self.server = NetworkServer(opts=self.opts)
         from IPython.display import display
-        self.Nx, self.Ny = self.comm.get(b"Nxy")
+        self.Nx, self.Ny = self.server.get("Nxy")
         self._frame = 0
         self._tic0 = time.time()
 
@@ -288,7 +305,7 @@ class NotebookApp(App):
 _OPTS = None
 
 
-def get_app(run_server=True, notebook=True, **kwargs):
+def get_app(run_server=True, network_server=False, notebook=True, **kwargs):
     NoInterrupt.unregister()
     global _OPTS
     if _OPTS is None:
@@ -305,11 +322,11 @@ def get_app(run_server=True, notebook=True, **kwargs):
         # the client.
         from ..server import server
         server.run(args='', interrupted=app.interrupted, block=False,
-                   kwargs=kwargs)
+                   network_server=network_server, kwargs=kwargs)
     return app
 
 
-def run(run_server=True, **kwargs):
+def run(run_server=True, network_server=False, **kwargs):
     """Start the notebook client.
 
     Arguments
@@ -317,6 +334,12 @@ def run(run_server=True, **kwargs):
     run_server : bool
        If True, then first run a server, otherwise expect to connect
        to an existing server.
+    network_server : bool
+       Specifies the type of server to run if run_server is True.
+       If True, then run the server as a separate process and
+       communicate through sockets, otherwise, directly connect to a
+       server.
     """
-    app = get_app(run_server=run_server, **kwargs)
+    app = get_app(run_server=run_server, network_server=network_server,
+                  **kwargs)
     return app.run()

@@ -230,18 +230,42 @@ class Server(ThreadMixin):
         try:
             while not self.finished and not interrupted:
                 self.heartbeat("Server")
+                print("Hi")
                 time.sleep(min(self._poll_interval, 1/self.opts.fps))
             print("Done")
         finally:
             self.message_queue.put(("quit",))
             self.computation_thread.join()
 
-    def get_array_density(self, client=None):
-        """Return the density data."""
-        self.message_queue.put(("get_density",))
-        density = np.ascontiguousarray(self.density_queue.get())
-        return density
-        
+    def pos_to_xy(self, pos):
+        """Return the (x, y) coordinates of (pos_x, pos_y) in the frame."""
+        return (np.asarray(pos) - 0.5)*self.state.get('Lxy')
+
+    def xy_to_pos(self, xy):
+        """Return the frame (pos_x, pos_y) from (x, y) coordinates."""
+        return np.asarray(xy)/self.state.get('Lxy') + 0.5
+
+    ######################################################################
+    # Communication layer.
+    def do_reset(self, client=None):
+        """Reset the server."""
+        self.message_queue.put(("reset",))
+        self.state = self.opts.State(opts=self.opts)
+
+    def do_reset_tracers(self, client=None):
+        """Reset the tracers."""
+        self.message_queue.put(("reset_tracers",))
+
+    def do_start(self, client=None):
+        self.message_queue.put(("start",))
+
+    def do_pause(self, client=None):
+        self.message_queue.put(("pause",))
+
+    def do_quit(self, client=None):
+        self.comm.respond(b"Quitting")
+        self.finished = True
+
     def get_Vpos(self, client=None):
         """Return the position of the external potential."""
         self.message_queue.put(("get_pot",))
@@ -257,6 +281,22 @@ class Server(ThreadMixin):
             w.value = self.state.params[w.name]
         return repr(layout)
 
+    def get_Nxy(self, client=None):
+        """Return the size of the frame."""
+        return (self.opts.Nx, self.opts.Ny)
+
+    def get_array_tracers(self, client=None):
+        """Return the positions of the tracers."""
+        self.message_queue.put(("get_tracers",))
+        trdata = self.tracer_queue.get()
+        return trdata
+
+    def get_array_density(self, client=None):
+        """Return the density data."""
+        self.message_queue.put(("get_density",))
+        density = np.ascontiguousarray(self.density_queue.get())
+        return density
+    
     def set_touch_pos(self, touch_pos, client=None):
         """Set the coordinates of the user's touch."""
         x0, y0 = self.pos_to_xy(touch_pos)
@@ -267,48 +307,43 @@ class Server(ThreadMixin):
         cooling_phase = complex(1, 10**float(cooling))
         self.message_queue.put(("update_cooling_phase", cooling_phase))
 
-    def do_reset(self, client=None):
-        """Reset the server."""
-        self.message_queue.put(("reset",))
-        self.state = self.opts.State(opts=self.opts)
-
-    def do_reset_tracers(self, client=None):
-        """Reset the tracers."""
-        self.message_queue.put(("reset_tracers",))
-
-    def get_Nxy(self, client=None):
-        """Return the size of the frame."""
-        return (self.opts.Nx, self.opts.Ny)
-    
+    ######################################################################
+    # Public interface.  These dispatch to the various methods above.
     def set(self, param, value, client=None):
         """Set specified parameter."""
         log("Got set {}={}".format(param, value))
         self.message_queue.put(("update", param, value))
 
-    def do_start(self, client=None):
-        self.message_queue.put(("start",))
+    def do(self, request, client=None):
+        """Do a request."""
+        method = getattr(self, f"do_{request}", None)
+        if not method:
+            print("Unknown data type")
+            print("client message:", request)
+            self.comm.respond(b"Unknown Message")
+        else:
+            method(client=client)
+        
+    def get(self, param, client=None):
+        """Get the specified parameter."""
+        method = getattr(self, f"get_{param}", None)
+        if not method:
+            print("Unknown data type")
+            print("client message:", param)
+            self.comm.respond(b"Unknown Message")
+        else:
+            return method(client=client)
 
-    def do_pause(self, client=None):
-        self.message_queue.put(("pause",))
-
-    def get_array_tracers(self, client=None):
-        """Return the positions of the tracers."""
-        self.message_queue.put(("get_tracers",))
-        trdata = self.tracer_queue.get()
-        return trdata
-
-    def do_quit(self, client=None):
-        self.comm.respond(b"Quitting")
-        self.finished = True
-
-    def pos_to_xy(self, pos):
-        """Return the (x, y) coordinates of (pos_x, pos_y) in the frame."""
-        return (np.asarray(pos) - 0.5)*self.state.get('Lxy')
-
-    def xy_to_pos(self, xy):
-        """Return the frame (pos_x, pos_y) from (x, y) coordinates."""
-        return np.asarray(xy)/self.state.get('Lxy') + 0.5
-
+    def get_array(self, param, client=None):
+        """Get the specified array."""
+        method = getattr(self, f"get_array_{param}", None)
+        if not method:
+            print("Unknown data type")
+            print("client message:", param)
+            self.comm.respond(b"Unknown Message")
+        else:
+            return method(client=client)
+        
 
 class NetworkServer(Server):
     """Network Server.
@@ -378,7 +413,8 @@ class NetworkServer(Server):
 
 
 @nointerrupt
-def run(block=True, interrupted=False, args=None, kwargs={}):
+def run(block=True, network_server=True, interrupted=False, args=None,
+        kwargs={}):
     """Load the configuration and start the server.
 
     This can also be called programmatically to start a server.
@@ -395,6 +431,9 @@ def run(block=True, interrupted=False, args=None, kwargs={}):
        on the command line.  This is useful if starting the server
        from another application where the command line arguments might
        instead be for the outer app (like jupyter notebook).
+    network_server : bool
+       If True, then run a NetworkServer instance that listens for
+       connections from the network, otherwise, directly run a Server.
     """
     parser = config.get_server_parser()
     opts, other_args = parser.parse_known_args(args=args)
@@ -405,6 +444,9 @@ def run(block=True, interrupted=False, args=None, kwargs={}):
     cls = opts.model.split('.')[-1]
     pkg = "super_hydro"
     opts.State = getattr(importlib.import_module("." + module, pkg), cls)
-    server = NetworkServer(opts=opts)
+    if network_server:
+        server = NetworkServer(opts=opts)
+    else:
+        server = Server(opts=opts)
     server.run(block=block, interrupted=interrupted)
     return server
