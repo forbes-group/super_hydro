@@ -49,3 +49,8 @@ Dependencies
   tracer particles to reduce server load.  The idea is to keep the
   lite client for mobile devices which cannot import numpy/scipy etc.
   
+To Do
+=====
+When running the network_server from the notebook client, Quit does
+not release zmq sockets, so one gets ZMQError: Address already in use
+when trying to restart.
