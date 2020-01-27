@@ -48,17 +48,28 @@ class Client(object):
             self.socket = self.context.socket(zmq.REQ)
             self.socket.connect(url)
 
-    def request(self, msg):
-        """Request an action of the server."""
-        with log_task("Request: {}".format(msg)):
-            self.socket.send(msg)
-            return self.socket.recv()
-
-    def get(self, msg):
-        """Request data from server."""
-        with log_task("Getting {} from server".format(msg)):
+    def reset(self):
+        """Special reset method that returns the param_dict."""
+        with log_task("Reset"):
             self.socket.send(msg)
             return self.socket.recv_json()
+
+    def do(self, action):
+        """Request an action of the server."""
+        with log_task(f"Do: {action}"):
+            self.socket.send(action.encode())
+            return self.socket.recv()
+
+    def get(self, params):
+        """Request data from server."""
+        with log_task(f"Getting {params} from server"):
+            self.socket.send(b"_get")
+            response = self.socket.recv()
+            if response != b"ok":
+                raise IOError(
+                    f"Server declined request to get saying {response}")
+            self.socket.send_json(params)
+            return self.socket.recv_json(params)
 
     def send(self, msg, obj):
         """Send data to server."""
@@ -140,6 +151,11 @@ class Server(object):
     def send(self, obj):
         """Send requested JSON encoded object."""
         self.socket.send_json(obj)
+
+    def get_params(self):
+        """Receive a JSON encoded list of params."""
+        self.socket.send(b"ok")
+        return self.socket.recv_json()
 
     def get(self, response=b""):
         """Receive a JSON encoded object and return the decoded object."""

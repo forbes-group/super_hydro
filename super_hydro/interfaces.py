@@ -1,6 +1,10 @@
 """Interfaces for various components of the system.
 """
 from zope.interface import Interface, Attribute, implementer
+from zope.interface.verify import verifyClass, verifyObject
+
+__all__ = ['IModel', 'IServer',
+           'implementer', 'verifyClass', 'verifyObject']
 
 
 class IModel(Interface):
@@ -58,4 +62,55 @@ class IModel(Interface):
         This is called interactively by the server.  Parameters could
         be implemented with properties, but our server explicitly
         calls this method to limit the require interface.
+        """
+
+
+class IServer(Interface):
+    """Interface for the server.
+
+    This interface defines the communication interface which the
+    client will use to communicate with the server.  The methods here
+    provide a direct way of interacting with the server using python,
+    but an alternative implementation in super_hydro.communication
+    abstracts this to the network.
+    """
+    def do(action, client=None):
+        """Tell the server to perform the specified `action`."""
+
+    def get(params, client=None):
+        """Return the specified quantities.
+
+        Arguments
+        ---------
+        params : [str]
+           List of parameters.
+
+        Returns
+        -------
+        param_dict : {param: val}
+           Dictionary of values corresponding to specified parameters.
+        """
+
+    def set(param_dict, client=None):
+        """Set the specified quantities.
+
+        Arguments
+        ---------
+        param_dict : {param: val}
+           Dictionary of values corresponding to specified
+           parameters.  Unknown parameters should have a values of
+           `NotImplemented`.  (This is encoded as the string
+           `'_NotImplemented'` so values should not have this value.
+        """
+
+    def get_array(param, client=None):
+        """Return the specified array."""
+
+    def reset(client=None):
+        """Reset server and return default parameters.
+
+        Returns
+        -------
+        param_vals : {param: val}
+           Dictionary of values corresponding to default parameters.
         """

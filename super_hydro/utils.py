@@ -1,5 +1,6 @@
 from contextlib import contextmanager
 import logging
+import os
 
 import numpy as np
 import scipy as sp
@@ -65,12 +66,55 @@ def mstep(t, t1, alpha=3.0):
             1.0))
 
 
+class MyFormatter(logging.Formatter):
+    """Custom logging formatter for sending info to Jupyter console."""
+    def __init__(self):
+        logging.Formatter.__init__(
+            self,
+            fmt="[%(levelname)s %(asctime)s super_hydro-%(name)s] %(message)s",
+            datefmt="%H:%M:%S")
+
+    def format(self, record):
+        record.levelname = record.levelname[0]
+        msg = logging.Formatter.format(self, record)
+        if record.levelno >= logging.WARNING:
+            msg += "\n{}{}:{}".format(" "*14, record.filename, record.lineno)
+        return msg
+
+
 class Logger(object):
     """Logging object."""
     def __init__(self, name="", indent_amount=2):
         self.name = name
         self.nesting = 0
         self.indent_amount = indent_amount
+
+        # Logging to jupyter console.
+        # Not exactly sure why this works, but here we add a handler
+        # to send output to the main console.
+        # https://stackoverflow.com/a/39331977/1088938
+        logger = self.logger
+        handler = None
+        for h in logger.handlers:
+            try:
+                if h.stream.fileno() == 1:
+                    handler = h
+                    break
+            except Exception:
+                pass
+        if not handler:
+            handler = logging.StreamHandler(os.fdopen(1, "w"))
+            logger.addHandler(handler)
+
+        handler.setFormatter(MyFormatter())
+        handler.setLevel('DEBUG')
+        logger.setLevel('DEBUG')
+
+    @property
+    def logger(self):
+        """Return the logger."""
+        # Get logger each time so handlers are properly dealt with
+        return logging.getLogger(self.name)
 
     @property
     def indent(self):
@@ -80,8 +124,7 @@ class Logger(object):
     def log(self, msg, level=logging.INFO):
         """Log msg to the logger."""
         # Get logger each time so handlers are properly dealt with
-        logging.getLogger(self.name).log(level=level,
-                                         msg=self.indent + msg)
+        self.logger.log(level=level, msg=self.indent + msg)
 
     def debug(self, msg, level=logging.DEBUG):
         """Log debug msg to the logger."""

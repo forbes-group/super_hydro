@@ -14,6 +14,8 @@ from ..physics import tracer_particles
 #from mmfutils.conexts import nointerrupt
 from ..contexts import nointerrupt
 
+from ..interfaces import IServer, implementer, verifyClass
+
 
 PROFILE = False
 if PROFILE:
@@ -186,6 +188,7 @@ class Computation(ThreadMixin):
         raise ValueError(f"Unknown Command {msg}(*{v})")
 
 
+@implementer(IServer)
 class Server(ThreadMixin):
     """Server Class.
 
@@ -219,10 +222,10 @@ class Server(ThreadMixin):
             return self.run_server(**kwargs)
         else:
             self.server_thread = threading.Thread(
-                target=self.run_server, kwargs=kwargs)
+                target=self._run_server, kwargs=kwargs)
             self.server_thread.start()
 
-    def run_server(self, interrupted=None):
+    def _run_server(self, interrupted=None):
         finished = False
         self.computation_thread.start()
         self.message_queue.put(("start",))
@@ -230,50 +233,48 @@ class Server(ThreadMixin):
         try:
             while not self.finished and not interrupted:
                 self.heartbeat("Server")
-                print("Hi")
                 time.sleep(min(self._poll_interval, 1/self.opts.fps))
             print("Done")
         finally:
             self.message_queue.put(("quit",))
             self.computation_thread.join()
 
-    def pos_to_xy(self, pos):
+    def _pos_to_xy(self, pos):
         """Return the (x, y) coordinates of (pos_x, pos_y) in the frame."""
         return (np.asarray(pos) - 0.5)*self.state.get('Lxy')
 
-    def xy_to_pos(self, xy):
+    def _xy_to_pos(self, xy):
         """Return the frame (pos_x, pos_y) from (x, y) coordinates."""
         return np.asarray(xy)/self.state.get('Lxy') + 0.5
 
     ######################################################################
     # Communication layer.
-    def do_reset(self, client=None):
+    def _do_reset(self, client=None):
         """Reset the server."""
         self.message_queue.put(("reset",))
         self.state = self.opts.State(opts=self.opts)
 
-    def do_reset_tracers(self, client=None):
+    def _do_reset_tracers(self, client=None):
         """Reset the tracers."""
         self.message_queue.put(("reset_tracers",))
 
-    def do_start(self, client=None):
+    def _do_start(self, client=None):
         self.message_queue.put(("start",))
 
-    def do_pause(self, client=None):
+    def _do_pause(self, client=None):
         self.message_queue.put(("pause",))
 
-    def do_quit(self, client=None):
-        self.comm.respond(b"Quitting")
+    def _do_quit(self, client=None):
         self.finished = True
 
-    def get_Vpos(self, client=None):
+    def _get_Vpos(self, client=None):
         """Return the position of the external potential."""
         self.message_queue.put(("get_pot",))
         pot_z = self.pot_queue.get()
         xy = self.xy_to_pos((pot_z.real, pot_z.imag))
         return tuple(xy.tolist())
 
-    def get_layout(self, client=None):
+    def _get_layout(self, client=None):
         """Return the widget layout."""
         layout = self.state.layout
         interactive_widgets = widgets.get_interactive_widgets(layout)
@@ -281,52 +282,96 @@ class Server(ThreadMixin):
             w.value = self.state.params[w.name]
         return repr(layout)
 
-    def get_Nxy(self, client=None):
+    def _get_Nxy(self, client=None):
         """Return the size of the frame."""
         return (self.opts.Nx, self.opts.Ny)
 
-    def get_array_tracers(self, client=None):
+    def _get_array_tracers(self, client=None):
         """Return the positions of the tracers."""
         self.message_queue.put(("get_tracers",))
         trdata = self.tracer_queue.get()
         return trdata
 
-    def get_array_density(self, client=None):
+    def _get_array_density(self, client=None):
         """Return the density data."""
         self.message_queue.put(("get_density",))
         density = np.ascontiguousarray(self.density_queue.get())
         return density
     
-    def set_touch_pos(self, touch_pos, client=None):
+    def _set_touch_pos(self, touch_pos, client=None):
         """Set the coordinates of the user's touch."""
         x0, y0 = self.pos_to_xy(touch_pos)
         self.message_queue.put(("update_finger", x0, y0))
 
-    def set_cooling(self, cooling, client=None):
+    def _set_cooling(self, cooling, client=None):
         """Set the cooling power."""
         cooling_phase = complex(1, 10**float(cooling))
         self.message_queue.put(("update_cooling_phase", cooling_phase))
 
     ######################################################################
     # Public interface.  These dispatch to the various methods above.
-    def set(self, param, value, client=None):
-        """Set specified parameter."""
-        log("Got set {}={}".format(param, value))
-        self.message_queue.put(("update", param, value))
+    def reset(self, client=None):
+        """Reset server and return default parameters.
 
-    def do(self, request, client=None):
-        """Do a request."""
-        method = getattr(self, f"do_{request}", None)
+        Returns
+        -------
+        param_vals : {param: val}
+           Dictionary of values corresponding to default parameters.
+        """
+        self._do_reset(client=client)
+        return self.state.params
+
+    def set(self, param_dict, client=None):
+        """Set the specified quantities.
+
+        Arguments
+        ---------
+        param_vals : {param: val}
+           Dictionary of values corresponding to specified parameters.
+        """
+        log(f"Setting {param_dict}")
+        for param in param_dict:
+            value = param_dict[param]
+            self.message_queue.put(("update", param, value))
+
+    def do(self, action, client=None):
+        """Tell the server to perform the specified `action`."""
+        method = getattr(self, f"_do_{action}", None)
         if not method:
             print("Unknown data type")
-            print("client message:", request)
+            print("client message:", action)
             self.comm.respond(b"Unknown Message")
         else:
             method(client=client)
-        
-    def get(self, param, client=None):
-        """Get the specified parameter."""
-        method = getattr(self, f"get_{param}", None)
+
+    def get(self, params, client=None):
+        """Return the specified parameters.
+
+        Arguments
+        ---------
+        params : [str]
+           List of parameters.
+
+        Returns
+        -------
+        param_dict : {param: val}
+           Dictionary of values corresponding to specified parameters.
+        """
+        log(f"Getting {params}")
+        param_dict = {}
+        for param in params:
+            method = getattr(self, f"_get_{param}", None)
+            if not method:
+                log(f"Unknown parameter {param}")
+                val = NotImplemented
+            else:
+                val = method(client=client)
+            param_dict[param] = val
+        return param_dict
+
+    def get_array(self, param, client=None):
+        """Get the specified array."""
+        method = getattr(self, f"_get_array_{param}", None)
         if not method:
             print("Unknown data type")
             print("client message:", param)
@@ -334,16 +379,6 @@ class Server(ThreadMixin):
         else:
             return method(client=client)
 
-    def get_array(self, param, client=None):
-        """Get the specified array."""
-        method = getattr(self, f"get_array_{param}", None)
-        if not method:
-            print("Unknown data type")
-            print("client message:", param)
-            self.comm.respond(b"Unknown Message")
-        else:
-            return method(client=client)
-        
 
 class NetworkServer(Server):
     """Network Server.
@@ -354,9 +389,8 @@ class NetworkServer(Server):
     def __init__(self, opts, **kwargs):
         self.comm = communication.Server(opts=opts)
         super().__init__(opts=opts, **kwargs)
-        
+
     def run_server(self, interrupted=None):
-        finished = False
         self.computation_thread.start()
         self.message_queue.put(("start",))
         self.finished = False
@@ -371,37 +405,40 @@ class NetworkServer(Server):
                 except communication.TimeoutError:
                     continue
 
-                if client_message == b"density":
-                    self.comm.send_array(self.get_array_density())
-                elif client_message == b"Vpos":
-                    self.comm.send(self.get_Vpos())
-                elif client_message == b"layout":
-                    self.comm.send(self.get_layout())
-                elif client_message == b"OnTouch":
-                    self.set_touch_pos(self.comm.get())
+                if client_message == b"_get":
+                    params = self.comm.get_params()
+                    self.comm.send(self.get(params))
+                elif client_message == b"tracers":
+                    self.comm.send_array(self._get_array_tracers())
+                elif client_message == b"density":
+                    self.comm.send_array(self._get_array_density())
                 elif client_message == b"set":
                     param, value = self.comm.get()
                     self.set(param=param, value=value)
-                elif client_message == b"Cooling":
-                    self.set_cooling(self.comm.get())
+                #elif client_message == b"Vpos":
+                #    self.comm.send(self._get_Vpos())
+                #elif client_message == b"layout":
+                #    self.comm.send(self._get_layout())
+                elif client_message == b"OnTouch":
+                    self.set_touch_pos(self.comm.get())
+                #elif client_message == b"Cooling":
+                #    self._set_cooling(self.comm.get())
                 elif client_message == b"reset":
-                    self.do_reset()
-                    self.comm.respond(b"Game Reset")
+                    param_vals = self._do_reset()
+                    self.comm.send(param_vals)
                 elif client_message == b"reset_tracers":
-                    self.do_reset_tracers()
+                    self._do_reset_tracers()
                     self.comm.respond(b"Tracers Reset")
-                elif client_message == b"Nxy":
-                    self.comm.send(self.get_Nxy())
+                #elif client_message == b"Nxy":
+                #    self.comm.send(self._get_Nxy())
                 elif client_message == b"Start":
-                    self.do_start()
+                    self._do_start()
                     self.comm.respond(b"Starting")
                 elif client_message == b"Pause":
-                    self.do_pause()
+                    self._do_pause()
                     self.comm.respond(b"Paused")
-                elif client_message == b"tracers":
-                    self.comm.send_array(self.get_array_tracers())
                 elif client_message == b"quit":
-                    self.do_quit()
+                    self._do_quit()
                 else:
                     print("Unknown data type")
                     print("client message:", client_message)
@@ -413,8 +450,8 @@ class NetworkServer(Server):
 
 
 @nointerrupt
-def run(block=True, network_server=True, interrupted=False, args=None,
-        kwargs={}):
+def run(block=True, network_server=True, interrupted=False,
+        args=None, kwargs={}):
     """Load the configuration and start the server.
 
     This can also be called programmatically to start a server.
@@ -450,3 +487,7 @@ def run(block=True, network_server=True, interrupted=False, args=None,
         server = Server(opts=opts)
     server.run(block=block, interrupted=interrupted)
     return server
+
+
+verifyClass(IServer, Server)
+verifyClass(IServer, NetworkServer)

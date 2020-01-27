@@ -34,26 +34,39 @@ log_task = _LOGGER.log_task
 
 
 class NetworkServer(object):
-    """Wrapper for the `server.Server` class which provides network access."""
+    """Wrapper for the `server.Server` class.
+
+    This is used when the server is not started locally and the client
+    must communicate over the network.
+    """
     def __init__(self, opts):
         self.opts = opts
         with log_task("Connecting to server"):
             self.comm = communication.Client(opts=self.opts)
 
-    def set(self, param, value, client=None):
+    def reset(self, client=None):
         """Set specified parameter."""
-        self.comm.send(b"set", (param, value))
+        self.do("reset")
 
-    def do(self, request, client=None):
-        self.comm.request(request.encode())
+    def set(self, param_dict, client=None):
+        """Set specified parameter."""
+        for param in param_dict:
+            self.comm.send(b"set", (param, param_dict[param]))
 
-    def get(self, param, client=None):
-        return self.comm.get(param.encode())
+    def do(self, action, client=None):
+        self.comm.do(action)
+
+    def get(self, params, client=None):
+        return self.comm.get(params=params)
+    
+        param_dict = {param: self.comm.get(param.encode())
+                      for param in params}
+        return param_dict
 
     def get_array(self, param, client=None):
         return self.comm.get_array(param.encode())
-        
-        
+
+
 class App(object):
     def __init__(self, opts, width="50%"):
         self.width = width
@@ -98,6 +111,7 @@ class _Interrupted(object):
 class NotebookApp(App):
     fmt = 'PNG'
     browser_control = True
+    server = None
 
     def _get_widget(self):
         layout = self.get_layout()
@@ -124,7 +138,7 @@ class NotebookApp(App):
     def on_value_change(self, change):
         if not self._running:
             return
-        self.server.set(param=change['owner'].name, value=change['new'])
+        self.server.set({change['owner'].name: change['new']})
 
     def on_click(self, button):
         if not self._running:
@@ -205,7 +219,7 @@ class NotebookApp(App):
 
     def get_layout(self):
         """Return the model specified layout."""
-        layout = eval(self.server.get("layout"), widgets.__dict__)
+        layout = eval(self.server.get(['layout'])['layout'], widgets.__dict__)
         return layout
 
     def get_tracer_particles(self):
@@ -216,9 +230,10 @@ class NotebookApp(App):
     # Client Application
     @nointerrupt
     def run(self, interrupted=False):
-        self.server = NetworkServer(opts=self.opts)
+        if self.server is None:
+            self.server = NetworkServer(opts=self.opts)
         from IPython.display import display
-        self.Nx, self.Ny = self.server.get("Nxy")
+        self.Nx, self.Ny = self.server.get(['Nxy'])['Nxy']
         self._frame = 0
         self._tic0 = time.time()
 
@@ -321,12 +336,14 @@ def get_app(run_server=True, network_server=False, notebook=True, **kwargs):
         # Delay import because server requires many more modules than
         # the client.
         from ..server import server
-        server.run(args='', interrupted=app.interrupted, block=False,
-                   network_server=network_server, kwargs=kwargs)
+        app.server = server.run(args='', interrupted=app.interrupted,
+                                block=False,
+                                network_server=network_server,
+                                kwargs=kwargs)
     return app
 
 
-def run(run_server=True, network_server=False, **kwargs):
+def run(run_server=True, network_server=True, **kwargs):
     """Start the notebook client.
 
     Arguments
