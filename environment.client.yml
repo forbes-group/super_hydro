@@ -1,0 +1,27 @@
+name: _super_hydro_client
+channels:
+  - defaults
+  - conda-forge
+  - mforbes
+dependencies:
+  - python>=3
+  - configargparse
+  - numpy
+  - pyzmq
+  - zope.interface
+
+  # Notebook Client
+  - nb_conda
+  - ipykernel
+  - ipywidgets
+  - pillow
+  - mmf_setup
+  #- cython
+  #- mmfutils
+  #- ipympl
+  #- husl  
+
+  # Old kivy client.
+  #- pip
+  #- pip:
+  #  - kivy

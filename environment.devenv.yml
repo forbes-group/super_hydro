@@ -1,0 +1,8 @@
+name: super_hydro3
+channels:
+  - defaults
+  - conda-forge
+  - mforbes
+includes:
+  - environment.server.yml
+  - environment.client.yml

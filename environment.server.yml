@@ -13,4 +13,9 @@ dependencies:
 
   # For performance
   - numexpr
+  - cython
+  - pyfftw
+
+  # For GPU support
+  #- cupy
   

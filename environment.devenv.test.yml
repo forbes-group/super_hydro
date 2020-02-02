@@ -1,0 +1,15 @@
+name: super_hydro_test
+channels:
+  - defaults
+  - conda-forge
+  - mforbes
+includes:
+  - environment.devenv.yml
+dependencies:
+  # For testing
+  - pytest-flake8
+  - pytest-cov
+  - pytest-runner
+
+  # For profiling
+  - snakeviz
