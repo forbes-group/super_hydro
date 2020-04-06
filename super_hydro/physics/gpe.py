@@ -72,11 +72,11 @@ class GPEBase(ModelBase, FingerMixin):
 
         self.kxy = kx, ky = (2*np.pi * np.fft.fftfreq(Nx, dx)[:, None],
                              2*np.pi * np.fft.fftfreq(Ny, dy)[None, :])
-        
+
         cooling_phase = 1+self.cooling*1j
         cooling_phase = cooling_phase/abs(cooling_phase)
         self._phase = -1j/self.hbar/cooling_phase
-        
+
         if mmfutils and False:
             self._fft = mmfutils.performance.fft.get_fftn_pyfftw(self.data)
             self._ifft = mmfutils.performance.fft.get_ifftn_pyfftw(self.data)
@@ -171,6 +171,8 @@ class BEC(GPEBase):
     def __init__(self, opts):
         super().__init__(opts=opts)
 
+        self.t = 0
+
         self.mu = self.hbar**2/2.0/self.m/self.healing_length**2
         self.n0 = self.mu/self.g
         mu_min = max(0, min(self.mu, self.mu*(1-self.finger_V0_mu)))
@@ -183,8 +185,6 @@ class BEC(GPEBase):
         self.init()
         self.set_initial_data()
         self._N = self.get_density().sum()
-
-        self.t = 0
 
     def init(self):
         super().init()
@@ -299,6 +299,51 @@ class BEC(GPEBase):
 
 
 @implementer(interfaces.IModel)
+class BECVortices(BEC):
+    params = dict(BEC.params, N_vortex=0.0,
+                  bump_N=1,
+                  bump_h=0.1,
+                  cylinder=True)
+
+    layout = w.VBox([
+        w.FloatSlider(name='bump_h',
+                      min=0, max=0.5, step=0.01,
+                      description=r'bump size'),
+        w.FloatSlider(name='N_vortex',
+                      min=-100, max=100, step=0.1,
+                      description=r'Target number of vortices'),
+        w.IntSlider(name='bump_N',
+                    min=0, max=100,
+                    description=r'Number of bumps'),
+        BEC.layout])
+
+    def init(self):
+        self.Omega = 0
+        super().init()
+        A = 0.8**2 * np.prod(self.Lxy)
+        self.Omega = self.N_vortex * self.hbar * np.pi / self.m / A
+
+    def get_V_trap(self):
+        """Return any static trapping potential."""
+        if self.cylinder:
+            x, y = self.xy
+            Lx, Ly = self.Lxy
+            theta = np.angle(x+1j*y)
+            theta0 = self.Omega*self.t
+            r2_ = (((2*x/Lx)**2 + (2*y/Ly)**2) *
+                   (1 - self.bump_h*np.cos(
+                       self.bump_N*(theta - theta0))))
+            return 100*self.mu*utils.mstep(r2_ - 0.8, 0.2)
+        else:
+            return 0
+
+    def get_Vext(self):
+        """Return the full external potential."""
+        # Don't use cache
+        return self.get_V_trap() + super().get_Vext()
+
+
+@implementer(interfaces.IModel)
 class BECFlow(BEC):
     """Model implementing variable flow in a BEC.
 
@@ -332,6 +377,7 @@ class BECVortexRing(BECFlow):
     """Model implementing variable flow in a BEC with imprinted vortex
     "rings"."""
     params = dict(BEC.params, cylinder=False, v_v_c=0, R=0.5)
+    t = 0.0
 
     layout = w.VBox([
         BECFlow.layout])
@@ -354,7 +400,7 @@ class BECVortexRing(BECFlow):
         Lx, Ly = self.Lxy
         r2_ = 0*x + (2*y/Ly)**2
         return 100*self.mu*utils.mstep(r2_ - 0.8, 0.2)
-    
+
     def set_initial_data(self):
         super().set_initial_data()
         x, y = self.xy
@@ -406,8 +452,28 @@ class BECSoliton(BECFlow):
         self.data[...] = psi(x)/phase
 
 
+@implementer(interfaces.IModel)
 class BECQuantumFriction(BEC):
     """Class with local quantum friction."""
+    params = dict(BEC.params, Omega=0.0,
+                  Vc_cooling=0.0,
+                  Kc_cooling=0.0)
+
+    layout = w.VBox([
+        w.FloatLogSlider(name='Vc_cooling',
+                         base=10, min=-10, max=1, step=0.2,
+                         description='Vc Cooling'),
+        BEC.layout])
+
+    def get_Kc(self):
+        raise NotImplementedError()
+
+    def get_Vc(self):
+        Vc = 0
+        return self.Vc_cooling * Vc
+
+    def get_Vext(self):
+        return super().get_Vext() + self.get_Vc()
 
 
 @implementer(interfaces.IModel)
@@ -434,7 +500,7 @@ class BECBreather(BEC):
         Lx, Ly = self.Lxy
         a_HO = self.a_HO*Lx/2.0
         mw2 = self.hbar**2/a_HO**4/self.m
-        
+
         return mw2*r2/2.0
 
     def _set(self, param, value):

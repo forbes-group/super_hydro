@@ -22,7 +22,7 @@ class ModelBase(object):
 
         # Collect all parameters from base classes
         params = {}
-        mro = inspect.getmro(type(self))
+        mro = type(self).mro()
         for kls in reversed(mro):
             params.update(getattr(kls, 'params', {}))
 
@@ -37,7 +37,10 @@ class ModelBase(object):
         self._initializing = False
 
     def init(self):
-        """Overload this to provide any initialization."""
+        """Overload this to provide any initialization.
+
+        Note: your class should call init() when it is ready.
+        """
 
 
 class FingerMixin(object):

@@ -20,4 +20,4 @@ dependencies:
 - pyzmq
 - scipy
 - zope.interface
-name: super_hydro3
+name: super_hydro
