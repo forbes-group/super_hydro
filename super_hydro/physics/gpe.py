@@ -468,9 +468,20 @@ class BECQuantumFriction(BEC):
     def get_Kc(self):
         raise NotImplementedError()
 
+    def apply_H(self, psi):
+        """compute dy/dt=H psi"""
+        psi_k = self.fft(psi)
+        n =  (psi.conj()*psi).real
+        V = super().get_Vext() + self.g*n - self.mu
+        Hpsi = self.ifft(self.K*psi_k) + V*psi
+        Hpsi = Hpsi/np.sqrt(self._N)
+        return Hpsi
+
     def get_Vc(self):
-        Vc = 0
-        return self.Vc_cooling * Vc
+        """implement the Vc local cooling potential"""
+        psi = self.data
+        Hpsi = self.apply_H(psi)
+        return self.Vc_cooling*2*(psi.conj()*Hpsi).imag
 
     def get_Vext(self):
         return super().get_Vext() + self.get_Vc()
@@ -522,3 +533,8 @@ class BECBreather(BEC):
                      self.n0,
                      0)
         self.data[...] = np.sqrt(n)
+
+
+if __name__ == "__main__":
+    b = BECQuantumFriction()
+    b.get_Vc()
