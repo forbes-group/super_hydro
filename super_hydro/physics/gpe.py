@@ -320,8 +320,8 @@ class BECVortices(BEC):
     def init(self):
         self.Omega = 0
         super().init()
-        A = 0.8**2 * np.prod(self.Lxy)
-        self.Omega = self.N_vortex * self.hbar * np.pi / self.m / A
+        A = 0.8**2*np.prod(self.Lxy)
+        self.Omega = self.N_vortex*self.hbar*np.pi/self.m/A
 
     def get_V_trap(self):
         """Return any static trapping potential."""
@@ -369,7 +369,7 @@ class BECFlow(BEC):
         """Return the Bloch momentum"""
         v_c = math.sqrt(self.mu/self.m)
         v = self.v_v_c*v_c
-        return self.m * v / self.hbar
+        return self.m*v/self.hbar
 
 
 @implementer(interfaces.IModel)
@@ -392,7 +392,7 @@ class BECVortexRing(BECFlow):
         """Return the Bloch momentum"""
         v_c = math.sqrt(self.mu/self.m)
         v = self.v_v_c*v_c
-        return self.m * v / self.hbar
+        return self.m*v/self.hbar
 
     def get_V_trap(self):
         """Return any static trapping potential."""
@@ -404,7 +404,7 @@ class BECVortexRing(BECFlow):
     def set_initial_data(self):
         super().set_initial_data()
         x, y = self.xy
-        Lx, Ly = self.Lxy        
+        Lx, Ly = self.Lxy
         z0 = x + 1j*(y - self.R*Ly/2)
         z1 = x - 1j*(y + self.R*Ly/2)
         self.data *= np.exp(1j*np.angle(z0*z1))
@@ -471,7 +471,7 @@ class BECQuantumFriction(BEC):
     def apply_H(self, psi):
         """compute dy/dt=H psi"""
         psi_k = self.fft(psi)
-        n =  (psi.conj()*psi).real
+        n = (psi.conj()*psi).real
         V = super().get_Vext() + self.g*n - self.mu
         Hpsi = self.ifft(self.K*psi_k) + V*psi
         Hpsi = Hpsi/np.sqrt(self._N)
@@ -521,7 +521,6 @@ class BECBreather(BEC):
 
     def set_initial_data(self):
         self.data = np.empty(self.Nxy, dtype=complex)
-
         x, y = self.xy
         Lx, Ly = self.Lxy
         z = x + 1j*y
@@ -533,8 +532,3 @@ class BECBreather(BEC):
                      self.n0,
                      0)
         self.data[...] = np.sqrt(n)
-
-
-if __name__ == "__main__":
-    b = BECQuantumFriction()
-    b.get_Vc()
