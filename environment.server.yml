@@ -10,6 +10,8 @@ dependencies:
   - pyzmq
   - attrs
   - zope.interface
+  - flask
+  - json
 
   # For performance
   - numexpr
@@ -18,4 +20,3 @@ dependencies:
 
   # For GPU support
   #- cupy
-  

@@ -9,6 +9,7 @@ dependencies:
   - numpy
   - pyzmq
   - zope.interface
+  - pandas
 
   # Notebook Client
   - nb_conda
@@ -19,7 +20,7 @@ dependencies:
   #- cython
   #- mmfutils
   #- ipympl
-  #- husl  
+  #- husl
 
   # Old kivy client.
   #- pip
