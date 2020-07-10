@@ -3,6 +3,7 @@ __doc__ = """SuperHydro Server."""
 from collections import deque
 from contextlib import contextmanager
 import importlib
+import inspect
 import threading
 import queue
 import time
@@ -297,7 +298,7 @@ class Server(ThreadMixin):
         self.message_queue.put(("get_density",))
         density = np.ascontiguousarray(self.density_queue.get())
         return density
-    
+
     def _set_touch_pos(self, touch_pos, client=None):
         """Set the coordinates of the user's touch."""
         x0, y0 = self.pos_to_xy(touch_pos)
@@ -308,8 +309,39 @@ class Server(ThreadMixin):
         cooling_phase = complex(1, 10**float(cooling))
         self.message_queue.put(("update_cooling_phase", cooling_phase))
 
+    def _get_available_commands(self, client=None):
+        """Get a dictionary of available commands."""
+        do_commands = {
+            _name[len('_do_'):]: _val.__doc__
+            for _name, _val in inspect.getmembers(self)
+            if _name.startswith('_do_')}
+        get_commands = {
+            _name[len('_get_'):]: _val.__doc__
+            for _name, _val in inspect.getmembers(self)
+            if _name.startswith('_get_')
+            and not _name.startswith('_get_array_')}
+        set_commands = {
+            _name[len('_set_'):]: _val.__doc__
+            for _name, _val in inspect.getmembers(self)
+            if _name.startswith('_set_')}
+        get_array_commands = {
+            _name[len('_get_array_'):]: _val.__doc__
+            for _name, _val in inspect.getmembers(self)
+            if _name.startswith('_get_array_')}
+        available_commands = {
+            'do': do_commands,
+            'get': get_commands,
+            'set': set_commands,
+            'get_array': get_array_commands,
+        }
+        return available_commands
+
     ######################################################################
     # Public interface.  These dispatch to the various methods above.
+    def get_available_commands(self, client=None):
+        log(f"Getting available commands")
+        return self._get_available_commands(client=client)
+
     def reset(self, client=None):
         """Reset server and return default parameters.
 
@@ -362,8 +394,9 @@ class Server(ThreadMixin):
         for param in params:
             method = getattr(self, f"_get_{param}", None)
             if not method:
-                log(f"Unknown parameter {param}")
-                val = NotImplemented
+                err_message = f"Unknown parameter {param}"
+                log(err_message)
+                val = communication.error(err_message)
             else:
                 val = method(client=client)
             param_dict[param] = val
