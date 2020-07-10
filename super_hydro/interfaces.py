@@ -74,6 +74,23 @@ class IServer(Interface):
     but an alternative implementation in super_hydro.communication
     abstracts this to the network.
     """
+    def get_available_commands(client=None):
+        """Return a dictionary of available commands.
+
+        Returns
+        -------
+        available_commands : dict
+           Dictionary of available commands.  Each is a dictionary
+           whose key is the command name, and the value is a
+           description of the command.
+
+           {'do': {},         # Actions.
+            'get': {},        # Parameters that can be fetched.
+            'set': {},        # Parameters that can be set.
+            'get_array': {},  # Arrays that can be fetched.
+           }
+        """
+
     def do(action, client=None):
         """Tell the server to perform the specified `action`."""
 

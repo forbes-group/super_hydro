@@ -21,7 +21,10 @@ import zmq
 
 from . import utils
 
-__all__ = ['Client', 'Server', 'TimeoutError']
+from .interfaces import IServer, implementer, verifyClass
+
+
+__all__ = ['Client', 'Server', 'TimeoutError', 'error']
 
 _LOGGER = utils.Logger(__name__)
 log = _LOGGER.log
@@ -30,6 +33,11 @@ log_task = _LOGGER.log_task
 
 class TimeoutError(Exception):
     """Operation timed out."""
+
+
+def error(msg):
+    """Return a JSON serializable quantity signaling an error."""
+    return f"Error: {msg}"
 
 
 ######################################################################
@@ -69,7 +77,7 @@ class Client(object):
                 raise IOError(
                     f"Server declined request to get saying {response}")
             self.socket.send_json(params)
-            return self.socket.recv_json(params)
+            return self.socket.recv_json()
 
     def send(self, msg, obj):
         """Send data to server."""
@@ -179,3 +187,44 @@ class Server(object):
         data = self.socket.recv(flags=flags, copy=copy, track=track)
         self.socket.send(response)
         return np.frombuffer(data, dtype=md['dtype']).reshape(md['shape'])
+
+
+@implementer(IServer)
+class NetworkServer(object):
+    """Wrapper for the `server.Server` class.
+
+    This is used when the server is not started locally and the client
+    must communicate over the network.
+    """
+    def __init__(self, opts):
+        self.opts = opts
+        with log_task("Connecting to server"):
+            self.comm = Client(opts=self.opts)
+
+    def get_available_commands(self, client=None):
+        return self.comm.get(params=['available_commands'])
+
+    def reset(self, client=None):
+        """Set specified parameter."""
+        self.do("reset")
+
+    def set(self, param_dict, client=None):
+        """Set specified parameter."""
+        for param in param_dict:
+            self.comm.send(b"set", (param, param_dict[param]))
+
+    def do(self, action, client=None):
+        self.comm.do(action)
+
+    def get(self, params, client=None):
+        return self.comm.get(params=params)
+
+        param_dict = {param: self.comm.get(param.encode())
+                      for param in params}
+        return param_dict
+
+    def get_array(self, param, client=None):
+        return self.comm.get_array(param.encode())
+
+
+verifyClass(IServer, NetworkServer)

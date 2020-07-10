@@ -33,41 +33,9 @@ log = _LOGGER.log
 log_task = _LOGGER.log_task
 
 
-class NetworkServer(object):
-    """Wrapper for the `server.Server` class.
-
-    This is used when the server is not started locally and the client
-    must communicate over the network.
-    """
-    def __init__(self, opts):
-        self.opts = opts
-        with log_task("Connecting to server"):
-            self.comm = communication.Client(opts=self.opts)
-
-    def reset(self, client=None):
-        """Set specified parameter."""
-        self.do("reset")
-
-    def set(self, param_dict, client=None):
-        """Set specified parameter."""
-        for param in param_dict:
-            self.comm.send(b"set", (param, param_dict[param]))
-
-    def do(self, action, client=None):
-        self.comm.do(action)
-
-    def get(self, params, client=None):
-        return self.comm.get(params=params)
-    
-        param_dict = {param: self.comm.get(param.encode())
-                      for param in params}
-        return param_dict
-
-    def get_array(self, param, client=None):
-        return self.comm.get_array(param.encode())
-
-
 class App(object):
+    server = None
+
     def __init__(self, opts, width="50%"):
         self.width = width
         self.opts = opts
@@ -231,7 +199,7 @@ class NotebookApp(App):
     @nointerrupt
     def run(self, interrupted=False):
         if self.server is None:
-            self.server = NetworkServer(opts=self.opts)
+            self.server = communication.NetworkServer(opts=self.opts)
         from IPython.display import display
         self.Nx, self.Ny = self.server.get(['Nxy'])['Nxy']
         self._frame = 0
