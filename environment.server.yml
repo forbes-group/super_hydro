@@ -11,7 +11,9 @@ dependencies:
   - attrs
   - zope.interface
   - flask
-  - json
+  - flask-socketio
+  - gevent-websocket
+  -
 
   # For performance
   - numexpr
