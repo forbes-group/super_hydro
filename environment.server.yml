@@ -13,7 +13,6 @@ dependencies:
   - flask
   - flask-socketio
   - gevent-websocket
-  -
 
   # For performance
   - numexpr
