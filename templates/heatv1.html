@@ -1,9 +1,18 @@
 {% extends "base.html" %}
 {% block content %}
-<div id="my_dataviz"></div><br>
-
+<p>
 <button id="start">Start</button>
 <button id="stop">Stop</button>
+</p>
+
+<div id="my_dataviz"></div><br>
+
+<div class="slidecontainer">
+  Cooling <br>
+  <input type="range" name="scale" min="0" max="100" value="50" oninput="sliderChange(this.value)">
+  <br>
+  <span id="slidetest"></span>
+</div>
 
 <script type=text/javascript>
   $SCRIPT_ROOT = {{ request.script_root|tojson|safe }};
@@ -19,6 +28,12 @@ $(function() {
       draw_heatmap(data);
     })
   })
+
+//Get Slider value
+sliderChange = function(n) {
+  var e=n;
+  $('#slidetest').text("Slider value is: " + e)
+}
 
 function draw_heatmap(data) {
   var margin = {top: 30, right: 30, bottom: 30, left: 30},
@@ -73,9 +88,16 @@ function draw_heatmap(data) {
       .style("fill", "white")
   };
 
+//Create start/stop buttons for animation
+var stop_id;
+var stop_time;
+var fps = 30;
+
 //This updates the heatmap color values
 function runtest() {
-  $.getJSON($SCRIPT_ROOT + '/_random', function(data) {
+  $.getJSON($SCRIPT_ROOT + '/_random', {
+    scale: $('input[name="scale"]').val()
+  }, function(data) {
     var data = data.result;
     update_heatmap(data);
   })
@@ -84,6 +106,8 @@ function runtest() {
 
 function update_heatmap(data) {
 
+  stop_time = setTimeout(function(){
+      stop_id = requestAnimationFrame(runtest)
   var myColor = d3.scaleLinear()
     .range(["blue", "yellow"])
     .domain([1,100]);
@@ -92,20 +116,23 @@ function update_heatmap(data) {
                   .data(data)
                   .style("fill", function(d) { return myColor(d.value) });
   upColor;
+
+  }, 1000/fps)
 };
 
-//Create start/stop buttons for animation
-var running;
+
 
 $( "#start" ).click( function() {
-  running = setInterval(runtest, 125);
   document.getElementById("start").disabled = true;
-  running;
+  requestAnimationFrame(runtest)
 });
 
 $(" #stop ").click( function() {
-  if (typeof running != 'undefined') clearInterval(running);
   document.getElementById("start").disabled = false;
+  setTimeout( function() {
+    cancelAnimationFrame(stop_id);
+    clearTimeout(stop_time, 0)
+  }, 0)
 });
 
 </script>
