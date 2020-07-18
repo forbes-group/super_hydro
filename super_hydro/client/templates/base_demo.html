@@ -1,0 +1,55 @@
+{% extends "base.html" %}
+{% block content %}
+<div id="data_display"></div><br>
+
+<div id="slide">
+  Data Load <br>
+  <input type="range">
+  <span id="slidetest"></span>
+</div>
+
+<script type=text/javascript>
+  $SCRIPT_ROOT = {{ request.script_root|tojson|safe }};
+</script>
+
+<script type="text/javascript" src="{{ url_for('static', filename = '/js/app_func.js') }}"></script>
+
+<script>
+
+  namespace = '/base_demo';
+  var socket = io(namespace);
+
+  var margin = {top: 30, right: 30, bottom: 30, left: 30},
+    width = 700 - margin.left - margin.right,
+    height = 700 - margin.top - margin.bottom;
+
+  // append the svg object to the body of the page
+  // This is the general display area.
+  var svg = d3.select("#data_display")
+              .append("svg")
+                .attr("width", width + margin.left + margin.right)
+                .attr("height", height + margin.top + margin.bottom)
+              .append("g")
+                .attr("transform",
+                      "translate(" + margin.left + "," + margin.top + ")");
+
+
+   socket.on('connect', function() {
+     socket.emit('demo_run', {data : 'start'})
+   });
+
+   socket.on('building', function(data) {
+     vals = arr_conv(data);
+     make_disp(vals);
+     socket.emit('demo_run', {data: "run"})
+   });
+
+   socket.on('running', function(heat_data){
+    vals = arr_conv(heat_data);
+    up_disp(vals)
+    socket.emit('demo_run', {data: "run"});
+   });
+
+</script>
+
+{% endblock %}
