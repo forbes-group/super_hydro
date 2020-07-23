@@ -1,76 +1,62 @@
-// Takes an array and converts it to JSON object with x-y coordinates
-// for each value.
-
-function arr_conv(data) {
-  xs = [];
-  ys = [];
-  vals = [];
-  var i;
-  var j;
-
-  for (i in data){
-    for (j in data[i]) {
-      if ( xs.includes(i) && ys.includes(j) ){
-        vals.push({"x" : i, "y": j, "density": data[i][j]});
-      }
-      else if ( xs.includes(i) ) {
-        ys.push(j);
-        vals.push({"x" : i, "y": j, "density": data[i][j]});
-      }
-      else if ( ys.includes(j) ) {
-        xs.push(i);
-        vals.push({"x" : i, "y": j, "density": data[i][j]});
-      }
-      else {
-        xs.push(i);
-        ys.push(j);
-        vals.push({"x" : i, "y": j, "density": data[i][j]});
-      }
-    }
-  }
-  return vals;
-};
-
 // Animation framework function.
 
-function up_disp(data) {
 
-  var myColor = d3.scaleLinear()
-                  .range(["blue", "yellow"])
-                  .domain([0,1]);
-
-  d3.selectAll('rect')
-    .data(data)
-    .style("fill", function(d) { return myColor(d.density) });
-};
-
-// Display area.
-function make_disp(data) {
+function drawCustom(data) {
+  xs = d3.range(64)
+  ys = d3.range(64)
+  //console.log(xs)
 
   var x = d3.scaleBand()
             .range([ 0, width ])
             .domain(xs)
-            .padding(0.01);
+            .padding(0);
 
   // Build X scales and axis:
   var y = d3.scaleBand()
             .range([ height, 0 ])
             .domain(ys)
-            .padding(0.01);
+            .padding(0);
 
   // Build color scale
   var myColor = d3.scaleLinear()
                   .range(["blue", "yellow"])
                   .domain([0,1])
 
-  svg.selectAll()
-     .data(data, function(d) { return d.x+':'+d.y})
-     .enter()
-     .append("rect")
-     .attr("id", function(d) { return d.x+d.y })
-     .attr("x", function(d) { return x(d.x) })
-     .attr("y", function(d) { return y(d.y) })
-     .attr("width", x.bandwidth())
-     .attr("height", y.bandwidth())
-     .style("fill", function(d) { return myColor(d.density) });
-};
+  var dataBinding = dataContainer.selectAll("custom.rect")
+                                 .data(data);
+
+  dataBinding.attr("fillStyle", function(d) {return myColor(d)});
+
+  dataBinding.enter()
+             .append("custom")
+             .classed("rect", true)
+             .attr("id", function(d, i) { return Math.floor(i/64).toString()+'-'+(i%64).toString() })
+             .attr("x", function(d, i) { return x(Math.floor(i/64)) })
+             .attr("y", function(d, i) { return y(i%64) })
+             .attr("width", x.bandwidth())
+             .attr("height", y.bandwidth())
+             .attr("fillStyle", function(d) { return myColor(d) });
+
+  dataBinding.exit()
+             .attr("fillStyle", "lightgrey");
+
+  drawCanvas();
+}
+
+function drawCanvas() {
+  //clear canvas
+  context.fillStyle = "#fff";
+  context.rect(0,0,chart.attr("width"), chart.attr("height"));
+  context.fill();
+
+  var elements = dataContainer.selectAll("custom.rect");
+  elements.each(function(d) {
+    var node = d3.select(this);
+
+    context.beginPath();
+    context.fillStyle = node.attr("fillStyle");
+    context.rect(node.attr("x"), node.attr("y"), node.attr("width"), node.attr("height"))
+    context.fill();
+    context.closePath();
+  });
+}
