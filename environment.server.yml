@@ -10,9 +10,8 @@ dependencies:
   - pyzmq
   - attrs
   - zope.interface
-  - flask
-  - flask-socketio
-  - gevent-websocket
+  # For monkey patching
+  - eventlet
 
   # For performance
   - numexpr
