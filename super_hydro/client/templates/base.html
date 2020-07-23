@@ -11,7 +11,6 @@
       $SCRIPT_ROOT = {{ request.script_root|tojson|safe }};
     </script>
     <a href="{{ url_for('index') }}">Index</a>
-    <a href="{{ url_for('d3test') }}">d3 testing</a>
     <a href="{{ url_for('heatmap') }}">Heat Map testing</a>
     {% block content %}{% endblock %}
   </body>

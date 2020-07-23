@@ -124,7 +124,7 @@ class GPEBase(ModelBase, FingerMixin):
             if isinstance(self, FingerMixin) and self.t > 0:
                 # Don't move finger potential while preparing state.
                 self._step_finger_potential(dt=dt, density=density)
-
+            
             self.apply_expV(dt=dt, factor=1.0, density=density)
             self.apply_expK(dt=dt, factor=1.0)
             self.t += dt
@@ -386,7 +386,7 @@ class BECVortexRing(BECFlow):
         super().init()
         kx, ky = self.kxy
         self.K = self.hbar**2*(kx**2 + kx*self.kv + ky**2)/2.0/self.m
-        
+
     @property
     def kv(self):
         """Return the Bloch momentum"""
@@ -408,7 +408,7 @@ class BECVortexRing(BECFlow):
         z0 = x + 1j*(y - self.R*Ly/2)
         z1 = x - 1j*(y + self.R*Ly/2)
         self.data *= np.exp(1j*np.angle(z0*z1))
-        
+
 
 @implementer(interfaces.IModel)
 class BECSoliton(BECFlow):

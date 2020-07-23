@@ -3,7 +3,7 @@
 * Remove unnecessary dependences:
   * Definitely scipy (used for sinc...)
   * Possibly matplotlib.
-  
+
 Issues
 ------
 * Default config file in server directory.
@@ -11,7 +11,7 @@ Issues
 * Don't fail if no config file exists, make one.
 * Simple strategy for locating the config file: use the `__file__`
   variable.
- 
+
   `os.path.dirname(__file__)`
 
 * Choose better port - with some sort of resolution if it is used.
@@ -48,9 +48,16 @@ Dependencies
   full-bodied client that can perform some computations such as the
   tracer particles to reduce server load.  The idea is to keep the
   lite client for mobile devices which cannot import numpy/scipy etc.
-  
+
 To Do
 =====
 When running the network_server from the notebook client, Quit does
 not release zmq sockets, so one gets ZMQError: Address already in use
 when trying to restart.
+
+
+Thu 16 July 2020
+================
+* Need to complete the IModel interface.
+* Check the init() chain for Models
+* Ignore "physics" in model name if provided.

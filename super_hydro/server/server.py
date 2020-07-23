@@ -223,7 +223,7 @@ class Server(ThreadMixin):
         self.interrupted = interrupted
         kwargs = dict(interrupted=interrupted)
         if block:
-            return self.run_server(**kwargs)
+            return self._run_server(**kwargs)
         else:
             self.server_thread = threading.Thread(
                 target=self._run_server, kwargs=kwargs)
@@ -241,6 +241,7 @@ class Server(ThreadMixin):
             print("Done")
         finally:
             self.message_queue.put(("quit",))
+            #print(f"finished status is {self.finished} and Interrupted is {interrupted}")
             self.computation_thread.join()
 
     def _pos_to_xy(self, pos):
