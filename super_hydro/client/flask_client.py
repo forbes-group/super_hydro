@@ -1,5 +1,5 @@
-from gevent import monkey
-monkey.patch_all()
+import eventlet
+eventlet.monkey_patch()
 
 #Standard Library Imports
 import json
@@ -29,7 +29,7 @@ log_task = _LOGGER.log_task
 
 
 app = Flask("flask_client")
-socketio = SocketIO(app, async_mode='gevent')
+socketio = SocketIO(app, async_mode='eventlet')
 
 class TimeoutError(Exception):
     """Operation timed out."""
@@ -51,6 +51,10 @@ def index():
 @app.route('/heatmap')
 def heatmap():
     return render_template('base_demo.html')
+
+@app.route('/cell_auto')
+def cell_auto():
+    return render_template('cell.html')
 
 """Flask-SocketIO Communications.
 
@@ -100,7 +104,7 @@ class Demonstration(Namespace):
 
     def on_start_srv(self, data):
         app_name = data['data'][1:]
-        app2 = get_app(model=app_name)
+        app2 = get_app(model=app_name, tracer_particles=False)
         app2.server.run(block=False, interrupted=False)
 
     def on_get_array(self, data):
@@ -112,6 +116,7 @@ socketio.on_namespace(Demonstration('/gpe.BECBase'))
 socketio.on_namespace(Demonstration('/gpe.BECSoliton'))
 socketio.on_namespace(Demonstration('/gpe.BECVortexRing'))
 socketio.on_namespace(Demonstration('/gpe.BECBreather'))
+socketio.on_namespace(Demonstration('/cell.Automaton'))
 #############################################################################
 #End /base_demo socket connections.
 
