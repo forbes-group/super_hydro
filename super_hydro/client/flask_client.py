@@ -1,6 +1,9 @@
 import eventlet
 eventlet.monkey_patch()
 
+#from gevent import monkey
+#monkey.patch_all()
+
 #Standard Library Imports
 import json
 import threading
@@ -38,11 +41,11 @@ def error(msg):
     """Return a JSON serializable quantity signaling an error."""
     return f"Error: {msg}"
 
-
-"""Flask HTML Routes.
-
-These determine which URL-endpoint will be linked to which HTML page.
-"""
+###############################################################################
+#Flask HTML Routes.
+#
+#These determine which URL-endpoint will be linked to which HTML page.
+###############################################################################
 
 @app.route('/')
 def index():
@@ -56,18 +59,18 @@ def heatmap():
 def cell_auto():
     return render_template('cell.html')
 
-"""Flask-SocketIO Communications.
-
-Currently modifies the Communications module to register with Javascript's
-Socket.io library using the Flask-SocketIO extension.
-
-The general usage is Javascript Socket.IO will 'emit()' messages with specified
-tags (ex: 'connect') which are then pathed to appropriate methods via the
-'@socketio.on()' method, which will 'emit()' appropriate responses.
-
-Initial functionality uses 'namespaces' (single user identifiers), with intent to
-move to Flask-SocketIO 'room' functionality in future.
-"""
+###############################################################################
+# Flask-SocketIO Communications.
+#
+# Allows communication with JS Socket.io library using the Flask-SocketIO
+# extension.
+#
+# Initial functionality uses 'namespaces' (single user identifiers), with intent
+# to move to Flask-SocketIO 'room' functionality in future.
+#
+# ModelServer() is local object to append the Local Computational Server onto
+# with some simple methods.
+###############################################################################
 
 class ModelServer(object):
 
@@ -93,6 +96,10 @@ class ModelServer(object):
         self.server.do("quit")
         self._running = False
 
+###############################################################################
+# Namespace class for socket interaction methods between JS/HTML User display
+# and Flask/Computational Server processing.
+###############################################################################
 
 class Demonstration(Namespace):
     def on_connect(self):
@@ -112,16 +119,23 @@ class Demonstration(Namespace):
         byte_arr_char = "".join([chr(i) for i in byte_arr])
         emit('ret_array', byte_arr_char)
 
+###############################################################################
+# Namespaces for particular physics models (not all currently routed)
+
 socketio.on_namespace(Demonstration('/gpe.BECBase'))
 socketio.on_namespace(Demonstration('/gpe.BECSoliton'))
 socketio.on_namespace(Demonstration('/gpe.BECVortexRing'))
 socketio.on_namespace(Demonstration('/gpe.BECBreather'))
 socketio.on_namespace(Demonstration('/cell.Automaton'))
-#############################################################################
+
+###############################################################################
 #End /base_demo socket connections.
 
 _OPTS = None
 
+###############################################################################
+# Minor re-write of get_server() function from Server module that sidesteps
+# NoInterrupt "not maint thread" exceptions.
 def get_server(args=None, kwargs={}):
 
     parser = config.get_server_parser()
@@ -137,6 +151,11 @@ def get_server(args=None, kwargs={}):
 
     return svr
 
+###############################################################################
+# Links the Local Computational Server process to the app2 object, and loads
+# the Local Computational Server with the module/class specified by the
+# relevant page socket Namespace (see above).
+###############################################################################
 def get_app(**kwargs):
     global _OPTS
     if _OPTS is None:
@@ -149,6 +168,8 @@ def get_app(**kwargs):
 
     return app2
 
+###############################################################################
+# Establishes Flask-SocketIO server to run automatically if __main__ process.
 if __name__ == "__main__":
 
     socketio.run(app, debug=True)

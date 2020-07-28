@@ -1,0 +1,39 @@
+<html>
+  <head>
+    <title>Simple Flask-SocketIO demo</title>
+  </head>
+  <body>
+    <h1>Here is a basic example of using Flask-SocketIO!</h1>
+
+    <!-- Here is a basic interaction object for custom socket events. -->
+    <button type="button" id="button">Click</button>
+    <div id="value">0</div>
+
+    <!-- include JS socket.io API -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/2.3.0/socket.io.js"></script>
+
+    <script>
+      // Establish the socket namespace for this page.
+      var socket = io('/index');
+
+      // When page connection is made place a basic alert in the JS console.
+      socket.on('connect', function() {
+        console.log("Connection Made.")
+      });
+
+      // When the button HTML object is clicked, get the <div> value and
+      // send that to Python under the 'custom_event' event tag.
+      document.getElementById("button").onclick = function() {
+        var data = document.getElementById('value').innerHTML
+        console.log(data)
+        socket.emit('custom_event', data);
+      };
+
+      // When 'custom_response' event tag is received, update the <div> value
+      // with the received data.
+      socket.on('custom_response', function(data){
+        document.getElementById('value').innerHTML = data;
+      });
+
+    </script>
+  </body>

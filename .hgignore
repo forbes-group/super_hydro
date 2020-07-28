@@ -9,3 +9,6 @@ home.bat
 htmlcov
 \.coverage
 node_modules
+\.pynb_checkpoints/
+/Docs/\.ipynb_checkpoints/
+/Docs/Demonstrations/\.ipynb_checkpoints/
