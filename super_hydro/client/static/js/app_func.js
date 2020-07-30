@@ -55,7 +55,8 @@ function drawCanvas() {
 
     context.beginPath();
     context.fillStyle = node.attr("fillStyle");
-    context.rect(node.attr("x"), node.attr("y"), node.attr("width"), node.attr("height"))
+    context.rect(node.attr("x"), node.attr("y"),
+                 node.attr("width"), node.attr("height"))
     context.fill();
     context.closePath();
   });

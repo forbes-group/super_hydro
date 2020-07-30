@@ -10,7 +10,8 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/mathjs/3.3.0/math.min.js" charset="utf-8"></script>
 
 <script>
-
+  var sh = {};
+  
   namespace = '/gpe.BECVortexRing';
   var socket = io(namespace);
 
@@ -20,13 +21,13 @@
 
   // append the canvas object to the body of the page
   // This is the general display area.
-  var base = d3.select("#data_display");
+  var base = d3.select("div#data_display");
 
   var chart = base.append("canvas")
                   .attr("width", width)
                   .attr("height", height);
-
-  var context = chart.node().getContext("2d");
+  var canvas = chart.node();
+  var context = canvas.getContext("2d");
 
   // Create a custom DOM element that will hide in memory for d3 to
   // bind data to before the page actually generates it on the Canvas.

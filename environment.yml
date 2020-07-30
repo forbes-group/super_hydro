@@ -7,17 +7,24 @@ dependencies:
 - attrs
 - configargparse
 - cython
+- eventlet
+- flask
+- flask-socketio
 - ipykernel
 - ipywidgets
 - matplotlib
 - mmf_setup
+- mmfutils
 - nb_conda
 - numexpr
 - numpy
 - pillow
+- pip
 - pyfftw
 - python >=3
 - pyzmq
 - scipy
 - zope.interface
+- pip:
+  - socketio
 name: super_hydro
