@@ -7,11 +7,17 @@ dependencies:
   - configargparse
   - scipy
   - matplotlib
-  - pyzmq
   - attrs
   - zope.interface
   # For monkey patching
   - eventlet
+
+  # ZMQ Networking
+  - pyzmq
+  
+  # SocketIO Networking
+   - python-socketio
+   - aiohttp
 
   # For performance
   - numexpr
