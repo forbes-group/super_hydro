@@ -165,6 +165,9 @@ class Computation(ThreadMixin):
     def do_update_cooling_phase(self, cooling_phase):
         self.state.set('cooling_phase', cooling_phase)
 
+    def do_get_cooling_phase(self):
+        return self.state.get('cooling_phase')
+        
     def do_update(self, param, value):
         self.state.set(param, value)
 
@@ -304,9 +307,16 @@ class Server(ThreadMixin):
         x0, y0 = self.pos_to_xy(touch_pos)
         self.message_queue.put(("update_finger", x0, y0))
 
+    def _get_cooling(self, client=None):
+        """Get the cooling power."""
+        cooling_phase = self.state.get('cooling_phase')
+        cooling_phase /= abs(cooling_phase)
+        return np.log10(cooling_phase.imag)
+
     def _set_cooling(self, cooling, client=None):
         """Set the cooling power."""
         cooling_phase = complex(1, 10**float(cooling))
+        self.state.set('cooling_phase', cooling_phase)
         self.message_queue.put(("update_cooling_phase", cooling_phase))
 
     def _get_available_commands(self, client=None):

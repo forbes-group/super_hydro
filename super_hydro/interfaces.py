@@ -64,6 +64,14 @@ class IModel(Interface):
         calls this method to limit the require interface.
         """
 
+    def get(param):
+        """Return the specified parameter.
+
+        This is called interactively by the server.  Parameters could
+        be implemented with properties, but our server explicitly
+        calls this method to limit the require interface.
+        """
+
 
 class IServer(Interface):
     """Interface for the server.
