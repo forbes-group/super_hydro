@@ -10,6 +10,20 @@ _LOGGER = utils.Logger(__name__)
 log = _LOGGER.log
 log_task = _LOGGER.log_task
 
+class _Interrupted(object):
+    """Flag to indicate the the App has been interrupted.
+
+    Pass as the interrupted flag to the server to allow the client App
+    to terminate it.
+    """
+    def __init__(self, app):
+        self.app = app
+
+    def __bool__(self):
+        # Don't check interrupted flag - that might stop the server
+        # too early.
+        return not self.app._running
+
 
 class App(object):
     """Dumb application that allows the user to interact with a
