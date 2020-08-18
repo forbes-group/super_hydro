@@ -74,9 +74,10 @@ class Computation(ThreadMixin):
     pause_timeout = 0.1         # Time to wait when paused.
 
     def __init__(self, opts,
-                 message_queue, density_queue, pot_queue, tracer_queue):
+                 message_queue, param_queue, density_queue, pot_queue, tracer_queue):
         self.opts = opts
         self.do_reset()
+        self.param_queue = param_queue
         self.message_queue = message_queue
         self.density_queue = density_queue
         self.tracer_queue = tracer_queue
@@ -119,6 +120,7 @@ class Computation(ThreadMixin):
                     self.state.step(self.steps,
                                     tracer_particles=self.tracer_particles)
                 self.process_queue()
+                
         log("Computation Finished.", level=100)
 
     def process_queue(self):
@@ -140,7 +142,17 @@ class Computation(ThreadMixin):
 
     ######################################################################
     # Commands: Requests to the message_queue are dispatched by name.
+    def do_set(self, param, value):
+        """Generic set method."""
+        self.state.set(param, value)
+
+    def do_get(self, param):
+        """Generic get method."""
+        value = self.state.get(param)
+        self.param_queue.put((param, value))
+        
     def do_quit(self):
+        log("Quitting!")
         self.running = False
 
     def do_pause(self):
@@ -169,9 +181,9 @@ class Computation(ThreadMixin):
     def do_update_cooling_phase(self, cooling_phase):
         self.state.set('cooling_phase', cooling_phase)
 
-    def do_update(self, param, value):
-        self.state.set(param, value)
-
+    def do_get_cooling_phase(self):
+        return self.state.get('cooling_phase')
+        
     def do_get_pot(self):
         self.pot_queue.put(self.state.get('pot_z'))
 
@@ -193,6 +205,9 @@ class Computation(ThreadMixin):
         raise ValueError(f"Unknown Command {msg}(*{v})")
 
 
+# Global list of servers so we can kill them all
+_SERVERS = []
+
 @implementer(IServer)
 class Server(ThreadMixin):
     """Server Class.
@@ -203,14 +218,17 @@ class Server(ThreadMixin):
     allows clients to connect through a socket.
     """
     _poll_interval = 0.1
-
+    _tries = 10               # Number of times to try getting a param
+    
     def __init__(self, opts, **kwargs):
         self.opts = opts
         self.message_queue = queue.Queue()
+        self.param_queue = queue.Queue()
         self.density_queue = queue.Queue()
         self.tracer_queue = queue.Queue()
         self.pot_queue = queue.Queue()
         self.computation = Computation(opts=opts,
+                                       param_queue=self.param_queue,
                                        message_queue=self.message_queue,
                                        density_queue=self.density_queue,
                                        pot_queue=self.pot_queue,
@@ -218,6 +236,8 @@ class Server(ThreadMixin):
         self.computation_thread = threading.Thread(target=self.computation.run)
         self.state = opts.State(opts=opts)
         super().__init__(**kwargs)
+        global _SERVERS
+        _SERVERS.append(self)
 
     def run(self, interrupted, block=True):
         """Run the server, blocking if desired."""
@@ -309,10 +329,33 @@ class Server(ThreadMixin):
         x0, y0 = self.pos_to_xy(touch_pos)
         self.message_queue.put(("update_finger", x0, y0))
 
-    def _set_cooling(self, cooling, client=None):
-        """Set the cooling power."""
-        cooling_phase = complex(1, 10**float(cooling))
-        self.message_queue.put(("update_cooling_phase", cooling_phase))
+    def _get(self, param, client=None):
+        """Generic get."""
+        value = None
+        if param not in self.state.params:
+            log(f"Error: Attempt to get unknown param={param}")
+            return value
+        
+        self.message_queue.put(("get", param))
+        for n in range(self._tries):
+            param_, value = msg = self.param_queue.get()
+            if param == param_:
+                return param
+            else:
+                log(f"Asked for {param} but got {parm_}.  Trying again.")
+                self.param_queue.put(msg)
+                sleep(self._poll_interval)
+        
+        return value
+
+    def _set(self, param, value):
+        """Generic set."""
+        if param not in self.state.params:
+            log(f"Error: Attempt to set unknown param={param}")
+            return
+        
+        self.state.set(param, value)
+        self.message_queue.put(("set", param, value))
 
     def _get_available_commands(self, client=None):
         """Get a dictionary of available commands."""
@@ -333,6 +376,17 @@ class Server(ThreadMixin):
             _name[len('_get_array_'):]: _val.__doc__
             for _name, _val in inspect.getmembers(self)
             if _name.startswith('_get_array_')}
+
+        # Add all other parameters
+        descriptions = widgets.get_descriptions(self.state.layout)
+        for _v in self.state.params:
+            if _v not in get_commands and _v not in get_array_commands:
+                get_commands[_v] = self.state.params_doc.get(
+                    _v, descriptions.get(_v, f"Parameter {_v}"))
+            if _v not in set_commands and _v not in get_array_commands:
+                set_commands[_v] = self.state.params_doc.get(
+                    _v, descriptions.get(_v, f"Parameter {_v}"))
+
         available_commands = {
             'do': do_commands,
             'get': get_commands,
@@ -346,30 +400,6 @@ class Server(ThreadMixin):
     def get_available_commands(self, client=None):
         log(f"Getting available commands")
         return self._get_available_commands(client=client)
-
-    def reset(self, client=None):
-        """Reset server and return default parameters.
-
-        Returns
-        -------
-        param_vals : {param: val}
-           Dictionary of values corresponding to default parameters.
-        """
-        self._do_reset(client=client)
-        return self.state.params
-
-    def set(self, param_dict, client=None):
-        """Set the specified quantities.
-
-        Arguments
-        ---------
-        param_vals : {param: val}
-           Dictionary of values corresponding to specified parameters.
-        """
-        log(f"Setting {param_dict}")
-        for param in param_dict:
-            value = param_dict[param]
-            self.message_queue.put(("update", param, value))
 
     def do(self, action, client=None):
         """Tell the server to perform the specified `action`."""
@@ -407,6 +437,19 @@ class Server(ThreadMixin):
             param_dict[param] = val
         return param_dict
 
+    def set(self, param_dict, client=None):
+        """Set the specified quantities.
+
+        Arguments
+        ---------
+        param_vals : {param: val}
+           Dictionary of values corresponding to specified parameters.
+        """
+        log(f"Setting {param_dict}")
+        for param in param_dict:
+            value = param_dict[param]
+            self.message_queue.put(("set", param, value))
+
     def get_array(self, param, client=None):
         """Get the specified array."""
         method = getattr(self, f"_get_array_{param}", None)
@@ -416,6 +459,28 @@ class Server(ThreadMixin):
             self.comm.respond(b"Unknown Message")
         else:
             return method(client=client)
+        
+    def reset(self, client=None):
+        """Reset server and return default parameters.
+
+        Returns
+        -------
+        param_vals : {param: val}
+           Dictionary of values corresponding to default parameters.
+        """
+        self._do_reset(client=client)
+        return self.state.params
+
+    def quit(self, client=None):
+        """Quit server."""
+        self._do_quit(client=client)
+
+    @staticmethod
+    def quit_all():
+        """Quit all running servers."""
+        global _SERVERS
+        while _SERVERS:
+            _SERVERS.pop(0).quit()
 
 
 class NetworkServer(Server):
