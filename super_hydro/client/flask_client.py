@@ -1,13 +1,6 @@
-import eventlet
-eventlet.monkey_patch()
-
-#from gevent import monkey
-#monkey.patch_all()
-
 #Standard Library Imports
-import json
-import threading
 import importlib
+from threading import Lock
 
 # This is needed to get make sure super_hydro is in the import pathing
 import os.path as osp
@@ -17,13 +10,11 @@ sys.path.insert(0, f'{two_up}')
 
 #Additional Package Imports
 from flask import Flask, render_template
-from flask_socketio import SocketIO, emit, Namespace
-import numpy as np
+from flask_socketio import SocketIO, emit, Namespace, join_room, leave_room
 
 #Project-defined Modules
-from super_hydro import config, communication, utils, widgets
+from super_hydro import config, communication, utils
 from super_hydro.server import server
-from super_hydro.contexts import nointerrupt, NoInterrupt
 
 #This establishes the communication with the server.
 _LOGGER = utils.Logger(__name__)
@@ -34,12 +25,10 @@ log_task = _LOGGER.log_task
 app = Flask("flask_client")
 socketio = SocketIO(app, async_mode='eventlet')
 
-class TimeoutError(Exception):
-    """Operation timed out."""
-
-def error(msg):
-    """Return a JSON serializable quantity signaling an error."""
-    return f"Error: {msg}"
+###############################################################################
+# Population tracking for each page, to determine whether to start or stop the
+# server for a given model. Namespace is 'fsh' for 'flask super hydro'
+###############################################################################
 
 ###############################################################################
 #Flask HTML Routes.
@@ -51,13 +40,21 @@ def error(msg):
 def index():
     return render_template('index.html')
 
-@app.route('/heatmap')
-def heatmap():
-    return render_template('base_demo.html')
+@app.route('/gpeBEC')
+def gpeBEC():
+    return render_template('model.html', namespace='/gpe.BEC')
 
-@app.route('/cell_auto')
-def cell_auto():
-    return render_template('cell.html')
+@app.route('/gpeBECVortexRing')
+def gpeBECVortexRing():
+    return render_template('model.html', namespace='/gpe.BECVortexRing')
+
+@app.route('/gpeBECSoliton')
+def gpeBECSoliton():
+    return render_template('model.html', namespace='/gpe.BECSoliton')
+
+@app.route('/gpeBECBreather')
+def gpeBECBreather():
+    return render_template('model.html', namespace='/gpe.BECBreather')
 
 ###############################################################################
 # Flask-SocketIO Communications.
@@ -71,71 +68,104 @@ def cell_auto():
 # ModelServer() is local object to append the Local Computational Server onto
 # with some simple methods.
 ###############################################################################
-
-class ModelServer(object):
-
-    server = None
-
-    def __init__(self, opts):
-        self.opts = opts
-        self._running = True
-
-    def comm(self):
-        if self._running:
-            return self.server.comm
-
-    def density(self):
-        with log_task("Get density from server."):
-            return self.server.get_array("density")
-
-    def run(self):
-        if self.server is None:
-            self.server = communication.Server(opts=self.opts)
-
-    def quit(self):
-        self.server.do("quit")
-        self._running = False
-
+#def density_thread(namespace, server, room):
+#    while not server.finished:
+#        socketio.sleep(0)
+#        density = server.get_array("density")
+#        rgba = (density * int(255/density.max())).tobytes()
+#        byte_arr_char = "".join([chr(i) for i in rgba])
+#        socketio.emit('ret_array', byte_arr_char, namespace=f"{namespace}", room=room)
+################################################################################
 ###############################################################################
 # Namespace class for socket interaction methods between JS/HTML User display
 # and Flask/Computational Server processing.
 ###############################################################################
 
 class Demonstration(Namespace):
+
+    fsh = {}
+    thread = None
+    thread_lock = Lock()
+
     def on_connect(self):
         print('Client Connected.')
-
-    def on_disconnect(self):
-        app2.quit()
-        print('Client Disconnected.')
+        if 'cooling' and 'v0mu' not in self.fsh:
+            self.fsh['cooling'] = 0
+            self.fsh['v0mu'] = 0
 
     def on_start_srv(self, data):
-        app_name = data['data'][1:]
-        app2 = get_app(model=app_name, tracer_particles=False)
-        app2.server.run(block=False, interrupted=False)
+        self.app = data['data'][1:]
+        print(data['data'])
+        if self.app not in self.fsh or self.fsh[f"{self.app}"]['server'].finished == True:
+            self.fsh[f"{self.app}"] = dict.fromkeys(['server', 'users'])
+            self.fsh[f"{self.app}"]['server'] = get_app(model=self.app,
+                                                        tracer_particles=False)
+            self.fsh[f"{self.app}"]['server'].run(block=False,
+                                                  interrupted=False)
+        join_room(self.app)
+        if self.fsh[f"{self.app}"]['users'] is None:
+            self.fsh[f"{self.app}"]['users'] = 1
+        else:
+            self.fsh[f"{self.app}"]['users'] += 1
+        size = self.fsh[f"{self.app}"]['server'].get({"Nxy": "Nxy"})
+        print(self.fsh['cooling'], self.fsh['v0mu'])
+        emit('init', {'size': size,
+                      'cooling': self.fsh['cooling'],
+                      'v0mu': self.fsh['v0mu']},
+                      room=self.app)
+        if self.thread is None:
+            self.thread = socketio.start_background_task(target=density_thread,
+                                        namespace=data['data'],
+                                        server=self.fsh[f"{self.app}"]['server'],
+                                        room=self.app)
 
-    def on_get_array(self, data):
-        byte_arr = (app2.density()).tobytes()
-        byte_arr_char = "".join([chr(i) for i in byte_arr])
-        emit('ret_array', byte_arr_char)
+    def on_set_param(self, data):
+        self.fsh[f"{self.app}"]['server'].set(data['param'])
+        for key, value in data['param'].items():
+            data = {'name': key, 'param': value}
+            print(data)
+            self.fsh[key] = value
+            print(self.fsh[key])
+        emit('param_up', data, room=self.app)
 
+    def on_do_action(self, data):
+        self.fsh[f"{self.app}"]['server'].do(data['name'])
+
+    def on_finger(self, data):
+        self.fsh[f"{self.app}"]['server'].set(data['position'])
+
+    def on_disconnect(self):
+        print('Client Disconnected.')
+        leave_room(self.app)
+        self.fsh[f"{self.app}"]['users'] -= 1
+        if (self.fsh[f"{self.app}"]['users'] == 0):
+            self.fsh[f"{self.app}"]['users'] = 0
+            self.fsh[f"{self.app}"]['server'].do('quit')
+            self.thread.join()
+            self.thread = None
 ###############################################################################
 # Namespaces for particular physics models (not all currently routed)
 
-socketio.on_namespace(Demonstration('/gpe.BECBase'))
+socketio.on_namespace(Demonstration('/gpe.BEC'))
 socketio.on_namespace(Demonstration('/gpe.BECSoliton'))
 socketio.on_namespace(Demonstration('/gpe.BECVortexRing'))
 socketio.on_namespace(Demonstration('/gpe.BECBreather'))
 socketio.on_namespace(Demonstration('/cell.Automaton'))
 
 ###############################################################################
-#End /base_demo socket connections.
-
-_OPTS = None
-
+#End socket connections.
+###############################################################################
+def density_thread(namespace, server, room):
+    while not server.finished:
+        socketio.sleep(0)
+        density = server.get_array("density")
+        rgba = (density * int(255/density.max())).tobytes()
+        byte_arr_char = "".join([chr(i) for i in rgba])
+        socketio.emit('ret_array', byte_arr_char, namespace=f"{namespace}", room=room)
+################################################################################
 ###############################################################################
 # Minor re-write of get_server() function from Server module that sidesteps
-# NoInterrupt "not maint thread" exceptions.
+# NoInterrupt "not main thread" exceptions.
 def get_server(args=None, kwargs={}):
 
     parser = config.get_server_parser()
@@ -157,16 +187,12 @@ def get_server(args=None, kwargs={}):
 # relevant page socket Namespace (see above).
 ###############################################################################
 def get_app(**kwargs):
-    global _OPTS
-    if _OPTS is None:
-        with log_task("Reading configuration"):
-            parser = config.get_client_parser()
-            _OPTS, _other_opts = parser.parse_known_args(args="")
-    global app2
-    app2 = ModelServer(opts=_OPTS)
-    app2.server = get_server(args='', kwargs=kwargs)
+    with log_task("Reading configuration"):
+        parser = config.get_client_parser()
+        _OPTS, _other_opts = parser.parse_known_args(args="")
+    svr = get_server(args='', kwargs=kwargs)
 
-    return app2
+    return svr
 
 ###############################################################################
 # Establishes Flask-SocketIO server to run automatically if __main__ process.

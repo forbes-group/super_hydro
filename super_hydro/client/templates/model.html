@@ -1,0 +1,138 @@
+{% extends "base.html" %}
+{% block content %}
+<br>
+<div class="slidecontainer">
+Cooling: <span id='val_cooling'></span><br>
+<input class="slider"
+       id="cooling"
+       name='cooling'
+       type="range"
+       min='-10'
+       max='1'
+       step='0.20'
+       value='0.01'
+       onchange='setParam(this.id, Math.pow(10, this.value));'>
+<br>
+V0/mu: <span id='val_finger_V0_mu'></span><br>
+<input class="slider"
+       id="finger_V0_mu"
+       name="finger_V0_mu"
+       type="range"
+       min="-2"
+       max="2"
+       step="0.1"
+       value="0"
+       onchange="setParam(this.id, Math.pow(10, this.value));"">
+</div>
+
+Trap: <span id='val_cylinder'></span><br>
+<input type="checkbox"
+       id="cylinder"
+       onchange="setParam(this.id, this.checked)">
+
+
+<br>
+<div id="data_display"></div>
+<br>
+
+<button type="button" name="start" onclick="doAction(this.name)">Start</button>
+
+<button type="button" name="pause" onclick="doAction(this.name)">Pause</button>
+
+<button type="button" name="reset" onclick="doAction(this.name)">Reset</button>
+
+<script type="text/javascript" src="{{ url_for('static', filename = '/js/app_func.js') }}"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/mathjs/3.3.0/math.min.js" charset="utf-8"></script>
+
+<script>
+  // Establish namespace (sh), websocket, and page width/height values
+  var sh = {};
+
+  sh.namespace = '{{ namespace }}';
+  var socket = io(sh.namespace);
+
+  var margin = {top: 30, right: 30, bottom: 30, left: 30},
+    width = window.innerWidth - margin.left - margin.right,
+    height = window.innerHeight * 0.8 - margin.top - margin.bottom;
+
+  // Create the canvas display element
+  var base = d3.select("div#data_display");
+
+  var chart = base.append("canvas")
+                  .attr("width", width)
+                  .attr("height", height);
+  var canvas = chart.node();
+  var context = canvas.getContext("2d");
+
+  // Create a custom DOM element that will hide in memory for d3 to
+  // bind data to before the page actually generates it on the Canvas.
+  var detachedContainer = document.createElement("custom");
+  var dataContainer = d3.select(detachedContainer);
+
+  // When the User socket connection is made, start a server if not running
+  socket.on('connect', function() {
+     socket.emit('start_srv', {data: sh.namespace})
+  });
+
+  // Gets current values of:
+  // Density array size (Nx, Ny)
+  // Cooling
+  // V0/mu
+  // Potential Trap status (boolean)
+  socket.on('init', function(data){
+    sh.nx = data.size.Nxy[0];
+    sh.ny = data.size.Nxy[1];
+    document.getElementById('cooling').value = Math.log10(data.cooling);
+    document.getElementById('finger_V0_mu').value = Math.log10(data.v0mu);
+    document.getElementById('val_cooling').innerHTML = data.cooling;
+    document.getElementById('val_finger_V0_mu').innerHTML = data.v0mu;
+  });
+
+  // Event that receives the density values, converts them to the appropriate
+  // form and creates the next displayed animation frame.
+  socket.on('ret_array', function(data){
+   bytes = Uint8Array.from(data, c => c.charCodeAt(0))
+   floats = new Float64Array(bytes.buffer)
+   drawCustom(floats, sh.nx, sh.ny);
+  });
+
+  // setParam() ties with 'param_up' socket event to update changes in user
+  // controllabl parameter values.
+  function setParam(name, value) {
+   sh.Param = {};
+   sh.Param[name] = value;
+   socket.emit('set_param', {data: sh.namespace, param: sh.Param});
+  }
+
+  socket.on('param_up', function(data) {
+   document.getElementById('val_' + data.name).innerHTML = data.param;
+   document.getElementById(data.name).value = Math.log10(data.param);
+  })
+
+  // doAction() passes action calls to the server.
+  function doAction(name) {
+   socket.emit('do_action', {data: sh.namespace, name: name});
+  }
+
+  // This section provides mouseclick/touchscreen interaction for finger
+  // potential.
+  function getCursorPosition(canvas, event) {
+   const rect = canvas.getBoundingClientRect()
+   const x = Math.floor((event.clientX - rect.left)/width*sh.nx) - sh.nx/2
+   const y = Math.floor((event.clientY - rect.top)/height*sh.ny) - sh.ny/2
+   const fPos = {'xy0' : [x,y]}
+   socket.emit('finger', {position: fPos})
+  }
+
+  const getCanvas = document.querySelector('canvas')
+  canvas.addEventListener('mousedown', function(e) {
+   getCursorPosition(getCanvas, e)
+  })
+
+  // These keep the output updates for the slider values as they change.
+  document.getElementById('val_cooling').innerHTML = document.getElementById('cooling').value;
+  document.getElementById('val_finger_V0_mu').innerHTML = document.getElementById('finger_V0_mu').value;
+
+</script>
+
+{% endblock %}
