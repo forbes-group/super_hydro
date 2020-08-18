@@ -25,6 +25,7 @@ class IModel(Interface):
 
         class(Model):
             params = dict(n=1, b=2.0)
+            param_doc = dict(n='Parameter n', b='Parameter b')
             layout = w.VBox([
                 w.FloatLogSlider(name='cooling',
                                  base=10, min=-10, max=1, step=0.2,
@@ -36,6 +37,7 @@ class IModel(Interface):
 
     """
     params = Attribute("Dictionary of parameters and default values.")
+    params_doc = Attribute("Dictionary of parameter documentation.")
     layout = Attribute("Widget layout.")
 
     def __init__(Nxy, opts):
@@ -144,3 +146,6 @@ class IServer(Interface):
         param_vals : {param: val}
            Dictionary of values corresponding to default parameters.
         """
+
+    def quit(client=None):
+        """Quit the server."""

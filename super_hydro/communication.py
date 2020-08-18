@@ -204,15 +204,6 @@ class NetworkServer(object):
     def get_available_commands(self, client=None):
         return self.comm.get(params=['available_commands'])
 
-    def reset(self, client=None):
-        """Set specified parameter."""
-        self.do("reset")
-
-    def set(self, param_dict, client=None):
-        """Set specified parameter."""
-        for param in param_dict:
-            self.comm.send(b"set", (param, param_dict[param]))
-
     def do(self, action, client=None):
         self.comm.do(action)
 
@@ -223,8 +214,21 @@ class NetworkServer(object):
                       for param in params}
         return param_dict
 
+    def set(self, param_dict, client=None):
+        """Set specified parameter."""
+        for param in param_dict:
+            self.comm.send(b"set", (param, param_dict[param]))
+
     def get_array(self, param, client=None):
         return self.comm.get_array(param.encode())
+
+    def reset(self, client=None):
+        """Reset the server."""
+        self.do("reset")
+
+    def quit(self, client=None):
+        """Quit the server."""
+        self.do("quit")
 
 
 verifyClass(IServer, NetworkServer)

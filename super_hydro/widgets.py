@@ -52,7 +52,9 @@ __all__ = ['density',
            'Image',
            'Video',
            'Audio',
-           'Canvas']
+           'Canvas'
+           'get_descriptions', 'get_interactive_and_special_widgets',
+           'get_interactive_widgets']
 
 
 class Checkbox(ipywidgets.Checkbox):
@@ -250,6 +252,19 @@ special_widget_names = set(['density',
 
 ######################################################################
 # Helpers
+def get_descriptions(layout):
+    """Return a dictionary of all descriptions."""
+    # Walk through layout and gather widgets with names.
+    descriptions = {}
+    
+    def walk(root):
+        if root.name is not "_":
+            descriptions[root.name] = getattr(root, 'description', root.name)
+        list(map(walk, getattr(root, 'children', [])))
+
+    walk(layout)
+    return descriptions
+    
 def get_interactive_and_special_widgets(layout):
     """Return a set of interactive widgets - those with a valid `name`"""
 

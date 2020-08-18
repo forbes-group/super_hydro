@@ -11,6 +11,8 @@ __all__ = ['ModelBase', 'FingerMixin']
 
 class ModelBase(object):
     """Helper class for models."""
+    params_doc = {}
+    
     def __init__(self, opts):
         """Default constructor simply sets attributes defined in params."""
         self._initializing = True
