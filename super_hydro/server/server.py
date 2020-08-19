@@ -1,8 +1,4 @@
 __doc__ = """SuperHydro Server."""
-#from gevent import monkey
-#monkey.patch_all()
-import eventlet
-eventlet.monkey_patch()
 
 from collections import deque
 from contextlib import contextmanager
@@ -120,7 +116,7 @@ class Computation(ThreadMixin):
                     self.state.step(self.steps,
                                     tracer_particles=self.tracer_particles)
                 self.process_queue()
-                
+
         log("Computation Finished.", level=100)
 
     def process_queue(self):
@@ -150,7 +146,7 @@ class Computation(ThreadMixin):
         """Generic get method."""
         value = self.state.get(param)
         self.param_queue.put((param, value))
-        
+
     def do_quit(self):
         log("Quitting!")
         self.running = False
@@ -183,7 +179,7 @@ class Computation(ThreadMixin):
 
     def do_get_cooling_phase(self):
         return self.state.get('cooling_phase')
-        
+
     def do_get_pot(self):
         self.pot_queue.put(self.state.get('pot_z'))
 
@@ -219,7 +215,7 @@ class Server(ThreadMixin):
     """
     _poll_interval = 0.1
     _tries = 10               # Number of times to try getting a param
-    
+
     def __init__(self, opts, **kwargs):
         self.opts = opts
         self.message_queue = queue.Queue()
@@ -297,8 +293,9 @@ class Server(ThreadMixin):
         """Return the position of the external potential."""
         self.message_queue.put(("get_pot",))
         pot_z = self.pot_queue.get()
-        xy = self.xy_to_pos((pot_z.real, pot_z.imag))
-        return tuple(xy.tolist())
+        xy = self._xy_to_pos((pot_z.real, pot_z.imag))
+        #return tuple(xy.tolist())
+        return xy
 
     def _get_layout(self, client=None):
         """Return the widget layout."""
@@ -335,17 +332,17 @@ class Server(ThreadMixin):
         if param not in self.state.params:
             log(f"Error: Attempt to get unknown param={param}")
             return value
-        
+
         self.message_queue.put(("get", param))
         for n in range(self._tries):
             param_, value = msg = self.param_queue.get()
             if param == param_:
-                return param
+                return value
             else:
-                log(f"Asked for {param} but got {parm_}.  Trying again.")
+                log(f"Asked for {param} but got {param_}.  Trying again.")
                 self.param_queue.put(msg)
                 sleep(self._poll_interval)
-        
+
         return value
 
     def _set(self, param, value):
@@ -353,7 +350,7 @@ class Server(ThreadMixin):
         if param not in self.state.params:
             log(f"Error: Attempt to set unknown param={param}")
             return
-        
+
         self.state.set(param, value)
         self.message_queue.put(("set", param, value))
 
@@ -459,7 +456,7 @@ class Server(ThreadMixin):
             self.comm.respond(b"Unknown Message")
         else:
             return method(client=client)
-        
+
     def reset(self, client=None):
         """Reset server and return default parameters.
 
