@@ -10,8 +10,8 @@ Cooling: <span id='val_cooling'></span><br>
        min='-10'
        max='1'
        step='0.20'
-       value='0.01'
-       onchange='setParam(this.id, Math.pow(10, this.value));'>
+       value='-2'
+       onchange='setParam(this.id, this.value);'>
 <br>
 V0/mu: <span id='val_finger_V0_mu'></span><br>
 <input class="slider"
@@ -21,25 +21,32 @@ V0/mu: <span id='val_finger_V0_mu'></span><br>
        min="-2"
        max="2"
        step="0.1"
-       value="0"
-       onchange="setParam(this.id, Math.pow(10, this.value));"">
+       value="-0.3"
+       onchange="setParam(this.id, this.value);"">
 </div>
 
 Trap: <span id='val_cylinder'></span><br>
+
 <input type="checkbox"
        id="cylinder"
        onchange="setParam(this.id, this.checked)">
-
-
 <br>
-<div id="data_display"></div>
-<br>
-
 <button type="button" name="start" onclick="doAction(this.name)">Start</button>
-
 <button type="button" name="pause" onclick="doAction(this.name)">Pause</button>
-
 <button type="button" name="reset" onclick="doAction(this.name)">Reset</button>
+
+<div id="data_display" style="position:relative;">
+  <canvas id="density" style="z-index:1;
+                              position:absolute;
+                              left:0px;
+                              top:0px;">
+  </canvas>
+  <canvas id="finger" style="position:absolute;
+                             z-index:2;
+                             left:0px;
+                             top:0px;">
+  </canvas>
+</div>
 
 <script type="text/javascript" src="{{ url_for('static', filename = '/js/app_func.js') }}"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/mathjs/3.3.0/math.min.js" charset="utf-8"></script>
@@ -55,14 +62,18 @@ Trap: <span id='val_cylinder'></span><br>
     width = window.innerWidth - margin.left - margin.right,
     height = window.innerHeight * 0.8 - margin.top - margin.bottom;
 
-  // Create the canvas display element
-  var base = d3.select("div#data_display");
-
-  var chart = base.append("canvas")
-                  .attr("width", width)
-                  .attr("height", height);
-  var canvas = chart.node();
-  var context = canvas.getContext("2d");
+  // Create the canvas Density display element
+  var baseDensity = d3.select("canvas#density");
+  var chartDensity = baseDensity.attr("width", width)
+                                .attr("height", height);
+  var canvasDensity = chartDensity.node();
+  var ctxDensity = canvasDensity.getContext("2d");
+  // Create the canvas Finger display element
+  var baseFinger = d3.select("canvas#finger");
+  var chartFinger = baseFinger.attr("width", width)
+                              .attr("height", height);
+  var canvasFinger = chartFinger.node();
+  var ctxFinger = canvasFinger.getContext("2d");
 
   // Create a custom DOM element that will hide in memory for d3 to
   // bind data to before the page actually generates it on the Canvas.
@@ -78,29 +89,38 @@ Trap: <span id='val_cylinder'></span><br>
   // Density array size (Nx, Ny)
   // Cooling
   // V0/mu
-  // Potential Trap status (boolean)
+  // Potential Trap status (boolean) [Not Implemented yet]
   socket.on('init', function(data){
-    sh.nx = data.size.Nxy[0];
-    sh.ny = data.size.Nxy[1];
     document.getElementById('cooling').value = Math.log10(data.cooling);
     document.getElementById('finger_V0_mu').value = Math.log10(data.v0mu);
     document.getElementById('val_cooling').innerHTML = data.cooling;
     document.getElementById('val_finger_V0_mu').innerHTML = data.v0mu;
+    sh.nx = data.size.Nxy[0];
+    sh.ny = data.size.Nxy[1];
+
+    sh.fx = data.fxy[0]*width;
+    sh.fy = height - data.fxy[1]*height;
   });
 
   // Event that receives the density values, converts them to the appropriate
   // form and creates the next displayed animation frame.
   socket.on('ret_array', function(data){
-   bytes = Uint8Array.from(data, c => c.charCodeAt(0))
-   floats = new Float64Array(bytes.buffer)
-   drawCustom(floats, sh.nx, sh.ny);
+   dbytes = Uint8Array.from(data.density, c => c.charCodeAt(0))
+   dfloats = new Float64Array(dbytes.buffer)
+   drawCustom(dfloats, sh.nx, sh.ny);
+   vbytes = Uint8Array.from(data.vxy, c => c.charCodeAt(0))
+   vfloats = new Float64Array(vbytes.buffer)
+   sh.fx = data.fxy[0]*width;
+   console.log(data.fxy)
+   sh.fy = height - data.fxy[1]*height;
+   drawFinger(sh.fx, sh.fy, vfloats[0], vfloats[1])
   });
 
   // setParam() ties with 'param_up' socket event to update changes in user
   // controllabl parameter values.
   function setParam(name, value) {
    sh.Param = {};
-   sh.Param[name] = value;
+   sh.Param[name] = Math.pow(10, value);
    socket.emit('set_param', {data: sh.namespace, param: sh.Param});
   }
 
@@ -118,20 +138,27 @@ Trap: <span id='val_cylinder'></span><br>
   // potential.
   function getCursorPosition(canvas, event) {
    const rect = canvas.getBoundingClientRect()
-   const x = Math.floor((event.clientX - rect.left)/width*sh.nx) - sh.nx/2
-   const y = Math.floor((event.clientY - rect.top)/height*sh.ny) - sh.ny/2
+   sh.fx = event.clientX - rect.left;
+   sh.fy = event.clientY - rect.top;
+   const x = Math.floor((sh.fx)/width*sh.nx) - sh.nx/2
+   const y = Math.floor((sh.fy)/height*sh.ny) - sh.ny/2
    const fPos = {'xy0' : [x,y]}
    socket.emit('finger', {position: fPos})
   }
 
-  const getCanvas = document.querySelector('canvas')
-  canvas.addEventListener('mousedown', function(e) {
+  const getCanvas = document.querySelector('canvas#density')
+  canvasFinger.addEventListener('mousedown', function(e) {
    getCursorPosition(getCanvas, e)
   })
 
+  // This section provides Finger and Potential positioning animation.
+  socket.on('snd_vpos', function(data){
+    drawFinger(sh.fx, sh.fy, data.vx, data.vy);
+  })
+
   // These keep the output updates for the slider values as they change.
-  document.getElementById('val_cooling').innerHTML = document.getElementById('cooling').value;
-  document.getElementById('val_finger_V0_mu').innerHTML = document.getElementById('finger_V0_mu').value;
+  document.getElementById('val_cooling').innerHTML = Math.pow(10, document.getElementById('cooling').value);
+  document.getElementById('val_finger_V0_mu').innerHTML = Math.pow(10, document.getElementById('finger_V0_mu').value);
 
 </script>
 

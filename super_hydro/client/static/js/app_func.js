@@ -13,7 +13,7 @@ function drawCustom(data, nx, ny) {
                                   .append("custom");
   dataBinding = dataBinding.merge(enterSel);
 
-  context.clearRect(0, 0, chart.attr("width"), chart.attr("height"));
+  ctxDensity.clearRect(0, 0, chartDensity.attr("width"), chartDensity.attr("height"));
 
   var elements = dataContainer.selectAll("custom");
 
@@ -22,5 +22,20 @@ function drawCustom(data, nx, ny) {
     tmpctx.fillRect(Math.floor(i/nx), (i%ny),
                      1, 1)
   });
-  context.drawImage(tmpcanvas, 0, 0, nx, ny, 0, 0, width, height)
+  ctxDensity.drawImage(tmpcanvas, 0, 0, nx, ny, 0, 0, width, height)
+}
+
+//Finger and Potential layer function.
+function drawFinger(fx, fy, vx, vy) {
+  vxNew = vx*width;
+  vyNew = vy*height;
+
+  ctxFinger.clearRect(0, 0, chartFinger.attr("width"), chartFinger.attr("height"));
+  ctxFinger.fillStyle = "444444";
+  ctxFinger.beginPath();
+  ctxFinger.arc(fx, fy, 5, 0, Math.PI*2, true);
+  ctxFinger.fill();
+  ctxFinger.beginPath();
+  ctxFinger.arc(vxNew, vyNew, 5, 0, Math.PI*2, true);
+  ctxFinger.fill();
 }
