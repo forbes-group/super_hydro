@@ -124,7 +124,7 @@ class GPEBase(ModelBase, FingerMixin):
             if isinstance(self, FingerMixin) and self.t > 0:
                 # Don't move finger potential while preparing state.
                 self._step_finger_potential(dt=dt, density=density)
-            
+
             self.apply_expV(dt=dt, factor=1.0, density=density)
             self.apply_expK(dt=dt, factor=1.0)
             self.t += dt
@@ -494,7 +494,7 @@ class BECBreather(BEC):
     Dalibard et al.: PRX 9, 021035 (2019)
     """
     params = dict(BECFlow.params,
-                  a_HO=0.5,  # Fraction of Lx/2
+                  a_HO=0.125,  # Fraction of Lx/2
                   R=0.5,     # Fraction of Lx/2
                   Nshape=3,
                   cooling=1e-10,

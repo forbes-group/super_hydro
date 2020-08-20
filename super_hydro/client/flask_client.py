@@ -84,7 +84,7 @@ class Demonstration(Namespace):
             self.fsh[f"{self.app}"] = dict.fromkeys(['server', 'users'])
             self.fsh[f"{self.app}"]['server'] = get_app(model=self.app,
                                                         tracer_particles=False,
-                                                        steps=10)
+                                                        steps=12)
             self.fsh[f"{self.app}"]['server'].run(block=False,
                                                   interrupted=False)
         join_room(self.app)
@@ -95,9 +95,14 @@ class Demonstration(Namespace):
         self.fsh['size'] = self.fsh[f"{self.app}"]['server'].get({"Nxy": "Nxy"})
         self.fsh['cooling'] = self.fsh[f"{self.app}"]['server']._get('cooling')
         self.fsh['v0mu'] = self.fsh[f"{self.app}"]['server']._get('finger_V0_mu')
+        self.fsh['cylinder'] = self.fsh[f"{self.app}"]['server']._get('cylinder')
+        fxy = [self.fsh[f"{self.app}"]['server']._get('finger_x'),
+               self.fsh[f"{self.app}"]['server']._get('finger_y')]
         emit('init', {'size': self.fsh['size'],
                       'cooling': self.fsh['cooling'],
-                      'v0mu': self.fsh['v0mu']},
+                      'v0mu': self.fsh['v0mu'],
+                      'cylinder':self.fsh['cylinder'],
+                      'fxy': fxy},
                       room=self.app)
         if self.d_thread is None:
             self.d_thread = socketio.start_background_task(target=density_thread,
