@@ -494,7 +494,7 @@ class BECBreather(BEC):
     Dalibard et al.: PRX 9, 021035 (2019)
     """
     params = dict(BECFlow.params,
-                  a_HO=0.5,  # Fraction of Lx/2
+                  a_HO=0.125,  # Fraction of Lx/2
                   R=0.5,     # Fraction of Lx/2
                   Nshape=3,
                   cooling=1e-10,
