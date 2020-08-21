@@ -10,10 +10,15 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/2.3.0/socket.io.js"></script>
     <ul>
       <li><a href="{{ url_for('index') }}">Index</a></li>
-      <li><a href="{{ url_for('gpeBEC') }}">BEC-Basic</a></li>
-      <li><a href="{{ url_for('gpeBECVortexRing') }}">BEC-Vortex Rings</a></li>
-      <li><a href="{{ url_for('gpeBECSoliton') }}">BEC-Soliton</a></li>
-      <li><a href="{{ url_for('gpeBECBreather') }}">BEC-Breather</a></li>
+      <li class="dropdown">
+        <a href="javascript:void(0)" class="dropbtn">Models</a>
+        <div class="dropdown-content">
+          <a href="{{ url_for('gpeBEC') }}">BEC-Basic</a>
+          <a href="{{ url_for('gpeBECVortexRing') }}">BEC-Vortex Rings</a>
+          <a href="{{ url_for('gpeBECSoliton') }}">BEC-Soliton</a>
+          <a href="{{ url_for('gpeBECBreather') }}">BEC-Breather</a>
+        </div>
+      </li>
     </ul>
     {% block content %}{% endblock %}
   </body>
