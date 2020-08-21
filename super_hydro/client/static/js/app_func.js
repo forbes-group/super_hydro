@@ -31,11 +31,17 @@ function drawFinger(fx, fy, vx, vy) {
   vyNew = vy*height;
 
   ctxFinger.clearRect(0, 0, chartFinger.attr("width"), chartFinger.attr("height"));
-  ctxFinger.fillStyle = "444444";
+
   ctxFinger.beginPath();
+  ctxFinger.strokeStyle = "White";
   ctxFinger.arc(fx, fy, 5, 0, Math.PI*2, true);
-  ctxFinger.fill();
+  ctxFinger.stroke();
   ctxFinger.beginPath();
+  ctxFinger.fillStyle = "Black";
   ctxFinger.arc(vxNew, vyNew, 5, 0, Math.PI*2, true);
   ctxFinger.fill();
+  ctxFinger.beginPath();
+  ctxFinger.moveTo(fx, fy);
+  ctxFinger.lineTo(vxNew, vyNew);
+  ctxFinger.stroke();
 }
