@@ -109,9 +109,8 @@ Trap: <span id='val_cylinder'></span><br>
   // Event that receives the density values, converts them to the appropriate
   // form and creates the next displayed animation frame.
   socket.on('ret_array', function(data){
-   dbytes = Uint8Array.from(data.density, c => c.charCodeAt(0))
-   dfloats = new Float64Array(dbytes.buffer)
-   drawCustom(dfloats, sh.nx, sh.ny);
+   rgba = Uint8ClampedArray.from(data.rgba, c => c.charCodeAt(0));   
+   drawCustom(rgba, sh.nx, sh.ny);
    vbytes = Uint8Array.from(data.vxy, c => c.charCodeAt(0))
    vfloats = new Float64Array(vbytes.buffer)
    sh.fx = data.fxy[0]*width;

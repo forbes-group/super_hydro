@@ -156,11 +156,15 @@ def density_thread(namespace, server, room):
         fxy = [server._get('finger_x'), server._get('finger_y')]
         vxy = (server._get_Vpos()).tobytes()
         vxy_char = "".join([chr(i) for i in vxy])
+        
         density = server.get_array("density")
-        rgba = (density * int(255/density.max())).tobytes()
-        byte_arr_char = "".join([chr(i) for i in rgba])
 
-        socketio.emit('ret_array', {'density': byte_arr_char,
+        from matplotlib import cm
+        array = cm.viridis(density/density.max())
+        array *= int(255/array.max())  # normalize values
+        rgba = "".join(map(chr, array.astype(dtype='uint8').tobytes()))
+
+        socketio.emit('ret_array', {'rgba': rgba,
                                     'vxy': vxy_char,
                                     'fxy': fxy},
                                     namespace=f"{namespace}",
