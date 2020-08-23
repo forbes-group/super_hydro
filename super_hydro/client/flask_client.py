@@ -37,19 +37,33 @@ def index():
 
 @app.route('/gpeBEC')
 def gpeBEC():
-    return render_template('model.html', namespace='/gpe.BEC')
+    return render_template('model.html', namespace='/gpe.BEC',
+                                         v_v_c='none')
+
+@app.route('/gpeBECVortices')
+def gpeBECVortices():
+    return render_template('model.html', namespace='/gpe.BECVortices',
+                                         v_v_c='none')
+
+@app.route('/gpeBECFlow')
+def gpeBECFlow():
+    return render_template('model.html', namespace='/gpe.BECFlow',
+                                         v_v_c='block')
 
 @app.route('/gpeBECVortexRing')
 def gpeBECVortexRing():
-    return render_template('model.html', namespace='/gpe.BECVortexRing')
+    return render_template('model.html', namespace='/gpe.BECVortexRing',
+                                         v_v_c='none')
 
 @app.route('/gpeBECSoliton')
 def gpeBECSoliton():
-    return render_template('model.html', namespace='/gpe.BECSoliton')
+    return render_template('model.html', namespace='/gpe.BECSoliton',
+                                         v_v_c='none')
 
 @app.route('/gpeBECBreather')
 def gpeBECBreather():
-    return render_template('model.html', namespace='/gpe.BECBreather')
+    return render_template('model.html', namespace='/gpe.BECBreather',
+                                         v_v_c='none')
 
 ###############################################################################
 # Flask-SocketIO Communications.
@@ -77,6 +91,9 @@ class Demonstration(Namespace):
             self.fsh['cooling'] = 0
             self.fsh['v0mu'] = 0
 
+    def on_ping(self):
+        emit('pong')
+
     def on_start_srv(self, data):
         self.app = data['data'][1:]
         print(data['data'])
@@ -84,7 +101,7 @@ class Demonstration(Namespace):
             self.fsh[f"{self.app}"] = dict.fromkeys(['server', 'users'])
             self.fsh[f"{self.app}"]['server'] = get_app(model=self.app,
                                                         tracer_particles=False,
-                                                        steps=12)
+                                                        steps=5)
             self.fsh[f"{self.app}"]['server'].run(block=False,
                                                   interrupted=False)
         join_room(self.app)
@@ -111,8 +128,8 @@ class Demonstration(Namespace):
                                         room=self.app)
 
     def on_set_param(self, data):
-        self.fsh[f"{self.app}"]['server'].set(data['param'])
         for key, value in data['param'].items():
+            self.fsh[f"{self.app}"]['server']._set(key, float(value))
             data = {'name': key, 'param': value}
         emit('param_up', data, room=self.app)
 
@@ -128,7 +145,9 @@ class Demonstration(Namespace):
                           room=self.app)
 
     def on_finger(self, data):
-        self.fsh[f"{self.app}"]['server'].set(data['position'])
+        for key, value in data['position'].items():
+            pos = self.fsh[f"{self.app}"]['server']._pos_to_xy(value)
+            self.fsh[f"{self.app}"]['server'].set({f"{key}": pos})
 
     def on_disconnect(self):
         print('Client Disconnected.')
@@ -144,6 +163,8 @@ class Demonstration(Namespace):
 # Namespaces for particular physics models:
 
 socketio.on_namespace(Demonstration('/gpe.BEC'))
+socketio.on_namespace(Demonstration('/gpe.BECVortices'))
+socketio.on_namespace(Demonstration('/gpe.BECFlow'))
 socketio.on_namespace(Demonstration('/gpe.BECSoliton'))
 socketio.on_namespace(Demonstration('/gpe.BECVortexRing'))
 socketio.on_namespace(Demonstration('/gpe.BECBreather'))
@@ -156,7 +177,7 @@ def density_thread(namespace, server, room):
         fxy = [server._get('finger_x'), server._get('finger_y')]
         vxy = (server._get_Vpos()).tobytes()
         vxy_char = "".join([chr(i) for i in vxy])
-        
+
         density = server.get_array("density")
 
         from matplotlib import cm

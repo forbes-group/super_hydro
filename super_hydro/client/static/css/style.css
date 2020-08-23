@@ -41,7 +41,7 @@ li.dropdown {
   background-color: DarkRed;
   min-width: 160px;
   box-shadow: 0px 8px 16px 0px rgba(0,0,0,0.2);
-  z-index: 1;
+  z-index: 5;
 }
 
 .dropdown-content a {
@@ -59,7 +59,7 @@ li.dropdown {
 }
 
 .slidecontainer {
-  width: 99%;
+  width: 100%;
   padding-left: 2px;
 }
 

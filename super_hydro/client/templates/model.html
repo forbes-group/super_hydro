@@ -1,40 +1,58 @@
 {% extends "base.html" %}
 {% block content %}
 <br>
-<div class="slidecontainer">
-Cooling: <span id='val_cooling'></span><br>
-<input class="slider"
-       id="cooling"
-       name='cooling'
-       type="range"
-       min='-10'
-       max='1'
-       step='0.20'
-       value='-2'
-       onchange='setParam(this.id, Math.pow(10,this.value));'>
-<br>
-V0/mu: <span id='val_finger_V0_mu'></span><br>
-<input class="slider"
-       id="finger_V0_mu"
-       name="finger_V0_mu"
-       type="range"
-       min="-2"
-       max="2"
-       step="0.05"
-       value="-0.3"
-       onchange="setParam(this.id, Math.pow(10,this.value));"">
+<div class="slidecontainer" style="float: left;">
+  <div style="float: left; padding-left: 1px; width: 49%;">
+    Cooling: <span id='val_cooling'></span><br>
+    <input class="slider"
+           id="cooling"
+           name='cooling'
+           type="range"
+           min='-10'
+           max='1'
+           step='0.20'
+           value='-2'
+           onchange='setParam(this.id, Math.pow(10,this.value));'>
+  </div>
+  <div style="float: left; padding-left: 2px; width: 49%;">
+    V0/mu: <span id='val_finger_V0_mu'></span><br>
+    <input class="slider"
+           id="finger_V0_mu"
+           name="finger_V0_mu"
+           type="range"
+           min="-2"
+           max="2"
+           step="0.1"
+           value="0"
+           onchange="setParam(this.id, this.value);">
+  </div>
+  <div style="float: left; padding-left: 2px; width: 49%; display: {{ v_v_c }}">
+    v/v_c: <span id='val_v_v_c'></span><br>
+    <input class="slider"
+           id="v_v_c"
+           name="v_v_c"
+           type="range"
+           min="-5"
+           max="5"
+           step="0.1"
+           value="0"
+           onchange="setParam(this.id, this.value);">
+  </div>
 </div>
-
-Trap: <span id='val_cylinder'></span><br>
-<input type="checkbox"
-       class="toggle"
-       id="cylinder"
-       onchange="setParam(this.id, this.checked)">
 <br>
+<div >
+  Trap: <span id='val_cylinder'></span><br>
+  <input type="checkbox"
+         class="toggle"
+         id="cylinder"
+         onchange="setParam(this.id, this.checked)">
+  <br>
+</div>
 
 <button type="button" class="toggle" name="start" onclick="doAction(this.name)">Start</button>
 <button type="button" class="toggle" name="pause" onclick="doAction(this.name)">Pause</button>
 <button type="button" class="toggle" name="reset" onclick="doAction(this.name)">Reset</button>
+Framerate: <span id="ping-pong"></span>fps
 
 <div id="data_display" style="position:relative;">
   <canvas id="density" style="z-index:1;
@@ -58,6 +76,23 @@ Trap: <span id='val_cylinder'></span><br>
 
   sh.namespace = '{{ namespace }}';
   var socket = io(sh.namespace);
+
+  // FPS tracker:
+
+  var ping_pong_times = [];
+  var timeStart = (new Date).getTime();
+/*
+  socket.on('pong', function() {
+    var latency = (new Date).getTime() - start_time;
+    ping_pong_times.push(latency);
+    ping_pong_times = ping_pong_times.slice(-10); //keep last 30 samples
+    var sum = 0;
+    for (var i = 0; i < ping_pong_times.length; i++)
+      sum += ping_pong_times[i];
+    document.getElementById('ping-pong').innerHTML = 10000 / Math.round(10 * sum / ping_pong_times.length);
+  })
+  */
+  // End FPS Tracker
 
   var margin = {top: 30, right: 30, bottom: 30, left: 30},
     width = window.innerWidth * 0.99,
@@ -90,15 +125,18 @@ Trap: <span id='val_cylinder'></span><br>
   // Density array size (Nx, Ny)
   // Cooling
   // V0/mu
-  // Potential Trap status (boolean) [Not Implemented yet]
+  // Potential Trap status (boolean)
   socket.on('init', function(data){
     document.getElementById('cooling').value = Math.log10(data.cooling);
-    document.getElementById('finger_V0_mu').value = Math.log10(data.v0mu);
+    document.getElementById('finger_V0_mu').value = data.v0mu;
     document.getElementById('val_cooling').innerHTML = data.cooling;
     document.getElementById('val_finger_V0_mu').innerHTML = data.v0mu;
     document.getElementById('cylinder').checked = data.cylinder;
     document.getElementById('val_cylinder').innerHTML = data.cylinder;
-    console.log(data.cylinder);
+    if (data.vcc) {
+      document.getElementById('v_v_c').value = data.vvc;
+      document.getElementById('val_v_v_c').innerHTML = data.vcc;
+    }
     sh.nx = data.size.Nxy[0];
     sh.ny = data.size.Nxy[1];
 
@@ -109,13 +147,23 @@ Trap: <span id='val_cylinder'></span><br>
   // Event that receives the density values, converts them to the appropriate
   // form and creates the next displayed animation frame.
   socket.on('ret_array', function(data){
-   rgba = Uint8ClampedArray.from(data.rgba, c => c.charCodeAt(0));   
+   rgba = Uint8ClampedArray.from(data.rgba, c => c.charCodeAt(0));
    drawCustom(rgba, sh.nx, sh.ny);
-   vbytes = Uint8Array.from(data.vxy, c => c.charCodeAt(0))
-   vfloats = new Float64Array(vbytes.buffer)
-   sh.fx = data.fxy[0]*width;
-   sh.fy = height - data.fxy[1]*height;
-   drawFinger(sh.fx, sh.fy, vfloats[0], vfloats[1])
+   vbytes = Uint8Array.from(data.vxy, c => c.charCodeAt(0));
+   vfloats = new Float64Array(vbytes.buffer);
+   sh.fx = width - data.fxy[1]*width;
+   sh.fy = data.fxy[0]*height;
+   drawFinger(sh.fx, sh.fy, vfloats[1], vfloats[0])
+   // FPS Counter tracking:
+   timeEnd = (new Date).getTime();
+   latency = timeEnd - timeStart;
+   ping_pong_times.push(latency);
+   ping_pong_times = ping_pong_times.slice(-30); //keep last 30 samples
+   var sum = 0;
+   for (var i = 0; i < ping_pong_times.length; i++)
+    sum += ping_pong_times[i];
+   document.getElementById('ping-pong').innerHTML = Math.floor(10000/ Math.round(10 * sum / ping_pong_times.length));
+   timeStart = timeEnd;
   });
 
   // setParam() ties with 'param_up' socket event to update changes in user
@@ -128,11 +176,11 @@ Trap: <span id='val_cylinder'></span><br>
 
   socket.on('param_up', function(data) {
    document.getElementById('val_' + data.name).innerHTML = data.param;
-   if (data.name == 'cylinder') {
-     document.getElementById(data.name).checked = data.param;
+   if (data.name == 'cooling') {
+     document.getElementById(data.name).checked = Math.log10(data.param);
    }
    else {
-     document.getElementById(data.name).value = Math.log10(data.param);
+     document.getElementById(data.name).value = data.param;
    }
   })
 
@@ -145,11 +193,9 @@ Trap: <span id='val_cylinder'></span><br>
   // potential.
   function getCursorPosition(canvas, event) {
    const rect = canvas.getBoundingClientRect()
-   sh.fx = event.clientX - rect.left;
-   sh.fy = event.clientY - rect.top;
-   const x = Math.floor((sh.fx)/width*sh.nx) - sh.nx/2
-   const y = Math.floor((sh.fy)/height*sh.ny) - sh.ny/2
-   const fPos = {'xy0' : [x,y]}
+   sh.fy = (event.clientY - rect.top);
+   sh.fx = (event.clientX - rect.left);
+   const fPos = {'xy0' : [sh.fy/height, sh.fx/width]}
    socket.emit('finger', {position: fPos})
   }
 
