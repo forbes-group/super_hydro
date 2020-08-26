@@ -1,24 +1,34 @@
 {% extends "base.html" %}
+
+{% block about %}
+<li class="about-dropdown">
+  <a href="javascript:void(0)" class="about-dropbtn">About</a>
+  <div class="about-content">
+    <span>{{ info }}</span>
+  </div>
+</li>
+{% endblock %}
+
 {% block content %}
+<div class="containers">
 <br>
 <div class="slidecontainer" style="float: left;">
   <div style="float: left; padding-left: 1px; width: 49%;">
     Cooling: <span id='val_cooling'></span><br>
     <input class="slider"
            id="cooling"
-           name='cooling'
+           name='logarithmic'
            type="range"
            min='-10'
            max='1'
            step='0.20'
            value='-2'
-           onchange='setParam(this.id, Math.pow(10,this.value));'>
+           onchange='setLogParam(this.id, this.value);'>
   </div>
   <div style="float: left; padding-left: 2px; width: 49%;">
     V0/mu: <span id='val_finger_V0_mu'></span><br>
     <input class="slider"
            id="finger_V0_mu"
-           name="finger_V0_mu"
            type="range"
            min="-2"
            max="2"
@@ -26,35 +36,24 @@
            value="0"
            onchange="setParam(this.id, this.value);">
   </div>
-  <div style="float: left; padding-left: 2px; width: 49%; display: {{ v_v_c }}">
-    v/v_c: <span id='val_v_v_c'></span><br>
-    <input class="slider"
-           id="v_v_c"
-           name="v_v_c"
-           type="range"
-           min="-5"
-           max="5"
-           step="0.1"
-           value="0"
-           onchange="setParam(this.id, this.value);">
-  </div>
+  {% if not sliders == None %}
+    {% include sliders + '.html' %}
+  {% endif %}
+
 </div>
 <br>
-<div >
-  Trap: <span id='val_cylinder'></span><br>
-  <input type="checkbox"
-         class="toggle"
-         id="cylinder"
-         onchange="setParam(this.id, this.checked)">
-  <br>
-</div>
+
 
 <button type="button" class="toggle" name="start" onclick="doAction(this.name)">Start</button>
 <button type="button" class="toggle" name="pause" onclick="doAction(this.name)">Pause</button>
 <button type="button" class="toggle" name="reset" onclick="doAction(this.name)">Reset</button>
-Framerate: <span id="ping-pong"></span>fps
-
-<div id="data_display" style="position:relative;">
+<div style="float: right; padding-right: 5px;">
+  <span id="ping-pong"></span>fps
+</div>
+</div>
+<div id="data_display" style="position:relative;
+                              width: 100%;
+                              height: 100%;">
   <canvas id="density" style="z-index:1;
                               position:absolute;
                               left:0px;
@@ -73,146 +72,107 @@ Framerate: <span id="ping-pong"></span>fps
 <script>
   // Establish namespace (sh), websocket, and page width/height values
   var sh = {};
-
   sh.namespace = '{{ namespace }}';
   var socket = io(sh.namespace);
 
   // FPS tracker:
-
-  var ping_pong_times = [];
+  var pingTimes = [];
   var timeStart = (new Date).getTime();
-/*
-  socket.on('pong', function() {
-    var latency = (new Date).getTime() - start_time;
-    ping_pong_times.push(latency);
-    ping_pong_times = ping_pong_times.slice(-10); //keep last 30 samples
-    var sum = 0;
-    for (var i = 0; i < ping_pong_times.length; i++)
-      sum += ping_pong_times[i];
-    document.getElementById('ping-pong').innerHTML = 10000 / Math.round(10 * sum / ping_pong_times.length);
-  })
-  */
-  // End FPS Tracker
-
-  var margin = {top: 30, right: 30, bottom: 30, left: 30},
-    width = window.innerWidth * 0.99,
-    height = window.innerHeight * 0.78 - margin.top;
 
   // Create the canvas Density display element
-  var baseDensity = d3.select("canvas#density");
-  var chartDensity = baseDensity.attr("width", width)
-                                .attr("height", height);
-  var canvasDensity = chartDensity.node();
-  var ctxDensity = canvasDensity.getContext("2d");
+  var chartDensity = document.getElementById("density");
+  var ctxDensity = chartDensity.getContext("2d");
   // Create the canvas Finger display element
-  var baseFinger = d3.select("canvas#finger");
-  var chartFinger = baseFinger.attr("width", width)
-                              .attr("height", height);
-  var canvasFinger = chartFinger.node();
-  var ctxFinger = canvasFinger.getContext("2d");
+  var chartFinger = document.getElementById("finger");
+  var ctxFinger = chartFinger.getContext("2d");
 
-  // Create a custom DOM element that will hide in memory for d3 to
-  // bind data to before the page actually generates it on the Canvas.
-  var detachedContainer = document.createElement("custom");
-  var dataContainer = d3.select(detachedContainer);
+  // Auto-scale Model Animation to available window whitespace area.
+  window.onload = window.onresize = function() {
+    containers = document.getElementsByClassName('containers');
+    heightDiff = 0;
+    for (c = 0; c < containers.length; ++c) {
+      heightDiff += containers[c].offsetHeight;
+    }
+    chartDensity.width = chartFinger.width = window.innerWidth;
+    chartDensity.height = chartFinger.height = window.innerHeight - heightDiff;
+  }
 
   // When the User socket connection is made, start a server if not running
   socket.on('connect', function() {
-     socket.emit('start_srv', {data: sh.namespace})
+    sh.params = ['Nx', 'Ny', 'finger_x', 'finger_y'];
+    inputs = document.getElementsByTagName('input');
+    for (index = 0; index < inputs.length; ++index) {
+      sh.params.push(inputs[index].id)
+    };
+    socket.emit('start_srv', {name: sh.namespace, params: sh.params})
   });
 
-  // Gets current values of:
-  // Density array size (Nx, Ny)
-  // Cooling
-  // V0/mu
-  // Potential Trap status (boolean)
+  // Gets current values (server side) of all relevant parameters.
   socket.on('init', function(data){
-    document.getElementById('cooling').value = Math.log10(data.cooling);
-    document.getElementById('finger_V0_mu').value = data.v0mu;
-    document.getElementById('val_cooling').innerHTML = data.cooling;
-    document.getElementById('val_finger_V0_mu').innerHTML = data.v0mu;
-    document.getElementById('cylinder').checked = data.cylinder;
-    document.getElementById('val_cylinder').innerHTML = data.cylinder;
-    if (data.vcc) {
-      document.getElementById('v_v_c').value = data.vvc;
-      document.getElementById('val_v_v_c').innerHTML = data.vcc;
+    Object.keys(data).forEach(key => {
+      if (document.getElementById(key)) { // Make sure input exists first.
+        if (document.getElementById(key).type == 'checkbox') {
+          document.getElementById(key).checked = data[key];
+          document.getElementById('val_' + key).innerHTML = data[key];
+        }
+        else if (document.getElementById(key).name == 'logarithmic'){
+          document.getElementById(key).value = Math.log10(data[key]);
+          document.getElementById('val_' + key).innerHTML = data[key];
+        } else{
+          document.getElementById(key).value = data[key];
+          document.getElementById('val_' + key).innerHTML = data[key];
+        }
     }
-    sh.nx = data.size.Nxy[0];
-    sh.ny = data.size.Nxy[1];
-
-    sh.fx = data.fxy[0]*width;
-    sh.fy = height - data.fxy[1]*height;
+    });
+    // Set sizing and finger positions.
+    sh.nx = data.Nx;
+    sh.ny = data.Ny;
+    sh.fx = chartFinger.width - data.finger_x*chartFinger.width;
+    sh.fy = data.finger_y*chartFinger.height;
   });
 
-  // Event that receives the density values, converts them to the appropriate
-  // form and creates the next displayed animation frame.
+  // Receives rgba, external potential data and generates animation frames.
+  // Also calculates framerate.
   socket.on('ret_array', function(data){
    rgba = Uint8ClampedArray.from(data.rgba, c => c.charCodeAt(0));
    drawCustom(rgba, sh.nx, sh.ny);
    vbytes = Uint8Array.from(data.vxy, c => c.charCodeAt(0));
    vfloats = new Float64Array(vbytes.buffer);
-   sh.fx = width - data.fxy[1]*width;
-   sh.fy = data.fxy[0]*height;
+   sh.fx = chartFinger.width - data.fxy[1]*chartFinger.width;
+   sh.fy = data.fxy[0]*chartFinger.height;
    drawFinger(sh.fx, sh.fy, vfloats[1], vfloats[0])
+
    // FPS Counter tracking:
-   timeEnd = (new Date).getTime();
-   latency = timeEnd - timeStart;
-   ping_pong_times.push(latency);
-   ping_pong_times = ping_pong_times.slice(-30); //keep last 30 samples
+   sh.timeEnd = (new Date).getTime();
+   latency = sh.timeEnd - timeStart;
+   pingTimes.push(latency);
+   pingTimes = pingTimes.slice(-30); //keep last 30 samples
    var sum = 0;
-   for (var i = 0; i < ping_pong_times.length; i++)
-    sum += ping_pong_times[i];
-   document.getElementById('ping-pong').innerHTML = Math.floor(10000/ Math.round(10 * sum / ping_pong_times.length));
-   timeStart = timeEnd;
+   for (var i = 0; i < pingTimes.length; i++)
+    sum += pingTimes[i];
+   document.getElementById('ping-pong').innerHTML = Math.floor(10000/ Math.round(10 * sum / pingTimes.length));
+   timeStart = sh.timeEnd;
   });
 
-  // setParam() ties with 'param_up' socket event to update changes in user
-  // controllabl parameter values.
-  function setParam(name, value) {
-   sh.Param = {};
-   sh.Param[name] = value;
-   socket.emit('set_param', {data: sh.namespace, param: sh.Param});
-  }
-
   socket.on('param_up', function(data) {
-   document.getElementById('val_' + data.name).innerHTML = data.param;
-   if (data.name == 'cooling') {
-     document.getElementById(data.name).checked = Math.log10(data.param);
-   }
-   else {
-     document.getElementById(data.name).value = data.param;
-   }
-  })
-
-  // doAction() passes action calls to the server.
-  function doAction(name) {
-   socket.emit('do_action', {data: sh.namespace, name: name});
+    if (document.getElementById(data.name).type == 'checkbox'){
+      document.getElementById(data.name).checked = data.param;
+      document.getElementById('val_' + data.name).innerHTML = data.param;
+    } else{
+    document.getElementById('val_' + data.name).innerHTML = data.param;
+    document.getElementById(data.name).value = data.param;
   }
+ });
 
-  // This section provides mouseclick/touchscreen interaction for finger
-  // potential.
-  function getCursorPosition(canvas, event) {
-   const rect = canvas.getBoundingClientRect()
-   sh.fy = (event.clientY - rect.top);
-   sh.fx = (event.clientX - rect.left);
-   const fPos = {'xy0' : [sh.fy/height, sh.fx/width]}
-   socket.emit('finger', {position: fPos})
-  }
+  socket.on('log_param_up', function(data) {
+    document.getElementById('val_' + data.name).innerHTML = data.param;
+    document.getElementById(data.name).value = Math.log10(data.param);
+  });
 
-  const getCanvas = document.querySelector('canvas#density')
-  canvasFinger.addEventListener('mousedown', function(e) {
-   getCursorPosition(getCanvas, e)
-  })
-
-  // This section provides Finger and Potential positioning animation.
-  socket.on('snd_vpos', function(data){
-    drawFinger(sh.fx, sh.fy, data.vx, data.vy);
-  })
-
-  // These keep the output updates for the slider values as they change.
-  document.getElementById('val_cooling').innerHTML = Math.pow(10, document.getElementById('cooling').value);
-  document.getElementById('val_finger_V0_mu').innerHTML = Math.pow(10, document.getElementById('finger_V0_mu').value);
-
+  const getCanvas = document.querySelector('canvas#finger')
+  chartFinger.addEventListener('mousedown', function(e) {
+   getCursorPosition(chartFinger, e)
+ });
 </script>
 
 {% endblock %}
