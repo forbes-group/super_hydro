@@ -1,0 +1,39 @@
+<div style="float: left;
+            padding-left: 2px;
+            width: 49%;">
+    Bump Size: <span id='val_bump_h'></span><br>
+    <input class="slider"
+           id="bump_h"
+           type="range"
+           min="0"
+           max="0.5"
+           step="0.01"
+           value="0.1"
+           onchange="setParam(this.id, this.value);">
+</div>
+<div style="float: left;
+            padding-left: 2px;
+            width: 49%;">
+    Target Vortex #: <span id='val_N_vortex'></span><br>
+    <input class="slider"
+           id="N_vortex"
+           type="range"
+           min="-100"
+           max="100"
+           step="0.1"
+           value="0"
+           onchange="setParam(this.id, this.value);">
+</div>
+<div style="float: left;
+            padding-left: 2px;
+            width: 49%;">
+    Bump #: <span id='val_bump_N'></span><br>
+    <input class="slider"
+           id="bump_N"
+           type="range"
+           min="0"
+           max="100"
+           step="1"
+           value="1"
+           onchange="setParam(this.id, this.value);">
+</div>

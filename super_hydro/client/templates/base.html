@@ -1,27 +1,32 @@
 <!DOCTYPE html>
 <html>
   <head>
-    <title>Super Hydro Explorer</title>
+    <title>{% if not Title %}
+            Super Hydro Explorer
+           {% else %}
+            {{ Title }}
+           {% endif %}
+    </title>
   </head>
   <body>
     <link rel="stylesheet" type="text/css" href="{{ url_for('static', filename='css/style.css')}}">
-    <script src="https://d3js.org/d3.v5.min.js"></script>
-    <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.5.1/jquery.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/2.3.0/socket.io.js"></script>
-    <ul>
+    <div class="containers"><ul>
       <li><a href="{{ url_for('index') }}">Index</a></li>
       <li class="dropdown">
-        <a href="javascript:void(0)" class="dropbtn">Models</a>
+        <a href="javascript:void(0)" class="dropbtn">GPE Models</a>
         <div class="dropdown-content">
           <a href="{{ url_for('gpeBEC') }}">BEC-Basic</a>
           <a href="{{ url_for('gpeBECVortices') }}">BEC-Vortices</a>
           <a href="{{ url_for('gpeBECFlow') }}">BEC-Flow</a>
           <a href="{{ url_for('gpeBECVortexRing') }}">BEC-Vortex Rings</a>
           <a href="{{ url_for('gpeBECSoliton') }}">BEC-Soliton</a>
+          <a href="{{ url_for('gpeBECQuantumFriction') }}">BEC-Quantum Friction</a>
           <a href="{{ url_for('gpeBECBreather') }}">BEC-Breather</a>
         </div>
       </li>
-    </ul>
+      {% block about %}{% endblock %}
+    </ul></div>
     {% block content %}{% endblock %}
   </body>
 </html>

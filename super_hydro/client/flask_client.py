@@ -16,6 +16,7 @@ from flask_socketio import SocketIO, emit, Namespace, join_room, leave_room
 #Project-defined Modules
 from super_hydro import config, utils
 from super_hydro.server import server
+from super_hydro.physics import gpe
 
 #This establishes the communication with the server.
 _LOGGER = utils.Logger(__name__)
@@ -38,32 +39,51 @@ def index():
 @app.route('/gpeBEC')
 def gpeBEC():
     return render_template('model.html', namespace='/gpe.BEC',
-                                         v_v_c='none')
+                                         Title = 'BEC',
+                                         info = gpe.BEC.__doc__,
+                                         sliders='gpeBEC')
 
 @app.route('/gpeBECVortices')
 def gpeBECVortices():
     return render_template('model.html', namespace='/gpe.BECVortices',
-                                         v_v_c='none')
+                                         Title = 'BEC - Vortices',
+                                         info = gpe.BECVortices.__doc__,
+                                         sliders='gpeBECVortices')
 
 @app.route('/gpeBECFlow')
 def gpeBECFlow():
     return render_template('model.html', namespace='/gpe.BECFlow',
-                                         v_v_c='block')
+                                         Title = 'BEC - Flow',
+                                         info = gpe.BECFlow.__doc__,
+                                         sliders='gpeBECFlow')
 
 @app.route('/gpeBECVortexRing')
 def gpeBECVortexRing():
     return render_template('model.html', namespace='/gpe.BECVortexRing',
-                                         v_v_c='none')
+                                         Title = 'BEC - Vortex Ring',
+                                         info = gpe.BECVortexRing.__doc__,
+                                         sliders=None)
 
 @app.route('/gpeBECSoliton')
 def gpeBECSoliton():
     return render_template('model.html', namespace='/gpe.BECSoliton',
-                                         v_v_c='none')
+                                         Title = 'BEC - Soliton',
+                                         info = gpe.BECSoliton.__doc__,
+                                         sliders='gpeBECSoliton')
+
+@app.route('/gpeBECQuantumFriction')
+def gpeBECQuantumFriction():
+    return render_template('model.html', namespace='/gpe.BECQuantumFriction',
+                                         Title = 'BEC - Quantum Friction',
+                                         info = gpe.BECQuantumFriction.__doc__,
+                                         sliders='gpeBECQuantumFriction')
 
 @app.route('/gpeBECBreather')
 def gpeBECBreather():
     return render_template('model.html', namespace='/gpe.BECBreather',
-                                         v_v_c='none')
+                                         Title = 'BEC - Breather',
+                                         info = gpe.BECBreather.__doc__,
+                                         sliders=None)
 
 ###############################################################################
 # Flask-SocketIO Communications.
@@ -91,12 +111,8 @@ class Demonstration(Namespace):
             self.fsh['cooling'] = 0
             self.fsh['v0mu'] = 0
 
-    def on_ping(self):
-        emit('pong')
-
     def on_start_srv(self, data):
-        self.app = data['data'][1:]
-        print(data['data'])
+        self.app = data['name'][1:]
         if self.app not in self.fsh or self.fsh[f"{self.app}"]['server'].finished == True:
             self.fsh[f"{self.app}"] = dict.fromkeys(['server', 'users'])
             self.fsh[f"{self.app}"]['server'] = get_app(model=self.app,
@@ -109,21 +125,15 @@ class Demonstration(Namespace):
             self.fsh[f"{self.app}"]['users'] = 1
         else:
             self.fsh[f"{self.app}"]['users'] += 1
-        self.fsh['size'] = self.fsh[f"{self.app}"]['server'].get({"Nxy": "Nxy"})
-        self.fsh['cooling'] = self.fsh[f"{self.app}"]['server']._get('cooling')
-        self.fsh['v0mu'] = self.fsh[f"{self.app}"]['server']._get('finger_V0_mu')
-        self.fsh['cylinder'] = self.fsh[f"{self.app}"]['server']._get('cylinder')
-        fxy = [self.fsh[f"{self.app}"]['server']._get('finger_x'),
-               self.fsh[f"{self.app}"]['server']._get('finger_y')]
-        emit('init', {'size': self.fsh['size'],
-                      'cooling': self.fsh['cooling'],
-                      'v0mu': self.fsh['v0mu'],
-                      'cylinder':self.fsh['cylinder'],
-                      'fxy': fxy},
+        self.fsh['init'] = {}
+        for param in data['params']:
+            self.fsh[f"{param}"] = self.fsh[f"{self.app}"]['server']._get(param)
+            self.fsh['init'].update({f"{param}" : self.fsh[f"{param}"]})
+        emit('init', self.fsh['init'],
                       room=self.app)
         if self.d_thread is None:
-            self.d_thread = socketio.start_background_task(target=density_thread,
-                                        namespace=data['data'],
+            self.d_thread = socketio.start_background_task(target=push_thread,
+                                        namespace=data['name'],
                                         server=self.fsh[f"{self.app}"]['server'],
                                         room=self.app)
 
@@ -133,21 +143,31 @@ class Demonstration(Namespace):
             data = {'name': key, 'param': value}
         emit('param_up', data, room=self.app)
 
+    def on_set_log_param(self, data):
+        for key, value in data['param'].items():
+            self.fsh[f"{self.app}"]['server']._set(key, float(value))
+            data = {'name': key, 'param': value}
+        emit('log_param_up', data, room=self.app)
+
     def on_do_action(self, data):
-        self.fsh[f"{self.app}"]['server'].do(data['name'])
         if data['name'] == 'reset':
-            self.fsh['size'] = self.fsh[f"{self.app}"]['server'].get({"Nxy": "Nxy"})
-            self.fsh['cooling'] = self.fsh[f"{self.app}"]['server']._get('cooling')
-            self.fsh['v0mu'] = self.fsh[f"{self.app}"]['server']._get('finger_V0_mu')
-            emit('init', {'size': self.fsh['size'],
-                          'cooling': self.fsh['cooling'],
-                          'v0mu': self.fsh['v0mu']},
-                          room=self.app)
+            params = self.fsh[f"{self.app}"]['server'].reset()
+            restart = {'name': f"/{self.app}"}
+            restart.update({'params': params})
+            leave_room(self.app)
+            self.fsh[f"{self.app}"]['users'] -= 1
+            self.on_start_srv(restart)
+        else:
+            self.fsh[f"{self.app}"]['server'].do(data['name'])
 
     def on_finger(self, data):
         for key, value in data['position'].items():
             pos = self.fsh[f"{self.app}"]['server']._pos_to_xy(value)
             self.fsh[f"{self.app}"]['server'].set({f"{key}": pos})
+
+    def on_about_model(self):
+        doc = self.app.__doc__
+        emit('model_info', doc)
 
     def on_disconnect(self):
         print('Client Disconnected.')
@@ -167,12 +187,13 @@ socketio.on_namespace(Demonstration('/gpe.BECVortices'))
 socketio.on_namespace(Demonstration('/gpe.BECFlow'))
 socketio.on_namespace(Demonstration('/gpe.BECSoliton'))
 socketio.on_namespace(Demonstration('/gpe.BECVortexRing'))
+socketio.on_namespace(Demonstration('/gpe.BECQuantumFriction'))
 socketio.on_namespace(Demonstration('/gpe.BECBreather'))
 
 ###############################################################################
 #End socket connections.
 ###############################################################################
-def density_thread(namespace, server, room):
+def push_thread(namespace, server, room):
     while not server.finished:
         fxy = [server._get('finger_x'), server._get('finger_y')]
         vxy = (server._get_Vpos()).tobytes()
