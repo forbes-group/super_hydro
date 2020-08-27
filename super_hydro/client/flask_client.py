@@ -13,12 +13,9 @@ import sys
 sys.path.insert(0, f'{two_up}')
 
 #Additional Package Imports
-from flask import Flask, request, jsonify, render_template, make_response
+from flask import Flask, render_template
 from flask_socketio import SocketIO, emit, Namespace
 import numpy as np
-import zmq
-
-#async_mode = gevent
 
 #Project-defined Modules
 from super_hydro import config, communication, utils, widgets
@@ -111,8 +108,13 @@ class Demonstration(Namespace):
         byte_arr_char = "".join([chr(i) for i in byte_arr])
         emit('ret_array', byte_arr_char)
 
+socketio.on_namespace(Demonstration('/gpe.BECBase'))
+socketio.on_namespace(Demonstration('/gpe.BECSoliton'))
 socketio.on_namespace(Demonstration('/gpe.BECVortexRing'))
+socketio.on_namespace(Demonstration('/gpe.BECBreather'))
+#############################################################################
 #End /base_demo socket connections.
+
 _OPTS = None
 
 def get_server(args=None, kwargs={}):
@@ -127,7 +129,7 @@ def get_server(args=None, kwargs={}):
     pkg = "super_hydro"
     opts.State = getattr(importlib.import_module("." + module, pkg), cls)
     svr = server.Server(opts=opts)
-    #svr.run(block=False, interrupted=False)
+
     return svr
 
 def get_app(**kwargs):
@@ -141,14 +143,6 @@ def get_app(**kwargs):
     app2.server = get_server(args='', kwargs=kwargs)
 
     return app2
-
-
-#def run(app_name, run_server=True, **kwargs):
-
-#    app2 = get_app(**kwargs)
-
-#    app2.server.run(block=False, interrupted=False)
-#    return app2
 
 if __name__ == "__main__":
 

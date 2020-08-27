@@ -9,7 +9,11 @@ dependencies:
   - numpy
   - pyzmq
   - zope.interface
-  - pandas
+
+  #Flask Client
+  - flask
+  - flask-socketio
+  - eventlet
 
   # Notebook Client
   - nb_conda

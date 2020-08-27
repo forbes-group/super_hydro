@@ -1,5 +1,8 @@
 __doc__ = """SuperHydro Server."""
 
+import eventlet
+eventlet.monkey_patch()
+
 from collections import deque
 from contextlib import contextmanager
 import importlib
