@@ -2,9 +2,12 @@ syntax: glob
 
 _ext
 __pycache__
+\.nox
 \.git/
 \.cache/
 \.pytest_cache/
+\build
+*.egg-info*
 home.bat
 htmlcov
 \.coverage

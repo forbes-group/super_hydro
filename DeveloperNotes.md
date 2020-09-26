@@ -1,8 +1,31 @@
+# Deployment
+
+* Update version number in:
+
+  * `setup.py`
+  * `src/super_hydro/__init__.py`
+
+
 # To Do
 
-* Remove unnecessary dependences:
+* Remove unnecessary dependencies:
   * Definitely scipy (used for sinc...)
   * Possibly matplotlib.
+* Add tests and make them pass, the complete coverage.
+* Clean up repo - remove old clients and organize everything in proper
+  folders.
+* Complete documentation from start to finish and helper scripts.
+* Upload to PyPI and Anaconda Cloud.
+  * Clean up environment file.
+
+* Flask Client
+  * Preserve aspect ratio.
+  * Click and drag finger.
+  * "Go", "Pause", "Reset"
+  * Don't cache pause.
+  * Sane cooling range and interpretation (low priority).
+  * Running and shutdown issues.
+
 
 Issues
 ------
@@ -61,3 +84,7 @@ Thu 16 July 2020
 * Need to complete the IModel interface.
 * Check the init() chain for Models
 * Ignore "physics" in model name if provided.
+
+Fri 25 Sept 2020
+================
+Made into an installable python package.
