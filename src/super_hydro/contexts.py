@@ -9,6 +9,8 @@ import threading
 
 import warnings
 
+__all__ = ['is_main_thread', 'NoInterrupt', 'CoroutineWrapper',
+           'nointerrupt', 'coroutine']
 
 def is_main_thread():
     """Return True if this is the main thread."""
@@ -19,8 +21,8 @@ class NoInterrupt(object):
     """Suspend the various signals during the execution block and a
     simple mechanism to allow threads to be interrupted.
 
-    Arguments
-    ---------
+    Parameters
+    ----------
     ignore : bool
        If True, then do not raise a KeyboardInterrupt if a soft interrupt is
        caught unless forced by multiple interrupt requests in a
@@ -30,7 +32,7 @@ class NoInterrupt(object):
     method, and within a NoInterrupt() context.
 
     Main Thread
-    -----------
+    ...........
     When executed in a context from the main thread, a signal handler
     is established which captures interrupt signals and represents
     them instead as a boolean flag (conventionally called
@@ -47,7 +49,7 @@ class NoInterrupt(object):
     context.
     
     Auxiliary Threads
-    -----------------
+    .................
     Auxiliary threads can create instances of NoInterrupt() or use
     contexts, but cannot call suspend() or restore().  In these cases
     the context does not suspend signals (see below), but the flag is
@@ -275,8 +277,8 @@ class NoInterrupt(object):
     def unregister(cls, full=False):
         """Reset handlers to the original values.  No more signal suspension.
 
-        Arguments
-        ---------
+        Parameters
+        ----------
         full : bool
            If True, do a full reset, including counts.
         """
@@ -298,8 +300,8 @@ class NoInterrupt(object):
         
         Note: This does not change the signals listed in _suspended_signals list.
 
-        Arguments
-        ---------
+        Parameters
+        ----------
         signals : set()
            Set of signal numbers.
         """

@@ -1,3 +1,9 @@
+"""
+Helpers
+=======
+
+Some tools to make writing models easier.
+"""
 import argparse
 import collections.abc
 import inspect
@@ -51,8 +57,8 @@ class FingerMixin(object):
     The actual potential is connected to the finger with a spring, and
     limited to move at maximum speed `get_finger_v_max()`.
 
-    Parameters
-    ----------
+    Arguments
+    ---------
     finger_k_m : float
        Spring constant of the finger-potential spring.
     finger_damp : float

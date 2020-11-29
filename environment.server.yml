@@ -3,7 +3,7 @@ channels:
   - defaults
   - conda-forge
 dependencies:
-  - python>=3
+  - python >= 3.8.5
   - configargparse
   - scipy
   - matplotlib
@@ -16,8 +16,8 @@ dependencies:
   - pyzmq
   
   # SocketIO Networking
-   - python-socketio
-   - aiohttp
+  - python-socketio
+  - aiohttp
 
   # For performance
   - numexpr

@@ -1,3 +1,10 @@
+"""
+GPE: Gross-Pitaevski Equation
+=============================
+
+This modules provides classes for implemented the Gross-Pitaevski
+equation (GPE) for simulating Bose-Einstein condensates (BECs).
+"""
 import math
 
 import numpy as np

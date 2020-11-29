@@ -93,8 +93,8 @@ def get_app(run_server=False, network_server=True, **kwargs):
 def run(run_server=False, network_server=False, **kwargs):
     """Start the dumb client.
 
-    Arguments
-    ---------
+    Parameters
+    ----------
     run_server : bool
        If True, then first run a server, otherwise expect to connect
        to an existing server.

@@ -314,8 +314,8 @@ def get_app(run_server=True, network_server=False, notebook=True, **kwargs):
 def run(run_server=True, network_server=True, **kwargs):
     """Start the notebook client.
 
-    Arguments
-    ---------
+    Parameters
+    ----------
     run_server : bool
        If True, then first run a server, otherwise expect to connect
        to an existing server.

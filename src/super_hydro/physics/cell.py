@@ -1,9 +1,12 @@
+"""Cellular Automata."""
+
 import numpy as np
 
 from .helpers import ModelBase
 
 
 class Automaton(ModelBase):
+    """Example of a cellular automaton."""
 
     params = dict(
             Nx=32, Ny=32, Nxy=(32, 32),
@@ -62,13 +65,13 @@ class Automaton(ModelBase):
             if (i+b) >= len(arr):
                 if arr[i+b-len(arr)] == True:
                     chk += 1
-            elif arr[i+b] = True:
+            elif arr[i+b] == True:
                 chk += 1
 
             if (i+c) >= len(arr):
                 if arr[i+c-len(arr)] == True:
                     chk += 1
-            elif arr[i+c] = True:
+            elif arr[i+c] == True:
                 chk += 1
 
             if (i+d) >= len(arr):

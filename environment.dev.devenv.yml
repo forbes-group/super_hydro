@@ -1,0 +1,26 @@
+# Use this environment for development.  It includes both the client
+# and server, as well as testing and documentation building dependencies.
+name: super_hydro
+channels:
+  - mforbes
+  - conda-forge
+  - defaults
+includes:
+  - environment.server.yml
+  - environment.client.yml
+dependencies:
+  - mmfutils
+
+  # Documentation
+  - sphinx
+  - nbsphinx
+  - numpydoc
+  - recommonmark
+  - sphinx_rtd_theme
+  
+  #- ghp-import
+  - pip
+  - pip:
+    #- sphinxcontrib-zopeext
+    - -e .              # Include super_hydro as a source install
+                        # for building documentation and testing.

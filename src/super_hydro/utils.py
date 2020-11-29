@@ -142,8 +142,8 @@ class Logger(object):
     def log_task(self, msg, level=logging.INFO):
         """Context for tasks with paired start and Done messages.
 
-        Arguments
-        ---------
+        Parameetrs
+        ----------
         msg : str
            Message.  By default, results in messages like::
 

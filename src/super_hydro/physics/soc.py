@@ -27,8 +27,8 @@ class Dispersion(object):
     Everything is expressed in dimensionless units with $k/k_r$,
     $d=\delta/4E_R$, $w=\Omega/4E_R$, and $E_\pm/2E_R$.
 
-    Arguments
-    ---------
+    Parameters
+    ----------
     w, d : float
        SOC parameters.
     k0, E0 : float

@@ -130,8 +130,8 @@ class Server(object):
     def recv(self, timeout=None):
         """Listen for incoming requests from clients.
 
-        Arguments
-        =========
+        Parameters
+        ----------
         timeout : None, float
            If provided, then recv() will only block for this period of
            time.  If no message is received, the it will raise a

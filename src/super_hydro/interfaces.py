@@ -3,8 +3,7 @@
 from zope.interface import Interface, Attribute, implementer
 from zope.interface.verify import verifyClass, verifyObject
 
-__all__ = ['IModel', 'IServer',
-           'implementer', 'verifyClass', 'verifyObject']
+__all__ = ['IModel', 'IServer']
 
 
 class IModel(Interface):
@@ -45,8 +44,8 @@ class IModel(Interface):
 
         Should initialize the state.
 
-        Arguments
-        =========
+        Parameters
+        ----------
         opts : Options
            Options object with attributes defined through the
            configuration mechanism.
@@ -97,13 +96,14 @@ class IServer(Interface):
         available_commands : dict
            Dictionary of available commands.  Each is a dictionary
            whose key is the command name, and the value is a
-           description of the command.
+           description of the command::
 
-           {'do': {},         # Actions.
-            'get': {},        # Parameters that can be fetched.
-            'set': {},        # Parameters that can be set.
-            'get_array': {},  # Arrays that can be fetched.
-           }
+             {'do': {},         # Actions.
+              'get': {},        # Parameters that can be fetched.
+              'set': {},        # Parameters that can be set.
+              'get_array': {},  # Arrays that can be fetched.
+             }
+
         """
 
     def do(action, client=None):
@@ -112,8 +112,8 @@ class IServer(Interface):
     def get(params, client=None):
         """Return the specified quantities.
 
-        Arguments
-        ---------
+        Parameters
+        ----------
         params : [str]
            List of parameters.
 
@@ -126,8 +126,8 @@ class IServer(Interface):
     def set(param_dict, client=None):
         """Set the specified quantities.
 
-        Arguments
-        ---------
+        Parameters
+        ----------
         param_dict : {param: val}
            Dictionary of values corresponding to specified
            parameters.  Unknown parameters should have a values of

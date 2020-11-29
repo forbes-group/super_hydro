@@ -1,3 +1,82 @@
+# Documentation
+
+The main API documentation is in `Docs/sphinx-source` and can be made
+by running:
+
+```bash
+# If you need to create the environment:
+mamba devenv -f environment.dev.devenv.yml
+conda activate super_hydro
+
+# Now build the documentation.
+cd Docs
+make html
+
+open _build/html/index.html
+```
+
+This uses Sphinx, and should be maintained so that it can be published
+at [Read the Docs](https://readthedocs.org).  See [Getting Started
+with
+Sphinx](https://docs.readthedocs.io/en/stable/intro/getting-started-with-sphinx.html)
+for details.
+
+We use the `nbsphinx` extension so that we can include Jupyter
+notebooks in the documentation.
+
+## References
+* [`numpydoc` format]
+  (https://numpydoc.readthedocs.io/en/latest/format.html): We use the
+  `numpydoc` format for documenting functions, classes, etc. so that
+  they can be automatically included in documentation.
+* [Sphinx](https://www.sphinx-doc.org/en/master/)
+
+
+# Publication Goals
+
+* Installation:
+
+  Currently we have a bunch of environment files for various
+  configurations such as client, server, and testing.  Is there a
+  point?  Maybe these should be hidden in a directory and a single
+  file provided.
+  
+  [ ] Test all installation paths with nox.
+  [ ] Make sure this is downloadable from anaconda cloud from my
+      channel.
+  [ ] Test install on various platforms.
+  [ ] Integrate CI.
+  
+* Testing:
+
+* Documentation:
+
+  [ ] Full docs should be published on [Read the
+      Docs](https://readthedocs.org).
+  [ ] Document installation.
+  [ ] Document running.
+  [ ] Document making new models.
+
+* Models and Examples:
+
+* Clients:
+
+  [ ] Jupyter Notebook Client.
+      * Does not have mouse support.
+      * Still has issues with interrupts.
+  [ ] Flask Client.
+  
+  * Other clients might be useful as demonstration about how to
+    interact with server.
+  [ ] Kivi Client. (Do we still need?)
+  [ ] Node Client. (Do we still need?)
+  
+* Configuration:
+
+  * Current configuration is not so flexible.  We are using a
+    combination of 
+  
+  
 # Deployment
 
 * Update version number in:
@@ -19,6 +98,7 @@
   * Clean up environment file.
 
 * Flask Client
+  * Read list of models from a config file.
   * Preserve aspect ratio.
   * Click and drag finger.
   * "Go", "Pause", "Reset"

@@ -411,8 +411,8 @@ class Server(ThreadMixin):
     def get(self, params, client=None):
         """Return the specified parameters.
 
-        Arguments
-        ---------
+        Parameters
+        ----------
         params : [str]
            List of parameters.
 
@@ -437,8 +437,8 @@ class Server(ThreadMixin):
     def set(self, param_dict, client=None):
         """Set the specified quantities.
 
-        Arguments
-        ---------
+        Parameters
+        ----------
         param_vals : {param: val}
            Dictionary of values corresponding to specified parameters.
         """
@@ -556,8 +556,8 @@ def run(block=True, network_server=True, interrupted=False,
 
     This can also be called programmatically to start a server.
 
-    Arguments
-    =========
+    Parameters
+    ----------
     block : bool
        If True, then block until the server is finished.
     kwargs : dict

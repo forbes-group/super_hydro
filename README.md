@@ -1,17 +1,18 @@
 Super_Hydro
 ===========
 
-Superfluid hydrodynamics explorer. This project provides a
-client-server interface for exploring superfluid dynamics.
-Communication can take place over the network (using ZMQ) allowing a
-local client to connect with a computation server running on a
-high-performance computer with GPU acceleration.  (The server can also
-be run locally.)
+Superfluid hydrodynamics explorer. 
+
+This project provides a client-server interface for exploring
+superfluid dynamics.  Communication can take place over the network
+(using ZMQ) allowing a local client to connect with a computation
+server running on a high-performance computer with GPU acceleration.
+(The server can also be run locally.)
 
 Installation
 ------------
 Currently both the server and preferred clients require python. The
-recommended installation path is through
+recommended installation path is with
 [conda](https://conda.io/en/latest/) environments:
 
 1. Download and install one of the following:

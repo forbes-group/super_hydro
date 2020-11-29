@@ -4,6 +4,7 @@ channels:
 - defaults
 - mforbes
 dependencies:
+- aiohttp
 - attrs
 - configargparse
 - cython
@@ -19,12 +20,10 @@ dependencies:
 - numexpr
 - numpy
 - pillow
-- pip
 - pyfftw
-- python >=3
+- python >= 3.8.5
+- python-socketio
 - pyzmq
 - scipy
 - zope.interface
-- pip:
-  - socketio
 name: super_hydro
