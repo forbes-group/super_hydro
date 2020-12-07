@@ -1,0 +1,35 @@
+{% extends "base.html" %}
+{% block content %}
+<script type="text/javascript">
+  $(document).ready(function() {
+    namespace = '/test';
+    var socket = io(namespace);
+    socket.on('connect', function() {
+      socket.emit('connect_check', {data: 'I connected!'});
+    });
+    socket.on('my_response', function(msg) {
+      $('#log').append('<br>' + $('<div/>').text('Received:' + msg.data).html());
+    });
+    $('form#emit').on('input', function(event) {
+      socket.emit('my_event', {data: $('input[name="scale"]').val()});
+      return false;
+    });
+  })
+
+  //Get Slider value
+  sliderChange = function(n) {
+    var e=n;
+    $('#slidetest').text("Slider value is: " + e)
+  }
+</script>
+
+<br>
+<form id="emit" action="#" method="post">
+  Cooling <br>
+  <input type="range" name="scale" min="0" max="100" value="50" oninput="sliderChange(this.value)">
+  <br>
+  <span id="slidetest"></span>
+</form>
+<h2>Receive:</h2>
+<div id="log"></div>
+{% endblock %}
