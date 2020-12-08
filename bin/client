@@ -5,6 +5,6 @@ import sys
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 
-import super_hydro.client.kivy
+import super_hydro.client.flask_client
 
-super_hydro.client.kivy.run()
+super_hydro.client.flask_client.run()

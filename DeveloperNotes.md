@@ -40,13 +40,13 @@ notebooks in the documentation.
   configurations such as client, server, and testing.  Is there a
   point?  Maybe these should be hidden in a directory and a single
   file provided.
-  
+
   [ ] Test all installation paths with nox.
   [ ] Make sure this is downloadable from anaconda cloud from my
       channel.
   [ ] Test install on various platforms.
   [ ] Integrate CI.
-  
+
 * Testing:
 
 * Documentation:
@@ -65,18 +65,18 @@ notebooks in the documentation.
       * Does not have mouse support.
       * Still has issues with interrupts.
   [ ] Flask Client.
-  
+
   * Other clients might be useful as demonstration about how to
     interact with server.
   [ ] Kivi Client. (Do we still need?)
   [ ] Node Client. (Do we still need?)
-  
+
 * Configuration:
 
   * Current configuration is not so flexible.  We are using a
-    combination of 
-  
-  
+    combination of
+
+
 # Deployment
 
 * Update version number in:
@@ -168,3 +168,16 @@ Thu 16 July 2020
 Fri 25 Sept 2020
 ================
 Made into an installable python package.
+
+Tue 08 Dec 2020
+===============
+Flask Client loads class models for user-entered scripts via config file.
+Finger Potential Click interaction implemented, "Pause"/"Start"/"Reset" work.
+Shutdown issues appear to be corrected.
+Beginning Flask Client documentation.
+
+Remaining issues:
+* preserve aspect ratio
+* drag finger potential interaction
+* sane cooling range and interpretation
+* Running at high latency can result in overspooling computational servers

@@ -1,7 +1,7 @@
-Super_Hydro
+super_hydro
 ===========
 
-Superfluid hydrodynamics explorer. 
+Superfluid hydrodynamics explorer.
 
 This project provides a client-server interface for exploring
 superfluid dynamics.  Communication can take place over the network
@@ -22,7 +22,7 @@ recommended installation path is with
    * [Anaconda](https://www.anaconda.com/distribution/): Rather
      complete conda installation with the full scientific computing
      stack right from the start.
-     
+
    Ensure that the conda base environment is activated before
    continuing.  (The installer will offer to update your
    initialization files.)
@@ -31,10 +31,10 @@ recommended installation path is with
    ```bash
    conda env create -f environment.yml
    ```
-   
+
    This will create a conda environment called `super_hydro` with
    everything needed to run both the client and server.
-   
+
    *Notes: Specialized environments are also available for independent
    server and client applications if needed: `environment.server.yml`
    `environment.client.yml`.  If these are updated, developers should
@@ -46,7 +46,7 @@ recommended installation path is with
    appropriate `Node` packages.  This requires
    [`npm`](https://www.npmjs.com) which should be installed the OS
    level.  Once `nmp` is installed, you can run:
-   
+
    ```bash
    make install-js-client
    ```
@@ -65,7 +65,7 @@ python is not installed.  To use this:
 Code Structure
 --------------
 * `index.html`: Basic webpage with embedded client.
-* `client.js`: 
+* `client.js`:
 * `canvas_behavior.js`:
 * `data.js`:
 * `handle_reply.js`:
@@ -76,12 +76,28 @@ To Do
 -----
 * [ ] Replace magic parameters with configurations (how to do this with
   js?)
-* 
+*
 
 Questions
 ---------
 * Why is there code in the client for multiple "listeners"?  Wouldn't
   each client webpage be running their own client code?
-* 
+*
 
 
+Flask Client
+------------
+This client is structured to use Python backend and Javascript frontend to
+build an interactive web-based user interface, currently with a locally started
+computational server backend. To use this:
+
+* Start the super_hydro package with the Flask client
+
+Code Structure
+--------------
+* `flask_client.py`: Python-based backend and routing control.
+* `base.html`      : Foundation HTML for page navigation formatting.
+* `index.html`     : Landing page for User interface.
+* `model.html`     : Model templating HTML file.
+* `app_func.js`    : javascript processing functions for User Interface.
+* `style.css`      : HTML/CSS formatting and styling file.

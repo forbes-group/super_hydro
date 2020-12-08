@@ -1,0 +1,169 @@
+#:kivy 1.10.0
+
+<ScreenMng>:
+    StartScreen:
+        name: 'start'
+
+    Screen:
+        name: 'game'#controls which screen
+        Display:
+            id: display
+
+<Display>:
+    canvas:
+        Rectangle:
+            id: txtr
+            texture: root.get_texture()
+            pos: self.pos[0], self.pos[1] + root.get_graph_pxsize()
+            size: self.size[0] - root.get_graph_pxsize(),self.size[1] - root.get_graph_pxsize()
+        Rectangle:
+            id: status_graph
+            size: self.size[0],root.get_graph_pxsize()
+        Rectangle:
+            id: other_graph
+            size: root.get_graph_pxsize(), self.size[1]
+            pos: self.size[0] - root.get_graph_pxsize(), 0
+
+    Marker:
+        id: finger
+        center: [root.center_x,root.center_y]
+
+    Marker:
+        id: potential
+        source: 'VisualAssets/Marker2.png'
+        center: [root.center_x, root.center_y]
+
+    Arrow:
+        id: force
+        pos: root.center
+        size_hint: None, None
+        canvas.before:
+            PushMatrix
+            Rotate:
+                angle: root.angle
+                origin: self.pos
+            Rectangle:
+                size: root.arrow_size
+                source: self.source
+                pos: self.pos
+        canvas:
+            Color:
+                rgba:1,1,1,.6
+        canvas.after:
+            PopMatrix
+
+    Button:
+        id: pause_button
+        size_hint: root.get_graph_pxsize()/root.size[0],root.get_graph_pxsize()/root.size[1]
+        pos: root.size[0] - root.get_graph_pxsize(),0
+        text: "Pause"
+        on_release:
+            root.pause_game()
+            root.event.cancel()
+            app.root.current = 'start'
+
+<StartScreen>: #widgets to change gpe values or enter the game
+    Label:
+        pos: root.pos
+        text: "After changing values, hit reset for a clean slate before starting"
+
+    Button:
+        id: start_button
+        text: "Start"
+        pos: .55 * root.size[0], .6* root.size[1]
+        size_hint: .2,.2
+        on_release:
+            root.start_game()
+            app.root.current = 'game'
+            app.root.ids.display.event()
+            self.text = "Continue"
+
+    Button:
+        id: reset_button
+        text: "Reset"
+        pos: .25 * root.size[0], .6 * root.size[1]
+        size_hint: .2,.2
+        on_release:
+            root.reset_game()
+            app.root.ids.display.ids.finger.pos = app.root.ids.display.center
+            root.ids.start_button.text = "Start"
+
+    #V0
+    Slider:
+        id: V0
+        size_hint:.05,.4
+        pos: .05 * root.size[0], .1 * root.size[1]
+        orientation: 'vertical'
+        min: -1
+        max: 1
+        on_value: root.V0_values(*args); V0_value.text = str(round(args[1],2))
+        Label:
+            pos: V0.pos[0],0
+            text: "V0"
+        Label:
+            id: V0_value
+            pos: V0.center
+            text: ""
+
+    #cooling phase
+    Slider:
+        id: cooling
+        size_hint: .05,.4
+        pos: .14 * root.size[0], .1 * root.size[1]
+        orientation: 'vertical'
+        min: -3 #will be 10^-3
+        max: 0
+        on_value: root.cooling_values(*args)
+        Label:
+            pos: cooling.pos[0],0
+            text: "Cooling"
+        Label:
+            id: cooling_val
+            pos: cooling.center
+            text: ""
+
+    #Nxy - changing size currently breaks the program
+    Slider:
+        id: Nxy
+        size_hint: .05,.4
+        pos: .25 * root.size[0], .1 * root.size[1]
+        orientation: 'vertical'
+        min: 3
+        max: 7
+        on_value:
+            root.Nxy_values(*args)
+            #app.root.ids.display.ids.txtr.pos = 30,100#app.root.ids.display.get_texture()
+        Label:
+            pos: Nxy.pos[0],0
+            text: "Nxy"
+        Label:
+            id: nxy_val
+            pos: Nxy.center
+            text: ""
+
+    #display force arrow y/n
+    CheckBox:
+        id:arrow_check
+        size_hint: .05,.05
+        active: True
+        pos: .35 * root.size[0], .15 * root.size[1]
+        on_active: app.root.ids.display.on_checkbox_active(arrow_check.active)
+        Label:
+            pos: arrow_check.pos[0],0
+            text: "Show arrow"
+
+<Marker>:
+    source: 'VisualAssets/Marker1.png'
+    size: 80,80
+    canvas:
+        Color:
+            rgba: 1,1,1,.7
+        Ellipse:
+            id: finger
+            pos: self.pos
+            size: 80,80
+            source: self.source
+
+<Arrow>:
+    source: 'VisualAssets/Arrow.png'
+    size: 100,100

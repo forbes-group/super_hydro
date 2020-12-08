@@ -248,4 +248,4 @@ def get_app(**kwargs):
 # Establishes Flask-SocketIO server to run automatically if __main__ process.
 if __name__ == "__main__":
 
-    socketio.run(app, debug=True)
+    socketio.run(app, port=27372, debug=True)

@@ -1,18 +1,28 @@
 <!DOCTYPE html>
 <html>
   <head>
-    <title>Ajax Test</title>
+    <title>{% if not Title %}
+            Super Hydro Explorer
+           {% else %}
+            {{ Title }}
+           {% endif %}
+    </title>
   </head>
   <body>
-    <script src="https://d3js.org/d3.v5.min.js"></script>
-    <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.5.1/jquery.min.js"></script>
+    <link rel="stylesheet" type="text/css" href="{{ url_for('static', filename='css/style.css')}}">
     <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/2.3.0/socket.io.js"></script>
-    <script type=text/javascript>
-      $SCRIPT_ROOT = {{ request.script_root|tojson|safe }};
-    </script>
-    <a href="{{ url_for('index') }}">Index</a>
-    <a href="{{ url_for('d3test') }}">d3 testing</a>
-    <a href="{{ url_for('heatmap') }}">Heat Map testing</a>
+    <div class="containers"><ul>
+      <li><a href="{{ url_for('index') }}">Index</a></li>
+      <li class="dropdown">
+        <a href="javascript:void(0)" class="dropbtn">GPE Models</a>
+        <div class="dropdown-content">
+          {% for model in models %}
+          <a href="{{ url_for('modelpage', cls=model) }}">{{ model }}</a>
+          {% endfor %}
+        </div>
+      </li>
+      {% block about %}{% endblock %}
+    </ul></div>
     {% block content %}{% endblock %}
   </body>
 </html>
