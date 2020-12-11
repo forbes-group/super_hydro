@@ -71,12 +71,14 @@ class Demonstration(Namespace):
     thread_lock = Lock()
 
     def on_connect(self):
+        '''Verifies Socket connection'''
         print('Client Connected.')
         if 'cooling' and 'v0mu' not in self.fsh:
             self.fsh['cooling'] = 0
             self.fsh['v0mu'] = 0
 
     def on_start_srv(self, data):
+        '''Establishes physics model server and UI communication Room'''
         model = data['name']
         if model not in self.fsh or self.fsh[f"{model}"]['server'].finished == True:
             self.fsh[f"{model}"] = dict.fromkeys(['server', 'users', 'd_thread'])
@@ -103,6 +105,7 @@ class Demonstration(Namespace):
                                         room=model)
 
     def on_set_param(self, data):
+        '''Passes parameter values to computational server'''
         model = data['data']
         for key, value in data['param'].items():
             self.fsh[f"{model}"]['server']._set(key, float(value))
@@ -110,6 +113,7 @@ class Demonstration(Namespace):
         emit('param_up', data, room=model)
 
     def on_set_log_param(self, data):
+        '''Passes logarithmic parameter values to computational server.'''
         model = data['data']
         for key, value in data['param'].items():
             self.fsh[f"{model}"]['server']._set(key, float(value))
@@ -117,6 +121,7 @@ class Demonstration(Namespace):
         emit('log_param_up', data, room=model)
 
     def on_do_action(self, data):
+        '''Passes directions to computational server.'''
         model = data['data']
         if data['name'] == 'reset':
             params = self.fsh[f"{model}"]['server'].reset()
@@ -129,12 +134,14 @@ class Demonstration(Namespace):
             self.fsh[f"{model}"]['server'].do(data['name'])
 
     def on_finger(self, data):
+        '''Passes updated finger potential postioning.'''
         model = data['data']
         for key, value in data['position'].items():
             pos = self.fsh[f"{model}"]['server']._pos_to_xy(value)
             self.fsh[f"{model}"]['server'].set({f"{key}": pos})
 
     def on_user_exit(self, data):
+        '''Removes user from current Room and closes Room/Server if empty.'''
         model = data['data']
         print(model)
         leave_room(model)
@@ -181,7 +188,7 @@ def push_thread(namespace, server, room):
 # Minor re-write of get_server() function from Server module that sidesteps
 # NoInterrupt "not main thread" exceptions.
 def get_server(args=None, kwargs={}):
-
+    '''Initializes local computational server for a given model.'''
     parser = config.get_server_parser()
     opts, other_args = parser.parse_known_args(args=args)
     opts.__dict__.update(kwargs)
@@ -202,6 +209,7 @@ def get_server(args=None, kwargs={}):
 # relevant socket Room (see above).
 ###############################################################################
 def get_app(**kwargs):
+    '''Reads configuration options and gets computational server.'''
     with log_task("Reading configuration"):
         parser = config.get_client_parser()
         _OPTS, _other_opts = parser.parse_known_args(args="")
