@@ -149,6 +149,8 @@
    timeStart = sh.timeEnd;
   });
 
+  //Socket data reception to update user display for slider interactions,
+  //regardless of which connected user interacted.
   socket.on('param_up', function(data) {
     if (document.getElementById(data.name).type == 'checkbox'){
       document.getElementById(data.name).checked = data.param;
@@ -164,11 +166,16 @@
     document.getElementById(data.name).value = Math.log10(data.param);
   });
 
+  //Event listener for User mouse-click interaction/placement of potential
+  //finger on Canvas display element.
   const getCanvas = document.querySelector('canvas#finger')
   chartFinger.addEventListener('mousedown', function(e) {
    getCursorPosition(chartFinger, e)
  });
 
+  //When User navigates away from page, informs Flask framework to update user
+  //count. This may result in computational server being shut down if room is
+  //empty.
   window.onbeforeunload = function () {
     socket.emit('user_exit', {'data': sh.model});
  }

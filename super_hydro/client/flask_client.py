@@ -1,6 +1,5 @@
 #Standard Library Imports
 import importlib
-from threading import Lock
 import time
 
 # This is needed to get make sure super_hydro is in the import pathing
@@ -47,11 +46,42 @@ socketio = SocketIO(app, async_mode='eventlet')
 
 @app.route('/')
 def index():
+    """Landing page function.
+
+    Used by Flask HTTP routing for navigation index/landing page for served
+    web interface. Transfers model class list as Jinja2 templating variable.
+
+    Parameters
+    ----------
+    cls : :obj:'list'
+        global list of all classes within loaded module.
+
+    Returns
+    -------
+    render_template('index.html')
+        Generated HTML index/landing page for Flask web framework.
+    """
     cls = modelcls
     return render_template('index.html', models=cls)
 
 @app.route('/<cls>')
 def modelpage(cls):
+    """Model display function.
+
+    Used by Flask HTTP routing for navigation to model simulation pages by
+    dynamically generating pages from the 'model.html' template using Jinja2
+    inputs.
+
+    Parameters
+    ----------
+    cls : str
+        Name of the class for the intended physics model to display
+
+    Returns
+    -------
+    render_template('model.html')
+        Generates interactive HTML physics model page for Flask web framework.
+    """
     info = getattr(module, cls)
     return render_template('model.html', model=cls,
                                          Title= f'{cls}',
@@ -66,19 +96,53 @@ def modelpage(cls):
 ###############################################################################
 
 class Demonstration(Namespace):
-    '''Container for managing independent models.'''
+    """Flask-SocketIO Socket container for models.
+
+    Contains all Python-side web socket communications for operating and
+    interacting with a running physics model. Communicates with Javascript
+    socket.io API through a static Namespace and uses Flask-SocketIO's Room
+    structuring to separate models.
+
+    (https://flask-socketio.readthedocs.io/en/latest/)
+
+    Attributes
+    ----------
+    fsh : dict
+        internal container for storing individual model information/computations
+    """
+
     fsh = {}
-    thread_lock = Lock()
 
     def on_connect(self):
-        '''Verifies Socket connection'''
+        """Verifies Client connection.
+
+        User websocket connection to Javascript socket.io. Required by
+        Flask-SocketIO. (https://flask-socketio.readthedocs.io/en/latest/)
+        """
         print('Client Connected.')
-        if 'cooling' and 'v0mu' not in self.fsh:
-            self.fsh['cooling'] = 0
-            self.fsh['v0mu'] = 0
 
     def on_start_srv(self, data):
-        '''Establishes physics model server and UI communication Room'''
+        """Python-side Model Initialization.
+
+        Receives intial parameters to connect model HTML page to computational
+        server for appropriate model within the model's Room. Checks if model is
+        already running, and starts a computational server if needed.
+
+        Establishes interaction parameters, initial values, updates user count,
+        starts/connects to server-side data pushing thread.
+
+        Parameters
+        ----------
+        data : dict
+            dict of {str : str}, key are 'name' and 'params' for model name and
+            interaction parameters.
+
+        Returns
+        -------
+        emit('init')
+            Initial model parameters
+        """
+
         model = data['name']
         if model not in self.fsh or self.fsh[f"{model}"]['server'].finished == True:
             self.fsh[f"{model}"] = dict.fromkeys(['server', 'users', 'd_thread'])
@@ -105,7 +169,23 @@ class Demonstration(Namespace):
                                         room=model)
 
     def on_set_param(self, data):
-        '''Passes parameter values to computational server'''
+        """Transfers parameter change to computational server.
+
+        Receives parameter change from User-side Javascript and passes it into
+        model computational server before updating all connected User pages.
+
+        Parameters
+        ----------
+        data : dict
+            dict containing model room name, parameter being modified and new
+            value.
+
+        Returns
+        -------
+        emit('param_up')
+            Sends new parameter value to all Users connected to model's Room.
+        """
+
         model = data['data']
         for key, value in data['param'].items():
             self.fsh[f"{model}"]['server']._set(key, float(value))
@@ -113,7 +193,24 @@ class Demonstration(Namespace):
         emit('param_up', data, room=model)
 
     def on_set_log_param(self, data):
-        '''Passes logarithmic parameter values to computational server.'''
+        """Transfers logarithmic parameter change to computational server.
+
+        Receives logarithmic parameter change from User-side Javascript and
+        passes it into model computational server before updating all
+        connected User pages.
+
+        Parameters
+        ----------
+        data : dict
+            dict containing model room name, parameter being modified and new
+            value.
+
+        Returns
+        -------
+        emit('log_param_up')
+            Sends new parameter value to all Users connected to model's Room.
+        """
+
         model = data['data']
         for key, value in data['param'].items():
             self.fsh[f"{model}"]['server']._set(key, float(value))
@@ -121,7 +218,17 @@ class Demonstration(Namespace):
         emit('log_param_up', data, room=model)
 
     def on_do_action(self, data):
-        '''Passes directions to computational server.'''
+        """Transfers Server action request to computational server.
+
+        Receives and passes server action request to computational server.
+
+        Parameters
+        ----------
+        data : dict
+            dict containing model room name, action request for computational
+            server
+        """
+
         model = data['data']
         if data['name'] == 'reset':
             params = self.fsh[f"{model}"]['server'].reset()
@@ -134,14 +241,35 @@ class Demonstration(Namespace):
             self.fsh[f"{model}"]['server'].do(data['name'])
 
     def on_finger(self, data):
-        '''Passes updated finger potential postioning.'''
+        """Transfers new fingel potential position to computational server.
+
+        Passes User set Finger position to computational server.
+
+        Parameters
+        ----------
+        data : dict
+            dict containing model room name, tuple list of User Finger
+            coordinates.
+        """
+
         model = data['data']
         for key, value in data['position'].items():
             pos = self.fsh[f"{model}"]['server']._pos_to_xy(value)
             self.fsh[f"{model}"]['server'].set({f"{key}": pos})
 
     def on_user_exit(self, data):
-        '''Removes user from current Room and closes Room/Server if empty.'''
+        """Model Room updating on User exit from page.
+
+        Updates the model Room user count when a User navigates away from the
+        model display page. If user count is zero, shuts down the computational
+        server.
+
+        Paramters
+        ---------
+        data : dict
+            dict containing model name
+        """
+
         model = data['data']
         print(model)
         leave_room(model)
@@ -153,6 +281,12 @@ class Demonstration(Namespace):
             self.fsh[f"{model}"]['d_thread'] = None
 
     def on_disconnect(self):
+        """Verifies disconnection from websocket.
+
+        Automatically called when socket communication with Javascript socket.io
+        is terminated or times out.
+        """
+
         print('Client Disconnected.')
 
 ###############################################################################
@@ -163,7 +297,27 @@ socketio.on_namespace(Demonstration('/modelpage'))
 #End socket connections.
 ###############################################################################
 def push_thread(namespace, server, room):
-    '''Continuously queues and pushes display information to Client.'''
+    """Continuously updates display information to model page.
+
+    Background thread that continuously queries computational server for
+    density array, finger potential position and potential strength. Transmits
+    to appropriate model page for display animation.
+
+    Parameters
+    ----------
+    namespace : str
+        Static namespace for the web socket communication.
+    server : obj
+        Model computational server object.
+    room : str
+        Model room name destination for display information.
+
+    Returns
+    -------
+    socketio.emit('ret_array')
+        Transmits display information to Javascript via web socket connection.
+    """
+
     while not server.finished:
         fxy = [server._get('finger_x'), server._get('finger_y')]
         vxy = (server._get_Vpos()).tobytes()
@@ -188,7 +342,24 @@ def push_thread(namespace, server, room):
 # Minor re-write of get_server() function from Server module that sidesteps
 # NoInterrupt "not main thread" exceptions.
 def get_server(args=None, kwargs={}):
-    '''Initializes local computational server for a given model.'''
+    """Establishes Server object for a particular model.
+
+    Reads configuration options and keyword arguments to create a computational
+    server object for a particular model.
+
+    Parameters
+    ----------
+    args : optional
+        Variable length argument list.
+    kwargs : optional
+        Arbitrary keyword arguments.
+
+    Returns
+    -------
+    svr : :obj:
+        Computational server object with attached physics model.
+    """
+
     parser = config.get_server_parser()
     opts, other_args = parser.parse_known_args(args=args)
     opts.__dict__.update(kwargs)
@@ -209,7 +380,22 @@ def get_server(args=None, kwargs={}):
 # relevant socket Room (see above).
 ###############################################################################
 def get_app(**kwargs):
-    '''Reads configuration options and gets computational server.'''
+    """Reads configuration options and gets appropriate computational server.
+
+    Loads configuration options and gets the requested computational server
+    object.
+
+    Parameters
+    ----------
+    **kwargs
+        Arbitrary keyword arguments.
+
+    Returns
+    -------
+    svr : :obj:
+        Computational server configured for particular physics model.
+    """
+
     with log_task("Reading configuration"):
         parser = config.get_client_parser()
         _OPTS, _other_opts = parser.parse_known_args(args="")
@@ -218,5 +404,11 @@ def get_app(**kwargs):
 
 ###############################################################################
 def run():
-    '''Starts the Client backend Flask service.'''
+    """Run the Flask web framework.
+
+    Starts the Flask/Flask-SocketIO web framework app, which provides HTML and
+    Javascript page rendering/routing and web socket mediation between User
+    Javascript requests to a model Computational Server.
+    """
+
     socketio.run(app, debug=True)
