@@ -218,7 +218,12 @@ anaconda-project run shell
 cd Docs
 make html
 
+# Open the docs:
 open _build/html/index.html
+
+# Or run the following, which will continuously monitor your docs and
+# update your page:
+make auto
 ```
 
 If you are working on documentation, you can have it auto-build when you save changes by
@@ -263,7 +268,29 @@ with the following files:
 
 
 We use the `nbsphinx` extension so that we can include Jupyter
-notebooks in the documentation.
+notebooks in the documentation.  A couple of points about this:
+
+1. Don't include a Table of Contents in your notebooks: this does not
+   look good.
+2. Look closely at the headers: the structure of the documentation is
+   dictated by these.  Notebooks should all have a `# Title` followed
+   by everything in appropriate subsection.
+3. By default, empty notebooks will be executed so that the output
+   gets rendered.  This is good for example, but not so good for
+   interactive sessions!  Some options:
+   
+   1. Store some output in the notebook: this will disable execution.
+   2. Added metadata `{"nbsphinx": "hidden"}` to the cell. (Use the
+      `View->Cell Toolbar->Edit Metadata` option to get the `Edit
+      Metadata` button.)
+   3. Hack in to
+      [`nbconvert`](https://nbconvert.readthedocs.io/en/latest/) to
+      control output.  I have included code to add the
+      [`TagRemovePreprocessor`](nbconvert.preprocessors.TagRemovePreprocessor),
+      but keep in mind that this runs after execution.  This allows
+      you to add `remove_cell` as a tag for example.  (See [this
+      comment](https://github.com/spatialaudio/nbsphinx/issues/305#issuecomment-506748814)
+      for details.)
 
 ### Citations
 
