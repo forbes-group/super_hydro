@@ -1,6 +1,7 @@
 #Standard Library Imports
 import importlib
 import time
+import numpy as np
 
 # This is needed to get make sure super_hydro is in the import pathing
 import os.path as osp
@@ -28,9 +29,20 @@ kwargs = {}
 parser = config.get_client_parser()
 opts, other_args = parser.parse_known_args(args=args)
 opts.__dict__.update(kwargs)
-modpath = ".".join(['physics'] + [opts.module])
+##### File Pathing for custom model 
+if opts.file is not None:
+    userpath = opts.file.split(".")[0] 
+    tmp = userpath.split("/") 
+    udfp = tmp[:-1] 
+    newpath = "/".join(udfp)
+    sys.path.insert(0, f'{newpath}')
+    modpath = tmp[-1]
+    print(modpath)
+    module = importlib.import_module(modpath) 
+else:
+    modpath = "super_hydro.physics.gpe"
+    module = importlib.import_module(modpath)
 
-module = importlib.import_module("." + modpath, "super_hydro")
 clsmembers = inspect.getmembers(module, inspect.isclass)
 modelcls = [clsmembers[x][0] for x in range(len(clsmembers))]
 
@@ -146,8 +158,8 @@ class Demonstration(Namespace):
         model = data['name']
         if model not in self.fsh or self.fsh[f"{model}"]['server'].finished == True:
             self.fsh[f"{model}"] = dict.fromkeys(['server', 'users', 'd_thread'])
-            self.fsh[f"{model}"]['server'] = get_app(model=model,
-                                                        tracer_particles=False,
+            self.fsh[f"{model}"]['server'] = get_server(model=model,
+                                                        tracer_particles=opts.tracers,
                                                         steps=5)
             self.fsh[f"{model}"]['server'].run(block=False,
                                                   interrupted=False)
@@ -232,7 +244,7 @@ class Demonstration(Namespace):
         model = data['data']
         if data['name'] == 'reset':
             params = self.fsh[f"{model}"]['server'].reset()
-            restart = {'name': f"{model}"}
+            restart = {'name': model}
             restart.update({'params': params})
             leave_room(model)
             self.fsh[f"{model}"]['users'] -= 1
@@ -335,13 +347,25 @@ def push_thread(namespace, server, room):
                                     'fxy': fxy},
                                     namespace=namespace,
                                     room=room)
+        #Need to figure out the tracers or dump it altogether.
+        if opts.tracers == True:
+            trace = server.get_array("tracers")
+            ix, iy = trace
+            trarray = np.zeros((opts.Nx, opts.Ny))
+            trarray[int(ix), int(iy)] = 0.
+            tr = cm.binary(trarray)
+            tr *= int(255/tr.max())
+            trgba = "".join(map(chr, tr.astype(dtype='uint8').tobytes()))
+            socketio.emit('ret_trace', {'trgba': trgba},
+                            namespace=namespace,
+                            room=room)
         socketio.sleep(0)
 ################################################################################
 
 ###############################################################################
 # Minor re-write of get_server() function from Server module that sidesteps
 # NoInterrupt "not main thread" exceptions.
-def get_server(args=None, kwargs={}):
+def get_server(model, tracer_particles=None, steps=5, args=None, kwargs={}):
     """Establishes Server object for a particular model.
 
     Reads configuration options and keyword arguments to create a computational
@@ -359,50 +383,18 @@ def get_server(args=None, kwargs={}):
     svr : :obj:
         Computational server object with attached physics model.
     """
+    print(modpath)
+    module = importlib.import_module(modpath)
 
-    parser = config.get_server_parser()
-    opts, other_args = parser.parse_known_args(args=args)
-    opts.__dict__.update(kwargs)
-
-    # Get the physics model.
-    module = ".".join(['physics'] + [opts.module])# + opts.model.split(".")[:-1])
-    cls = opts.model.split('.')[-1]
-    print(cls)
-    pkg = "super_hydro"
-    opts.State = getattr(importlib.import_module("." + module, pkg), cls)
+    opts.State = getattr(module, model)
+    opts.tracer_particles = tracer_particles
+    opts.steps = steps
     svr = server.Server(opts=opts)
 
     return svr
 
 ###############################################################################
-# Links the Local Computational Server into a model namespace, and loads
-# the Local Computational Server with the module/class specified by the
-# relevant socket Room (see above).
-###############################################################################
-def get_app(**kwargs):
-    """Reads configuration options and gets appropriate computational server.
 
-    Loads configuration options and gets the requested computational server
-    object.
-
-    Parameters
-    ----------
-    **kwargs
-        Arbitrary keyword arguments.
-
-    Returns
-    -------
-    svr : :obj:
-        Computational server configured for particular physics model.
-    """
-
-    with log_task("Reading configuration"):
-        parser = config.get_client_parser()
-        _OPTS, _other_opts = parser.parse_known_args(args="")
-    svr = get_server(args='', kwargs=kwargs)
-    return svr
-
-###############################################################################
 def run():
     """Run the Flask web framework.
 
@@ -411,4 +403,4 @@ def run():
     Javascript requests to a model Computational Server.
     """
 
-    socketio.run(app, debug=True)
+    socketio.run(app, host=opts.host, port=opts.port, debug=True)

@@ -54,8 +54,13 @@
                               left:0px;
                               top:0px;">
   </canvas>
+  <canvas id="tracers" style="position:absolute;
+	      		      z-index:2;
+			      left:0px;
+			      top:0px;">
+  </canvas>
   <canvas id="finger" style="position:absolute;
-                             z-index:2;
+                             z-index:3;
                              left:0px;
                              top:0px;">
   </canvas>
@@ -77,6 +82,9 @@
   // Create the canvas Density display element
   var chartDensity = document.getElementById("density");
   var ctxDensity = chartDensity.getContext("2d");
+  // Create the canvas Tracers display element
+  var chartTracer = document.getElementById("tracers");
+  var ctxTracer = chartTracer.getContext("2d");
   // Create the canvas Finger display element
   var chartFinger = document.getElementById("finger");
   var ctxFinger = chartFinger.getContext("2d");
@@ -135,7 +143,6 @@
    vfloats = new Float64Array(vbytes.buffer);
    sh.fx = chartFinger.width - data.fxy[1]*chartFinger.width;
    sh.fy = data.fxy[0]*chartFinger.height;
-   drawFinger(sh.fx, sh.fy, vfloats[1], vfloats[0])
 
    // FPS Counter tracking:
    sh.timeEnd = (new Date).getTime();
@@ -147,7 +154,16 @@
     sum += pingTimes[i];
    document.getElementById('ping-pong').innerHTML = Math.floor(10000/ Math.round(10 * sum / pingTimes.length));
    timeStart = sh.timeEnd;
+
+   //Draw the Finger Potential (placed last to allow consistent FPS tracking)
+   drawFinger(sh.fx, sh.fy, vfloats[1], vfloats[0]);
+
   });
+
+  // Receives tracer particle data and draws to Canvas element.
+  socket.on('ret_trace', function(data){
+	  trgba = Uint8ClampedArray.from(data.trgba, c => c.charCodeAt(0));
+	  drawTracer(trgba, sh.nx, sh.ny)})
 
   //Socket data reception to update user display for slider interactions,
   //regardless of which connected user interacted.

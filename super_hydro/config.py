@@ -83,7 +83,21 @@ def get_client_parser():
 #               action='store_false',
 #               dest='kill_server',
 #               help="Kill server on exit",)
-    PARSER.add('-mo', '--module', default='gpe',
-               help="Python script of physical models: i.e. gpe")
+    PARSER.add('-f', '--file',
+               help="Absolute path to model")
+    PARSER.add('--Nx', default=64, type=int,
+               help="Horizontal grid resolution")
+    PARSER.add('--Ny', default=64, type=int,
+               help="Vertical grid resolution")
+    PARSER.add('--healing_length', default=1.0, type=float,
+               help="Healing length (in lattice units)")
+    PARSER.add('--dt_t_scale', default=0.1, type=float,
+               help="Integration timestep in units of t_scale=hbar/E_max")
+    PARSER.add('--V0_mu', default=0.5, type=float,
+               help="Finger potential depth in units of mu")
+    PARSER.add('--steps', default=5, type=int,
+               help="Number of integration steps between display updates")
+    PARSER.add('--tracers', default=False, type=bool,
+               help="Enables tracer particles")
 
     return PARSER

@@ -91,3 +91,43 @@ function drawFinger(fx, fy, vx, vy) {
   ctxFinger.lineTo(vxNew, vyNew);
   ctxFinger.stroke();
 }
+
+//Tracer Particle layer function.
+function drawTracer(trace, nx, ny) {
+  var image_data = new ImageData(trace, nx);
+  var width = chartTracer.width;
+  var height = chartTracer.height;
+  var im_width = nx;
+  var im_height = ny;
+
+  if (0 == width && 0 == height) {
+    width = im_width;
+    height = im_height;
+  } else if (0 == height) {
+    // Preserve aspect ratio
+    height = im_height * width / im_width;
+  } else if (0 == width) {
+    // Preserve aspect ratio
+    width = im_width * height / im_height;
+  }
+
+  if (width == im_width && height == im_height) {
+    // Simply draw.
+    chartTracer.width = width;
+    chartTracer.height = height;
+    ctxTracer.putImageData(image_data, 0, 0);
+  } else {
+    // Pre-render on background canvas, then scale
+    var tmpcanvas = document.createElement("canvas");
+    var tmpctx = tmpcanvas.getContext("2d");
+    tmpcanvas.width = im_width;
+    tmpcanvas.height = im_height;
+    tmpctx.putImageData(image_data, 0, 0);
+
+    chartTracer.width = width;
+    chartTracer.height = height;
+    ctxTracer.drawImage(tmpcanvas,
+                         0, 0, im_width, im_height,
+                         0, 0, width, height);
+  }
+}

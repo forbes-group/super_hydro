@@ -94,6 +94,17 @@ computational server backend.
 The Flask client currently loads user-defined models using the `--model` (short-
 hand `-mo`) option with filename.
 
+To run the Flask client:
+------------------------
+Run the following terminal command:
+`python bin/client [OPTION]`
+
+Where the options are:
+----------------------
+* `--model`, `-mo` : Python script containing custom models to run. Default: gpe
+* `--host`, `-h`   : Host IP address. Default: 127.0.0.1
+* `--port`, `-p`   : Host access Port. Default: 5000
+
 Code Structure
 --------------
 * `flask_client.py`: Python-based backend and routing control of User client.
@@ -152,14 +163,14 @@ The model page itself (`model.html`) is a template HTML file using Javascript
 (more in-depth Javascript functions relegated to automatically loaded
 `static/js/app_func.js`) with a static green Websocket Namespace via socket.io,
 designated as `/modelpage`, with the Room within this Namespace as a
-render_template input variable, `{{ model }}`. The sliders are generated on page
+render\_template input variable, `{{ model }}`. The sliders are generated on page
 load by reading the elements of the `{{ sliders }}` list. Format of this list
 stated above in User Defined Models.
 
 On render of the model page, it uses Javscript socket.io Websocket communication
 to attempt connection with the Flask-SocketIO Namespace. The Namespace directs
 send/receive websocket method calls within either the rendered page or
-flask_client.py `on_<event>` and `emit('event')` communication structure.
+flask\_client.py `on_<event>` and `emit('event')` communication structure.
 Inside this static Websocket Namespace each uniquely rendered page (e.g. a page
 rendered for differing models), it is joined to a Room within the Namespace to
 prevent cross communication between models.
@@ -199,7 +210,7 @@ Javascript socket.io for display updating.
 
 Flask Communication Schema
 --------------------------
-* super_hydro.client.flask_client load w/ configuration options
+* super\_hydro.client.flask\_client load w/ configuration options
   * flask.socketio.run() starts Flask routing framework w/ eventlet socket
     handling (implicit)
     * HTTP Routes (`@app.route()` decorator):
