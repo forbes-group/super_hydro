@@ -99,5 +99,9 @@ def get_client_parser():
                help="Number of integration steps between display updates")
     PARSER.add('--tracers', default=False, type=bool,
                help="Enables tracer particles")
+    PARSER.add('-db', '--debug', default=False, type=bool,
+               help='Debugging mode for Flask Client')
+    PARSER.add('--network', default=False, type=bool,
+               help='Enables communication to separate server process')
 
     return PARSER

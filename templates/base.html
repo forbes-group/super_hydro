@@ -12,6 +12,7 @@
     <link rel="stylesheet" type="text/css" href="{{ url_for('static', filename='css/style.css')}}">
     <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/3.0.4/socket.io.js"></script>
     <div class="containers"><ul>
+      <li><a href="{{ url_for('quit') }}">Quit</a></li>
       <li><a href="{{ url_for('index') }}">Index</a></li>
       <li class="dropdown">
         <a href="javascript:void(0)" class="dropbtn">GPE Models</a>

@@ -96,8 +96,8 @@
     for (c = 0; c < containers.length; ++c) {
       heightDiff += containers[c].offsetHeight;
     }
-    chartDensity.width = chartFinger.width = window.innerWidth;
-    chartDensity.height = chartFinger.height = window.innerHeight - heightDiff;
+    chartDensity.width = chartFinger.width = chartTracer.width= window.innerWidth;
+    chartDensity.height = chartFinger.height = chartTracer.height = window.innerHeight - heightDiff;
   }
 
   // When the User socket connection is made, start a server if not running
@@ -162,8 +162,7 @@
 
   // Receives tracer particle data and draws to Canvas element.
   socket.on('ret_trace', function(data){
-	  trgba = Uint8ClampedArray.from(data.trgba, c => c.charCodeAt(0));
-	  drawTracer(trgba, sh.nx, sh.ny)})
+	  drawTracer(data.trgba, sh.nx, sh.ny)})
 
   //Socket data reception to update user display for slider interactions,
   //regardless of which connected user interacted.
