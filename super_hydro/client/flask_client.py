@@ -45,7 +45,9 @@ else:
     module = importlib.import_module(modpath)
 
 clsmembers = inspect.getmembers(module, inspect.isclass)
+_modname = modpath.split('.')[-1]
 modelcls = [clsmembers[x][0] for x in range(len(clsmembers))]
+
 
 app = Flask("flask_client")
 #app.config['EXPLAIN_TEMPLATE_LOADING'] = True
@@ -160,7 +162,8 @@ def modelpage(cls):
     render_template('model.html')
         Generates interactive HTML physics model page for Flask web framework.
     """
-    info = getattr(module, cls)
+    _class = str(cls.split('.')[-1])
+    info = getattr(module, _class)
     return render_template('model.html', model=cls,
                                          Title= f'{cls}',
                                          info= info.__doc__,
@@ -237,9 +240,11 @@ class Demonstration(Namespace):
         if model not in self.fsh or self.fsh[f'{model}']['server'] is None:
             self.fsh[f'{model}'] = dict.fromkeys(['server', 'users', 'd_thread'])
             if opts.network == False:
-                self.fsh[f'{model}']['server'] = get_app(run_server=True, network_server=False, steps=3)
+                self.fsh[f'{model}']['server'] = get_app(run_server=True, network_server=False,
+                                                         steps=3, model=model) 
             else:
-                self.fsh[f'{model}']['server'] = get_app(run_server=False, network_server=True, steps=5)
+                self.fsh[f'{model}']['server'] = get_app(run_server=False, network_server=True, steps=3,
+                                                         model=model)
         join_room(model)
         if self.fsh[f'{model}']['users'] is None:
             self.fsh[f'{model}']['users'] = 1
@@ -248,6 +253,7 @@ class Demonstration(Namespace):
         self.fsh['init'] = {}
         for param in data['params']:
             self.fsh[f'{param}'] = self.fsh[f'{model}']['server'].server._get(param)
+            print(self.fsh[f'{param}'])
             self.fsh['init'].update({f'{param}' : self.fsh[f'{param}']})
             self.fsh.pop(f'{param}')
         emit('init', self.fsh['init'],
@@ -351,7 +357,6 @@ class Demonstration(Namespace):
             # Needs to be able to get Lxy, not sure how at the moment.
             Nxy = server.get(['Nxy'])['Nxy']
             dx = server._get('dx')
-            print(Nxy, dx)
             pos = (np.asarray(data['position']['xy0']) - 0.5) * Nxy * dx
             self.fsh[f'{model}']['server'].server.set({f'{key}': pos})
 
@@ -439,9 +444,9 @@ def push_thread(namespace, server, room):
         # Need to figure out the tracers or dump it altogether.
         if opts.tracers == True:
             print('Getting Tracers...')
-            trace = server.server.get_array('tracers')
-            trgba = 0
-            socketio.emit('ret_trace', {'trgba': trgba},
+            trace = server.server.get_array('tracers').tolist()
+            
+            socketio.emit('ret_trace', {'trace': trace},
                                         namespace=namespace,
                                         room=room)
         socketio.sleep(0)
@@ -450,6 +455,26 @@ def push_thread(namespace, server, room):
 # Minor re-write of the get_server() function from Server module that sidesteps
 # NoInterrupt 'not main thread' exceptions.
 ###############################################################################
+
+def call_server(model, block=True, network_server=True, interrupted=False,
+               args=None, kwargs={}):
+    parser = config.get_server_parser()
+    opts, other_args = parser.parse_known_args(args=args)
+    opts.__dict__.update(kwargs)
+
+#    module = ".".join(['physics'] + opts.model.split(".")[:-1])
+    module = importlib.import_module(modpath)
+#    cls = opts.model.split('.')[-1]
+#    pkg = "super_hydro"
+#    opts.State = getattr(importlib.import_module("." + module, pkg), cls)
+    opts.State = getattr(module, model)
+    if network_server:
+        _server = server.NetworkServer(opts=opts)
+    else:
+        _server = server.Server(opts=opts)
+    _server.run(block=block, interrupted=interrupted)
+    return _server
+
 
 def get_server(model, tracer_particles=None, steps=5, args=None, kwargs={}):
     """Establishes Server object for a particular model.
@@ -484,7 +509,7 @@ def get_server(model, tracer_particles=None, steps=5, args=None, kwargs={}):
 ###############################################################################
 _OPTS = None
 
-def get_app(run_server=False, network_server=True, **kwargs):
+def get_app(model, run_server=False, network_server=True, **kwargs):
     global _OPTS
     if _OPTS is None:
         with log_task("Reading Configuration"):
@@ -495,7 +520,11 @@ def get_app(run_server=False, network_server=True, **kwargs):
 
     if run_server:
         from super_hydro.server import server
-        app.server = server.run(args='', interrupted=app.interrupted,
+#        app.server = server.run(args='', interrupted=app.interrupted,
+#                                block=False,
+#                                network_server=network_server,
+#                                kwargs=kwargs)
+        app.server = call_server(model, args='', interrupted=app.interrupted,
                                 block=False,
                                 network_server=network_server,
                                 kwargs=kwargs)

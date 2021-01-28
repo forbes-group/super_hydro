@@ -96,13 +96,20 @@
     for (c = 0; c < containers.length; ++c) {
       heightDiff += containers[c].offsetHeight;
     }
-    chartDensity.width = chartFinger.width = chartTracer.width= window.innerWidth;
-    chartDensity.height = chartFinger.height = chartTracer.height = window.innerHeight - heightDiff;
+    if (chartDensity.width > (window.innerHeight - heightDiff)) {
+	    chartDensity.width = chartFinger.width = chartTracer.width = window.innerHeight - heightDiff;
+    } else if (chartDensity.height > chartDensity.width) {
+	    chartDensity.height = chartFinger.height = chartTracer.height = chartDensity.width;
+    } else {
+	    chartDensity.width = chartFinger.width = chartTracer.width= window.innerWidth;
+	    chartDensity.height = chartFinger.height = chartTracer.height = window.innerHeight - heightDiff;
+    }
   }
 
   // When the User socket connection is made, start a server if not running
   socket.on('connect', function() {
     sh.params = ['Nx', 'Ny', 'finger_x', 'finger_y'];
+    //sh.params = ['Nxy', 'finger_x', 'finger_y'];
     inputs = document.getElementsByTagName('input');
     for (index = 0; index < inputs.length; ++index) {
       sh.params.push(inputs[index].id)
@@ -162,7 +169,8 @@
 
   // Receives tracer particle data and draws to Canvas element.
   socket.on('ret_trace', function(data){
-	  drawTracer(data.trgba, sh.nx, sh.ny)})
+	  console.log(data.trace);
+	  drawTracer(data.trace, sh.nx, sh.ny)})
 
   //Socket data reception to update user display for slider interactions,
   //regardless of which connected user interacted.

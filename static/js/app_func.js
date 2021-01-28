@@ -98,4 +98,21 @@ function drawFinger(fx, fy, vx, vy) {
 
 //Tracer Particle layer function.
 function drawTracer(trace, nx, ny) {
+	width = chartDensity.width;
+	height = chartDensity.height;
+
+	if (height < window.innerWidth) {
+		chartTracer.width = height;
+	} else {
+		chartTracer.height = width;
+	}
+
+	ctxTracer.clearRect(0,0,width,height);
+
+	var i;
+	for (i=0; i < trace[0].length; i++) {
+		ctxTracer.beginPath();
+		ctxTracer.arc(trace[1][i] / nx * width, trace[0][i] / ny * height, 2, 0, 2*Math.PI);
+		ctxTracer.stroke();
+	}
 }
