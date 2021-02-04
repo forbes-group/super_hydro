@@ -10,12 +10,14 @@ _LOGGER = utils.Logger(__name__)
 log = _LOGGER.log
 log_task = _LOGGER.log_task
 
+
 class _Interrupted(object):
     """Flag to indicate the the App has been interrupted.
 
     Pass as the interrupted flag to the server to allow the client App
     to terminate it.
     """
+
     def __init__(self, app):
         self.app = app
 
@@ -29,6 +31,7 @@ class App(object):
     """Dumb application that allows the user to interact with a
     computational server.
     """
+
     server = None
 
     def __init__(self, opts):
@@ -64,7 +67,7 @@ class App(object):
     # These methods communicate with the server.
     def quit(self):
         self.server.do("quit")
-        self._running = False    
+        self._running = False
 
 
 _OPTS = None
@@ -83,10 +86,14 @@ def get_app(run_server=False, network_server=True, **kwargs):
         # Delay import because server requires many more modules than
         # the client.
         from ..server import server
-        app.server = server.run(args='', interrupted=app.interrupted,
-                                block=False,
-                                network_server=network_server,
-                                kwargs=kwargs)
+
+        app.server = server.run(
+            args="",
+            interrupted=app.interrupted,
+            block=False,
+            network_server=network_server,
+            kwargs=kwargs,
+        )
     return app
 
 
@@ -104,7 +111,6 @@ def run(run_server=False, network_server=False, **kwargs):
        communicate through sockets, otherwise, directly connect to a
        server.
     """
-    app = get_app(run_server=run_server, network_server=network_server,
-                  **kwargs)
+    app = get_app(run_server=run_server, network_server=network_server, **kwargs)
     app.run()
     return app

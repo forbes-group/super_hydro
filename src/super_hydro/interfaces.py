@@ -3,7 +3,7 @@
 from zope.interface import Interface, Attribute, implementer
 from zope.interface.verify import verifyClass, verifyObject
 
-__all__ = ['IModel', 'IServer']
+__all__ = ["IModel", "IServer"]
 
 
 class IModel(Interface):
@@ -35,6 +35,7 @@ class IModel(Interface):
                 w.density])
 
     """
+
     params = Attribute("Dictionary of parameters and default values.")
     params_doc = Attribute("Dictionary of parameter documentation.")
     layout = Attribute("Widget layout.")
@@ -89,6 +90,7 @@ class IServer(Interface):
     but an alternative implementation in super_hydro.communication
     abstracts this to the network.
     """
+
     def get_available_commands(client=None):
         """Return a dictionary of available commands.
 

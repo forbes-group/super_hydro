@@ -5,7 +5,7 @@ import os
 import numpy as np
 import scipy as sp
 
-__all__ = ['expm2', 'dot2']
+__all__ = ["expm2", "dot2"]
 
 
 def expm2(M):
@@ -25,16 +25,16 @@ def expm2(M):
     b = M[0, 1, ...]
     c = M[1, 0, ...]
     d = M[1, 1, ...]
-    s = (a + d)/2.0
-    q = np.sqrt(0j + b*c - (a-s)*(d-s))
+    s = (a + d) / 2.0
+    q = np.sqrt(0j + b * c - (a - s) * (d - s))
     exp_s = np.exp(s)
-    exp_s_cosh_q = exp_s*np.cosh(q)
-    exp_s_sinch_q = exp_s*sp.sinc(q*1j/np.pi)
-    _tmp = exp_s_cosh_q - s*exp_s_sinch_q
-    A = _tmp + exp_s_sinch_q*a
-    B = exp_s_sinch_q*b
-    C = exp_s_sinch_q*c
-    D = _tmp + exp_s_sinch_q*d
+    exp_s_cosh_q = exp_s * np.cosh(q)
+    exp_s_sinch_q = exp_s * sp.sinc(q * 1j / np.pi)
+    _tmp = exp_s_cosh_q - s * exp_s_sinch_q
+    A = _tmp + exp_s_sinch_q * a
+    B = exp_s_sinch_q * b
+    C = exp_s_sinch_q * c
+    D = _tmp + exp_s_sinch_q * d
     return np.asarray([[A, B], [C, D]])
 
 
@@ -50,7 +50,7 @@ def dot2(A, x):
     >>> np.allclose(dot2(A, x), res)
     True
     """
-    return np.einsum('ab...,b...->a...', A, x)
+    return np.einsum("ab...,b...->a...", A, x)
 
 
 def mstep(t, t1, alpha=3.0):
@@ -61,29 +61,32 @@ def mstep(t, t1, alpha=3.0):
         t < 0.0,
         0.0,
         np.where(
-            t < t1,
-            (1 + np.tanh(alpha*np.tan(np.pi*(2*t/t1-1)/2)))/2,
-            1.0))
+            t < t1, (1 + np.tanh(alpha * np.tan(np.pi * (2 * t / t1 - 1) / 2))) / 2, 1.0
+        ),
+    )
 
 
 class MyFormatter(logging.Formatter):
     """Custom logging formatter for sending info to Jupyter console."""
+
     def __init__(self):
         logging.Formatter.__init__(
             self,
             fmt="[%(levelname)s %(asctime)s super_hydro-%(name)s] %(message)s",
-            datefmt="%H:%M:%S")
+            datefmt="%H:%M:%S",
+        )
 
     def format(self, record):
         record.levelname = record.levelname[0]
         msg = logging.Formatter.format(self, record)
         if record.levelno >= logging.WARNING:
-            msg += "\n{}{}:{}".format(" "*14, record.filename, record.lineno)
+            msg += "\n{}{}:{}".format(" " * 14, record.filename, record.lineno)
         return msg
 
 
 class Logger(object):
     """Logging object."""
+
     def __init__(self, name="", indent_amount=2):
         self.name = name
         self.nesting = 0
@@ -107,8 +110,8 @@ class Logger(object):
             logger.addHandler(handler)
 
         handler.setFormatter(MyFormatter())
-        handler.setLevel('DEBUG')
-        logger.setLevel('DEBUG')
+        handler.setLevel("DEBUG")
+        logger.setLevel("DEBUG")
 
     @property
     def logger(self):
@@ -142,7 +145,7 @@ class Logger(object):
     def log_task(self, msg, level=logging.INFO):
         """Context for tasks with paired start and Done messages.
 
-        Parameetrs
+        Parameters
         ----------
         msg : str
            Message.  By default, results in messages like::

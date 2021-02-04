@@ -5,7 +5,7 @@ import numpy as np
 
 from .. import config, communication, utils
 
-__all__ = ['run', '__doc__', '__all__']
+__all__ = ["run", "__doc__", "__all__"]
 
 
 _LOGGER = utils.Logger(__name__)
@@ -34,7 +34,8 @@ _OPTS = get_opts()
 sys.argv = sys.argv[:1]
 
 from kivy.config import Config
-Config.set('graphics', 'resizable', False)
+
+Config.set("graphics", "resizable", False)
 from kivy.app import App
 from kivy.core.window import Window
 from kivy.graphics.texture import Texture
@@ -51,6 +52,7 @@ assert Window is not None
 
 class Display(FloatLayout):
     """Main simulation layout."""
+
     angle = NumericProperty(0)
     arrow_size = ListProperty(0)
     arrow_visible = True
@@ -58,12 +60,7 @@ class Display(FloatLayout):
     Nx, Ny = 0, 0
 
     number_keys_pressed = 0
-    keys_pressed = {
-        'w': False,
-        's': False,
-        'a': False,
-        'd': False
-    }
+    keys_pressed = {"w": False, "s": False, "a": False, "d": False}
 
     texture = None
 
@@ -82,8 +79,8 @@ class Display(FloatLayout):
 
         self.angle = 45
         self.arrow_size = (0, 0)
-        print("fps: {}".format(1./self.opts.fps))
-        self.event = Clock.schedule_interval(self.update, 1./self.opts.fps)
+        print("fps: {}".format(1.0 / self.opts.fps))
+        self.event = Clock.schedule_interval(self.update, 1.0 / self.opts.fps)
         self._keyboard = Window.request_keyboard(self._keyboard_closed, self)
         self._keyboard.bind(on_key_down=self._on_keyboard_down)
         self.event.cancel()  # for pausing game when screens change
@@ -93,15 +90,13 @@ class Display(FloatLayout):
     def get_texture(self):
         if self.texture is None:
             with log_task("Creating texture"):
-                self.texture = Texture.create(size=(self.Nx, self.Ny),
-                                              colorfmt='rgba')
+                self.texture = Texture.create(size=(self.Nx, self.Ny), colorfmt="rgba")
         return self.texture
 
     def push_to_texture(self):
         data = self.comm.get_array(b"Frame").tobytes()
         # blit_buffer takes the data and put it onto my texture
-        self.get_texture().blit_buffer(data, bufferfmt='ubyte',
-                                       colorfmt='rgba')
+        self.get_texture().blit_buffer(data, bufferfmt="ubyte", colorfmt="rgba")
 
     def get_graph_pxsize(self):
         return self.graph_pxsize
@@ -118,17 +113,19 @@ class Display(FloatLayout):
 
         pressed_key = keycode[1]
 
-        if pressed_key == 'w':
+        if pressed_key == "w":
             finger.pos = finger.pos[0], finger.pos[1] + 20
-        if pressed_key == 's':
+        if pressed_key == "s":
             finger.pos = finger.pos[0], finger.pos[1] - 20
-        if pressed_key == 'd':
+        if pressed_key == "d":
             finger.pos = finger.pos[0] + 20, finger.pos[1]
-        if pressed_key == 'a':
+        if pressed_key == "a":
             finger.pos = finger.pos[0] - 20, finger.pos[1]
 
-        touch_input = [finger.pos[0] + Marker().size[0]/2,
-                       finger.pos[1] + Marker().size[1]/2 - self.graph_pxsize]
+        touch_input = [
+            finger.pos[0] + Marker().size[0] / 2,
+            finger.pos[1] + Marker().size[1] / 2 - self.graph_pxsize,
+        ]
 
         # keeps input within game border
         if touch_input[0] > framex:
@@ -145,22 +142,24 @@ class Display(FloatLayout):
             finger.pos[1] = framey + self.graph_pxsize - 20
 
         # Normalize to frame
-        touch_input[0] = touch_input[0]/framex
-        touch_input[1] = touch_input[1]/framey
+        touch_input[0] = touch_input[0] / framex
+        touch_input[1] = touch_input[1] / framey
         self.comm.send(b"OnTouch", touch_input)
 
     def _on_keyboard_up(self, keycode):
         up_key = keycode[1]
         self.keys_pressed[up_key] = False
 
-    def force_angle(self):      # point the arrow towards the finger
+    def force_angle(self):  # point the arrow towards the finger
         dist_x = self.ids.finger.pos[0] - self.ids.potential.pos[0]
         dist_y = self.ids.finger.pos[1] - self.ids.potential.pos[1]
 
         # dynamically scale the arrow
         if self.arrow_visible:
-            self.arrow_size = (.4 * np.sqrt(dist_x**2 + dist_y**2),
-                               .4 * np.sqrt(dist_x**2 + dist_y**2))
+            self.arrow_size = (
+                0.4 * np.sqrt(dist_x ** 2 + dist_y ** 2),
+                0.4 * np.sqrt(dist_x ** 2 + dist_y ** 2),
+            )
         else:
             self.arrow_size = (0, 0)
 
@@ -180,9 +179,9 @@ class Display(FloatLayout):
         pause = self.ids.pause_button
 
         """within game space/not touching pause button"""
-        if (not pause.collide_point(touch.x, touch.y) and
-            (touch.x < Window.size[0] - self.graph_pxsize and
-                touch.y > self.graph_pxsize)):
+        if not pause.collide_point(touch.x, touch.y) and (
+            touch.x < Window.size[0] - self.graph_pxsize and touch.y > self.graph_pxsize
+        ):
             collision = False
         return collision
 
@@ -196,10 +195,12 @@ class Display(FloatLayout):
         Vpos = np.array(self.comm.get(b"Vpos"))
         Vx, Vy = Vpos[0], Vpos[1]
 
-        x = float(Vx*Winx)
-        y = float(Vy*Winy)
-        potential.pos = [x - (Marker().size[0]/2),
-                         y - (Marker().size[1]/2) + self.graph_pxsize]
+        x = float(Vx * Winx)
+        y = float(Vy * Winy)
+        potential.pos = [
+            x - (Marker().size[0] / 2),
+            y - (Marker().size[1] / 2) + self.graph_pxsize,
+        ]
         force.pos = [x, y + self.graph_pxsize]
         self.force_angle()
 
@@ -228,8 +229,10 @@ class Display(FloatLayout):
 
             self.get_Vpos()
 
-            finger.pos = (touch.x-(Marker().size[0]/2),
-                          touch.y-(Marker().size[1]/2))
+            finger.pos = (
+                touch.x - (Marker().size[0] / 2),
+                touch.y - (Marker().size[1] / 2),
+            )
 
     def update(self, dt):
         self.get_Vpos()
@@ -242,6 +245,7 @@ class Display(FloatLayout):
 
 class StartScreen(Screen):
     """Initial start screen with menu choices etc."""
+
     # allows changing of game variables
 
     def __init__(self, **kwargs):
@@ -253,7 +257,7 @@ class StartScreen(Screen):
         self.comm.send(b"V0", args[1])
 
     def cooling_values(self, *args):
-        self.ids.cooling_val.text = str(complex(1, 10**int(args[1])))
+        self.ids.cooling_val.text = str(complex(1, 10 ** int(args[1])))
         self.comm.send(b"Cooling", args[1])
 
     def start_game(self):
@@ -265,22 +269,25 @@ class StartScreen(Screen):
 
 class ScreenMng(ScreenManager):
     """Manages all of the screens (i.e. which screen is visible etc.)."""
+
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
 
 
 class Arrow(Widget):
     """Widget to display a vector between the markers."""
+
     pass
 
 
 class Marker(Widget):
     """Widget for displaying finger and potential markers."""
+
     pass
 
 
 class SuperHydroApp(App):
-    Title = 'Super Hydro'
+    Title = "Super Hydro"
 
     def __init__(self, opts):
         self.opts = opts
@@ -295,7 +302,7 @@ class SuperHydroApp(App):
 
         Nx, Ny = self.comm.get(b"Nxy")
         frame_width = self.opts.window_width
-        frame_height = self.opts.window_width * Ny/Nx
+        frame_height = self.opts.window_width * Ny / Nx
         window_width = frame_width + self.graph_pxsize
         window_height = frame_height + self.graph_pxsize
 

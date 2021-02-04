@@ -14,7 +14,7 @@ from ipywidgets.widgets.widget import CallbackDispatcher
 
 import json
 
-_JS_FILE = __file__[:-3] + '.js'
+_JS_FILE = __file__[:-3] + ".js"
 
 
 @register
@@ -29,29 +29,28 @@ class Canvas(DOMWidget):
     >>> A = np.random.random((64, 32))
     >>> canvas.rgba = cm.viridis(A.T, bytes=True)
     """
-    _view_name = Unicode('CanvasView').tag(sync=True)
-    _view_module = Unicode('canvas_widget').tag(sync=True)
-    _view_module_version = Unicode('0.1.0').tag(sync=True)
 
-    _view_rgba = Bytes(help="RGBA image data").tag(
-        sync=True, **bytes_serialization)
+    _view_name = Unicode("CanvasView").tag(sync=True)
+    _view_module = Unicode("canvas_widget").tag(sync=True)
+    _view_module_version = Unicode("0.1.0").tag(sync=True)
+
+    _view_rgba = Bytes(help="RGBA image data").tag(sync=True, **bytes_serialization)
     _view_image_width = Int(help="Image width").tag(sync=True)
-    _view_fg_objects = Unicode(
-        help="Foreground object information").tag(sync=True)
+    _view_fg_objects = Unicode(help="Foreground object information").tag(sync=True)
 
     # Attributes
     name = traitlets.ObjectName("_").tag(sync=True)
     fps = Int(20, help="Maximum fps for update requests.").tag(sync=True)
     width = Int(0, help="Width of canvas").tag(sync=True)
     height = Int(0, help="Height of canvas").tag(sync=True)
-    tracer_size = Unicode(
-        help="Tracer particle size relative to image in pixels").tag(sync=True)
+    tracer_size = Unicode(help="Tracer particle size relative to image in pixels").tag(
+        sync=True
+    )
 
     mouse_event_data = Dict(help="Data from mouse event").tag(sync=True)
     key_event_data = Dict(help="Data from key event").tag(sync=True)
 
-    indexing = Unicode(
-        'xy', help="Indexing: 'xy' (faster) or 'ij'.  See np.meshgrid")
+    indexing = Unicode("xy", help="Indexing: 'xy' (faster) or 'ij'.  See np.meshgrid")
 
     def __init__(self, *v, **kw):
         super().__init__(*v, **kw)
@@ -80,7 +79,7 @@ class Canvas(DOMWidget):
     @rgba.setter
     def rgba(self, rgba_data):
         self._rgba_data = rgba_data
-        if self.indexing == 'ij':
+        if self.indexing == "ij":
             self._view_image_width = rgba_data.shape[0]
             # Swap axes to go from ij indexing to HTML convention.
             self._view_rgba = np.swapaxes(rgba_data, 0, 1).tobytes()
@@ -112,11 +111,12 @@ class Canvas(DOMWidget):
         self._update_handlers()
 
     def _handle_update_request(self, canvas, content, buffers):
-        if content.get('request', '') == 'update':
+        if content.get("request", "") == "update":
             self.update()
 
 
 def display_js():
     from IPython.display import Javascript, display
+
     with open(_JS_FILE) as f:
         display(Javascript(f.read()))

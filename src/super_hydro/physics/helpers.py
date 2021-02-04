@@ -12,13 +12,14 @@ import numpy as np
 
 from .. import widgets as w
 
-__all__ = ['ModelBase', 'FingerMixin']
+__all__ = ["ModelBase", "FingerMixin"]
 
 
 class ModelBase(object):
     """Helper class for models."""
+
     params_doc = {}
-    
+
     def __init__(self, opts):
         """Default constructor simply sets attributes defined in params."""
         self._initializing = True
@@ -32,11 +33,10 @@ class ModelBase(object):
         params = {}
         mro = type(self).mro()
         for kls in reversed(mro):
-            params.update(getattr(kls, 'params', {}))
+            params.update(getattr(kls, "params", {}))
 
         # Update any of the parameters from opts if provided.
-        self.params = {_key: getattr(opts, _key, params[_key])
-                       for _key in params}
+        self.params = {_key: getattr(opts, _key, params[_key]) for _key in params}
 
         # Set the attributes, allowing customized setters to be used.
         for _key in self.params:
@@ -57,8 +57,8 @@ class FingerMixin(object):
     The actual potential is connected to the finger with a spring, and
     limited to move at maximum speed `get_finger_v_max()`.
 
-    Arguments
-    ---------
+    Parameters
+    ----------
     finger_k_m : float
        Spring constant of the finger-potential spring.
     finger_damp : float
@@ -73,6 +73,7 @@ class FingerMixin(object):
     finger_r0 : float
        Size of the finger potential
     """
+
     pot_z = 0 + 0j
     pot_v = 0 + 0j
 
@@ -87,21 +88,27 @@ class FingerMixin(object):
     )
 
     # Broken!  Fix the layout of the sliders.
-    layout = w.VBox([
-        w.FloatSlider(name='finger_V0_mu',
-                      min=-2, max=2, step=0.1,
-                      description='V0/mu'),
-        w.FloatSlider(name='finger_x',
-                      min=0, max=1, step=0.01,
-                      readout=False),
-        w.HBox([
-            w.density,
-            w.FloatSlider(name='finger_y',
-                          min=0, max=1, step=0.01,
-                          readout=False,
-                          orientation='vertical')
-        ]),
-    ])
+    layout = w.VBox(
+        [
+            w.FloatSlider(
+                name="finger_V0_mu", min=-2, max=2, step=0.1, description="V0/mu"
+            ),
+            w.FloatSlider(name="finger_x", min=0, max=1, step=0.01, readout=False),
+            w.HBox(
+                [
+                    w.density,
+                    w.FloatSlider(
+                        name="finger_y",
+                        min=0,
+                        max=1,
+                        step=0.01,
+                        readout=False,
+                        orientation="vertical",
+                    ),
+                ]
+            ),
+        ]
+    )
 
     def init(self):
         self.pot_z = 0 + 0j
@@ -109,26 +116,26 @@ class FingerMixin(object):
 
     def set_xy0(self, xy0):
         x0, y0 = xy0
-        self.z_finger = x0 + 1j*y0
+        self.z_finger = x0 + 1j * y0
 
     @property
     def z_finger(self):
         if self.test_finger:
             if self.t >= 0:
-                return 3.0*np.exp(1j*self.t/5)
+                return 3.0 * np.exp(1j * self.t / 5)
             else:
                 return 3.0
         else:
             Lx, Ly = self.Lxy
             x0 = Lx * (self.finger_x - 0.5)
             y0 = Ly * (0.5 - self.finger_y)
-            return x0 + 1j*y0
+            return x0 + 1j * y0
 
     @z_finger.setter
     def z_finger(self, z_finger):
         Lx, Ly = self.Lxy
-        self.finger_x = z_finger.real/Lx + 0.5
-        self.finger_y = 0.5 - z_finger.imag/Ly
+        self.finger_x = z_finger.real / Lx + 0.5
+        self.finger_y = 0.5 - z_finger.imag / Ly
 
     def get_Vext(self):
         """Return the full external potential."""
@@ -137,11 +144,11 @@ class FingerMixin(object):
         Lx, Ly = self.Lxy
 
         # Wrap displaced x and y in periodic box.
-        x = (x - x0 + Lx/2) % Lx - Lx/2
-        y = (y - y0 + Ly/2) % Ly - Ly/2
-        r2 = x**2 + y**2
-        V0 = self.finger_V0_mu*self.mu
-        return V0 * np.exp(-r2/2.0/self.finger_r0**2)
+        x = (x - x0 + Lx / 2) % Lx - Lx / 2
+        y = (y - y0 + Ly / 2) % Ly - Ly / 2
+        r2 = x ** 2 + y ** 2
+        V0 = self.finger_V0_mu * self.mu
+        return V0 * np.exp(-r2 / 2.0 / self.finger_r0 ** 2)
 
     def get_finger_v_max(self, density):
         """Return the maximum speed finger potential will move at."""
@@ -154,13 +161,17 @@ class FingerMixin(object):
         self.pot_v += dt * pot_a
         v_max = self.get_finger_v_max(density=density)
         if abs(self.pot_v) > v_max:
-            self.pot_v *= v_max/abs(self.pot_v)
+            self.pot_v *= v_max / abs(self.pot_v)
         self.pot_z = self.mod(self.pot_z)
 
     def mod(self, z):
         """Make sure the point z lies in the box."""
-        return complex(*[(_x + _L/2) % (_L) - _L/2
-                         for _x, _L in zip((z.real, z.imag), self.Lxy)])
+        return complex(
+            *[
+                (_x + _L / 2) % (_L) - _L / 2
+                for _x, _L in zip((z.real, z.imag), self.Lxy)
+            ]
+        )
 
     ######################################################################
     # Required by subclasses
