@@ -50,6 +50,35 @@ class ModelBase(object):
         Note: your class should call init() when it is ready.
         """
 
+    @classmethod
+    def get_sliders(cls):
+        """Return a list of "sliders" from `self.layout`.
+
+        This is a convenience function for the flask client.  Ultimately, that client
+        should parse the layout itself so that the models can customize the display.
+        """
+        def get_widgets(tree):
+            """Return a list of all widgets."""
+            widgets = []
+            for widget in tree:
+                if hasattr(widget, 'children'):
+                    widgets.extend(get_widgets(widget.children))
+                else:
+                    widgets.append(widget)
+            return widgets
+
+        sliders = []
+        for widget in get_widgets([cls.layout]):
+            if isinstance(widget, w.FloatLogSlider):
+                sliders.append([widget.name, "slider", "logarithmic", "range",
+                                widget.min, widget.max, widget.step])
+            elif isinstance(widget, w.FloatSlider):
+                sliders.append([widget.name, "slider", "linear", "range",
+                                widget.min, widget.max, widget.step])
+            elif isinstance(widget, w.Checkbox):
+                sliders.append([widget.name, "toggle", None, "checkbox", None, None, None])
+        return sliders
+
 
 class FingerMixin(object):
     """Support for the location of a user's finger and an associated potential.

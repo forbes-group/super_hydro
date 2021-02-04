@@ -172,13 +172,13 @@ def modelpage(cls):
         Generates interactive HTML physics model page for Flask web framework.
     """
     _class = str(cls.split(".")[-1])
-    info = getattr(module, _class)
+    Model = getattr(module, _class)
     return render_template(
         "model.html",
         model=cls,
         Title=f"{cls}",
-        info=info.__doc__,
-        sliders=info.sliders,
+        info=Model.__doc__,
+        sliders=Model.get_sliders(),
         models=modelcls,
     )
 
@@ -189,7 +189,7 @@ def quit():
     servers.
     """
     for model in Demonstration.fsh:
-        if model is not "init":
+        if model != "init":
             if Demonstration.fsh[f"{model}"]["server"] is not None:
                 Demonstration.fsh[f"{model}"]["server"].quit()
     shutdown_server()

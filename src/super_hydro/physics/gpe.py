@@ -187,11 +187,11 @@ class BEC(GPEBase):
         [w.Checkbox(True, name="cylinder", description="Trap"), GPEBase.layout]
     )
 
-    sliders = [
-        ["cooling", "slider", "logarithmic", "range", -10, 1, 0.20],
-        ["finger_V0_mu", "slider", None, "range", -2, 2, 0.1],
-        ["cylinder", "toggle", None, "checkbox", None, None, None],
-    ]
+    #sliders = [
+    #    ["cooling", "slider", "logarithmic", "range", -10, 1, 0.20],
+    #    ["finger_V0_mu", "slider", None, "range", -2, 2, 0.1],
+    #    ["cylinder", "toggle", None, "checkbox", None, None, None],
+    #]
 
     def __init__(self, opts):
         super().__init__(opts=opts)
