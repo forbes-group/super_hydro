@@ -12,6 +12,7 @@
    :maxdepth: 2
    :caption: super\_hydro API
 
+   flask
    api/*.rst
 
 Indices and tables

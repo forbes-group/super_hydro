@@ -259,7 +259,7 @@ def get_descriptions(layout):
     descriptions = {}
 
     def walk(root):
-        if root.name is not "_":
+        if root.name != "_":
             descriptions[root.name] = getattr(root, "description", root.name)
         list(map(walk, getattr(root, "children", [])))
 
@@ -278,7 +278,7 @@ def get_interactive_and_special_widgets(layout):
     def walk(root):
         if root.name in special_widget_names:
             special_widgets[root.name] = root
-        elif root.name is not "_":
+        elif root.name != "_":
             interactive_widgets.add(root)
         list(map(walk, getattr(root, "children", [])))
 

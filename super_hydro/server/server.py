@@ -2,6 +2,7 @@ __doc__ = """SuperHydro Server."""
 
 from collections import deque
 from contextlib import contextmanager
+import functools
 import importlib
 import inspect
 import threading
@@ -444,13 +445,10 @@ class Server(ThreadMixin):
         log(f"Getting {params}")
         param_dict = {}
         for param in params:
-            method = getattr(self, f"_get_{param}", None)
-            if not method:
-                err_message = f"Unknown parameter {param}"
-                log(err_message)
-                val = communication.error(err_message)
-            else:
-                val = method(client=client)
+            method = getattr(
+                self, f"_get_{param}", functools.partial(self._get, param=param)
+            )
+            val = method(client=client)
             param_dict[param] = val
         return param_dict
 

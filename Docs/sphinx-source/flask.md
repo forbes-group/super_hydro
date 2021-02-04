@@ -1,17 +1,14 @@
-===================================
-#super\_hydro Flask-based Web Client
-===================================
+# super\_hydro Flask-based Web Client
 
-##Flask Framework
----------------
+## Flask Framework
 
 The [Flask](https://flask.palletsprojects.com/en/1.1.x/) client framework 
 (Flask) provides two primary functions: establish routing/rendering between
 the User Frontend Web Client (Web Client) and Computational server (Server),
  and mediating interaction and display data between the two.
 
-###Startup
--------
+### Startup
+
 The Flask module loads the configuration parameters, most notably the 
 physics module containing intended simulation models (models). From this,
 it pulls the names of all classes/models contained within and stores them.
@@ -37,8 +34,7 @@ The Flask startup then starts or connects the page to a pushing thread, which
 continuously queries the Server for relevant display animation information
 and passes it to the Client.
 
-###Routing and Rendering
----------------------
+### Routing and Rendering
 
 The communication is linked to the Client via web sockets managed through
 [eventlet](https://pypi.org/project/eventlet/), which is handled 
@@ -59,8 +55,7 @@ their own Flask-SocketIO Room within the socket Namespace; by tying the
 Room to the model class name, this allows generality and flexibility in
 the Room creation.
 
-###Communication
--------------
+### Communication
 
 User interactions are read as inputs into Javscript and passed to Flask via 
 the Javascript [socket.io](socket.io/docs/v3/index.html) API. This uses a 
@@ -70,8 +65,7 @@ parameter/action being modified, and the new parameter value.
 Flask recieves this information and passes it into appropriate Server calls,
 emitting Server return information (as appropriate).
 
-###HTML/JS User Interface
-----------------------
+### HTML/JS User Interface
 
 The User interface is displayed as HTML static pages generated from templates
 using Jinja2.
