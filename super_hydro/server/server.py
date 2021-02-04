@@ -255,14 +255,13 @@ class Server(ThreadMixin):
         self.interrupted = interrupted
         kwargs = dict(interrupted=interrupted)
         if block:
-            return self._run_server(**kwargs)
+            return self.run_server(**kwargs)
         else:
-            self.server_thread = threading.Thread(
-                target=self._run_server, kwargs=kwargs
-            )
+            self.server_thread = threading.Thread(target=self.run_server, kwargs=kwargs)
             self.server_thread.start()
 
     def _run_server(self, interrupted=None):
+        """This is a dummy method with the rough event loop for testing.  Do not use!"""
         finished = False
         self.computation_thread.start()
         self.message_queue.put(("start",))
