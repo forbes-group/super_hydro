@@ -17,10 +17,10 @@ dependencies:
   - numpydoc
   - recommonmark
   - sphinx_rtd_theme
-  
+
   #- ghp-import
   - pip
   - pip:
     #- sphinxcontrib-zopeext
-    - -e .              # Include super_hydro as a source install
+    - -e .[test]        # Include super_hydro as a source install
                         # for building documentation and testing.
