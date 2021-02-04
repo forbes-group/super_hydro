@@ -1,24 +1,26 @@
-#Standard Library Imports
+# Standard Library Imports
 import importlib
 import time
 import numpy as np
 
-#This is needed to make sure super_hydro is in the import pathing
+# This is needed to make sure super_hydro is in the import pathing
 import os.path as osp
+
 two_up = osp.abspath(osp.dirname(osp.dirname(osp.dirname(__file__))))
 import sys, inspect
-sys.path.insert(0, f'{two_up}')
 
-#Additional Package Imports
+sys.path.insert(0, f"{two_up}")
+
+# Additional Package Imports
 from flask import Flask, render_template, request
 from flask_socketio import SocketIO, emit, Namespace, join_room, leave_room, close_room
 
-#Project-defined Modules
+# Project-defined Modules
 from super_hydro import config, utils, communication
 from super_hydro.server import server
 from super_hydro.physics import gpe
 
-#This establishes the communication with the server.
+# This establishes the communication with the server.
 _LOGGER = utils.Logger(__name__)
 log = _LOGGER.log
 log_task = _LOGGER.log_task
@@ -36,7 +38,7 @@ if opts.file is not None:
     tmp = userpath.split("/")
     udfp = tmp[:-1]
     newpath = "/".join(udfp)
-    sys.path.insert(0, f'{newpath}')
+    sys.path.insert(0, f"{newpath}")
     modpath = tmp[-1]
     print(modpath)
     module = importlib.import_module(modpath)
@@ -45,18 +47,19 @@ else:
     module = importlib.import_module(modpath)
 
 clsmembers = inspect.getmembers(module, inspect.isclass)
-_modname = modpath.split('.')[-1]
+_modname = modpath.split(".")[-1]
 modelcls = [clsmembers[x][0] for x in range(len(clsmembers))]
 
 
 app = Flask("flask_client")
-#app.config['EXPLAIN_TEMPLATE_LOADING'] = True
-socketio = SocketIO(app, async_mode='eventlet')
+# app.config['EXPLAIN_TEMPLATE_LOADING'] = True
+socketio = SocketIO(app, async_mode="eventlet")
 
 ###############################################################################
 # Network Server Communication clases.
 # Taken from 'dumb.py' Dumb server as baseline.
 ###############################################################################
+
 
 class _Interrupted(object):
     """Flag to indicate the App has been interrupted.
@@ -64,13 +67,15 @@ class _Interrupted(object):
     Pass as the interrupted flag to the server to allow the client App
     to terminate it.
     """
+
     def __init__(self, app):
         self.app = app
 
     def __bool__(self):
-        # Don't check interrupted flag - that might stop the server 
+        # Don't check interrupted flag - that might stop the server
         # too early.
         return not self.app._running
+
 
 class App(object):
     """Dumb application that allows the user to interact with a computational
@@ -108,11 +113,12 @@ class App(object):
 
     ###########################################################################
     # Server Communication
-    # 
+    #
     # These methods communicate with the server.
     def quit(self):
         self.server.do("quit")
         self._running = False
+
 
 #############################################################################
 # Flask HTML Routes.
@@ -120,11 +126,13 @@ class App(object):
 # These determine which URL-endpoint will be linked to which HTML page.
 #############################################################################
 
+
 def shutdown_server():
     print("Shutting down...")
     socketio.stop()
 
-@app.route('/')
+
+@app.route("/")
 def index():
     """Landing page function.
 
@@ -142,9 +150,10 @@ def index():
         Generated HTML index/landing page for Flask web framework.
     """
     cls = modelcls
-    return render_template('index.html', models=cls)
+    return render_template("index.html", models=cls)
 
-@app.route('/<cls>')
+
+@app.route("/<cls>")
 def modelpage(cls):
     """Model display function.
 
@@ -162,31 +171,37 @@ def modelpage(cls):
     render_template('model.html')
         Generates interactive HTML physics model page for Flask web framework.
     """
-    _class = str(cls.split('.')[-1])
+    _class = str(cls.split(".")[-1])
     info = getattr(module, _class)
-    return render_template('model.html', model=cls,
-                                         Title= f'{cls}',
-                                         info= info.__doc__,
-                                         sliders=info.sliders,
-                                         models=modelcls)
+    return render_template(
+        "model.html",
+        model=cls,
+        Title=f"{cls}",
+        info=info.__doc__,
+        sliders=info.sliders,
+        models=modelcls,
+    )
 
-@app.route('/quit')
+
+@app.route("/quit")
 def quit():
     """HTTP Route to shutdown the Flask client and running computational
     servers.
     """
     for model in Demonstration.fsh:
-        if model is not 'init':
-            if Demonstration.fsh[f'{model}']['server'] is not None:
-                Demonstration.fsh[f'{model}']['server'].quit()
+        if model is not "init":
+            if Demonstration.fsh[f"{model}"]["server"] is not None:
+                Demonstration.fsh[f"{model}"]["server"].quit()
     shutdown_server()
+
 
 #############################################################################
 # Flask-SocketIO Communication.
-# 
+#
 # Allows communication with JS Socket.io library using the Flask-SocketIO
 # extension.
 #############################################################################
+
 
 class Demonstration(Namespace):
     """Flask-SocketIO Socket container for models.
@@ -212,7 +227,7 @@ class Demonstration(Namespace):
         User websocket connection to Javascript socket.io. Required by
         Flask-SocketIO. (https://flask-socketio.readthedocs.io/en/latest/)
         """
-        print('Client Connected.')
+        print("Client Connected.")
 
     def on_start_srv(self, data):
         """Python-side Model Initialization.
@@ -236,34 +251,36 @@ class Demonstration(Namespace):
             Initial model parameters
         """
 
-        model = data['name']
-        if model not in self.fsh or self.fsh[f'{model}']['server'] is None:
-            self.fsh[f'{model}'] = dict.fromkeys(['server', 'users', 'd_thread'])
+        model = data["name"]
+        if model not in self.fsh or self.fsh[f"{model}"]["server"] is None:
+            self.fsh[f"{model}"] = dict.fromkeys(["server", "users", "d_thread"])
             if opts.network == False:
-                self.fsh[f'{model}']['server'] = get_app(run_server=True, network_server=False,
-                                                         steps=3, model=model) 
+                self.fsh[f"{model}"]["server"] = get_app(
+                    run_server=True, network_server=False, steps=3, model=model
+                )
             else:
-                self.fsh[f'{model}']['server'] = get_app(run_server=False, network_server=True, steps=3,
-                                                         model=model)
+                self.fsh[f"{model}"]["server"] = get_app(
+                    run_server=False, network_server=True, steps=3, model=model
+                )
         join_room(model)
-        if self.fsh[f'{model}']['users'] is None:
-            self.fsh[f'{model}']['users'] = 1
+        if self.fsh[f"{model}"]["users"] is None:
+            self.fsh[f"{model}"]["users"] = 1
         else:
-            self.fsh[f'{model}']['users'] += 1
-        self.fsh['init'] = {}
-        for param in data['params']:
-            self.fsh[f'{param}'] = self.fsh[f'{model}']['server'].server._get(param)
-            print(self.fsh[f'{param}'])
-            self.fsh['init'].update({f'{param}' : self.fsh[f'{param}']})
-            self.fsh.pop(f'{param}')
-        emit('init', self.fsh['init'],
-                     room=model)
-        if self.fsh[f'{model}']['d_thread'] is None:
-            self.fsh[f'{model}']['d_thread'] = socketio.start_background_task(
-                                                target=push_thread,
-                                                namespace='/modelpage',
-                                                server=self.fsh[f'{model}']['server'],
-                                                room=model)
+            self.fsh[f"{model}"]["users"] += 1
+        self.fsh["init"] = {}
+        for param in data["params"]:
+            self.fsh[f"{param}"] = self.fsh[f"{model}"]["server"].server._get(param)
+            print(self.fsh[f"{param}"])
+            self.fsh["init"].update({f"{param}": self.fsh[f"{param}"]})
+            self.fsh.pop(f"{param}")
+        emit("init", self.fsh["init"], room=model)
+        if self.fsh[f"{model}"]["d_thread"] is None:
+            self.fsh[f"{model}"]["d_thread"] = socketio.start_background_task(
+                target=push_thread,
+                namespace="/modelpage",
+                server=self.fsh[f"{model}"]["server"],
+                room=model,
+            )
 
     def on_set_param(self, data):
         """Transfers parameter change to computational server.
@@ -283,11 +300,11 @@ class Demonstration(Namespace):
             Sends new parameter value to all Users connected to model's Room.
         """
 
-        model = data['data']
-        for key, value in data['param'].items():
-            self.fsh[f'{model}']['server'].server.set({f'{key}' : float(value)})
-            data = {'name' : key, 'param' : value}
-        emit('param_up', data, room=model)
+        model = data["data"]
+        for key, value in data["param"].items():
+            self.fsh[f"{model}"]["server"].server.set({f"{key}": float(value)})
+            data = {"name": key, "param": value}
+        emit("param_up", data, room=model)
 
     def on_set_log_param(self, data):
         """Transfers logarithmic parameter change to computational server.
@@ -308,11 +325,11 @@ class Demonstration(Namespace):
             Sends new paramter value to all Users connected to model's Room.
         """
 
-        model = data['data']
-        for key, value in data['param'].items():
-            self.fsh[f'{model}']['server'].server.set({f'{key}' : float(value)})
-            data = {'name': key, 'param': value}
-        emit('log_param_up', data, room=model)
+        model = data["data"]
+        for key, value in data["param"].items():
+            self.fsh[f"{model}"]["server"].server.set({f"{key}": float(value)})
+            data = {"name": key, "param": value}
+        emit("log_param_up", data, room=model)
 
     def on_do_action(self, data):
         """Transfers Server action request to computational server.
@@ -326,16 +343,16 @@ class Demonstration(Namespace):
             server
         """
 
-        model = data['data']
-        if data['name'] == 'reset':
-            params = self.fsh[f'{model}']['server'].server.reset()
-            restart = {'name': model}
-            restart.update({'params': params})
+        model = data["data"]
+        if data["name"] == "reset":
+            params = self.fsh[f"{model}"]["server"].server.reset()
+            restart = {"name": model}
+            restart.update({"params": params})
             leave_room(model)
-            self.fsh[f'{model}']['users'] -= 1
+            self.fsh[f"{model}"]["users"] -= 1
             self.on_start_srv(restart)
         else:
-            self.fsh[f'{model}']['server'].server.do(data['name'])
+            self.fsh[f"{model}"]["server"].server.do(data["name"])
 
     def on_finger(self, data):
         """Transfers new finger potential position to computational server.
@@ -349,16 +366,16 @@ class Demonstration(Namespace):
             coordinates.
         """
 
-        model = data['data']
-        server = self.fsh[f'{model}']['server'].server
-        print(data['position']['xy0'])
-        for key, value in data['position'].items():
+        model = data["data"]
+        server = self.fsh[f"{model}"]["server"].server
+        print(data["position"]["xy0"])
+        for key, value in data["position"].items():
             # Below may be the workaround?
             # Needs to be able to get Lxy, not sure how at the moment.
-            Nxy = server.get(['Nxy'])['Nxy']
-            dx = server._get('dx')
-            pos = (np.asarray(data['position']['xy0']) - 0.5) * Nxy * dx
-            self.fsh[f'{model}']['server'].server.set({f'{key}': pos})
+            Nxy = server.get(["Nxy"])["Nxy"]
+            dx = server._get("dx")
+            pos = (np.asarray(data["position"]["xy0"]) - 0.5) * Nxy * dx
+            self.fsh[f"{model}"]["server"].server.set({f"{key}": pos})
 
     def on_user_exit(self, data):
         """Model Room updating on User exit from page.
@@ -373,16 +390,16 @@ class Demonstration(Namespace):
             dict containing model name
         """
 
-        model = data['data']
+        model = data["data"]
         print(model)
         leave_room(model)
-        self.fsh[f'{model}']['users'] -= 1
-        if (self.fsh[f'{model}']['users'] == 0):
-            self.fsh[f'{model}']['users'] = 0
-            self.fsh[f'{model}']['server'].quit()
-            self.fsh[f'{model}']['server'] = None
-            self.fsh[f'{model}']['d_thread'].join()
-            self.fsh[f'{model}']['d_thread'] = None
+        self.fsh[f"{model}"]["users"] -= 1
+        if self.fsh[f"{model}"]["users"] == 0:
+            self.fsh[f"{model}"]["users"] = 0
+            self.fsh[f"{model}"]["server"].quit()
+            self.fsh[f"{model}"]["server"] = None
+            self.fsh[f"{model}"]["d_thread"].join()
+            self.fsh[f"{model}"]["d_thread"] = None
 
     def on_disconnect(self):
         """Verifies disconnection from websocket.
@@ -391,20 +408,22 @@ class Demonstration(Namespace):
         is terminated or times out.
         """
 
-        print('Client Disconnected.')
+        print("Client Disconnected.")
+
 
 ###############################################################################
 
-socketio.on_namespace(Demonstration('/modelpage'))
+socketio.on_namespace(Demonstration("/modelpage"))
 
 ###############################################################################
 # End socket connection section.
 ###############################################################################
 
+
 def push_thread(namespace, server, room):
     """Continuously updates display information to model page.
 
-    Background thread that continuously queries computational server for 
+    Background thread that continuously queries computational server for
     density array, finger potential position and potential strength. Transmits
     to appropriate model page for display animation.
 
@@ -424,49 +443,52 @@ def push_thread(namespace, server, room):
     """
 
     while server._running is True:
-        fxy = [server.server._get('finger_x'), server.server._get('finger_y')]
+        fxy = [server.server._get("finger_x"), server.server._get("finger_y")]
         vxy = (server.server._get_Vpos()).tobytes()
         vxy_char = "".join([chr(i) for i in vxy])
 
         print("Getting Density array...")
-        density = server.server.get_array('density')
+        density = server.server.get_array("density")
 
         from matplotlib import cm
-        array = cm.viridis(density/density.max())
-        array *= int(255/array.max()) # normalize values
-        rgba = "".join(map(chr, array.astype(dtype='uint8').tobytes()))
 
-        socketio.emit('ret_array', {'rgba' : rgba,
-                                    'vxy' : vxy_char,
-                                    'fxy' : fxy},
-                                    namespace=namespace,
-                                    room=room)
+        array = cm.viridis(density / density.max())
+        array *= int(255 / array.max())  # normalize values
+        rgba = "".join(map(chr, array.astype(dtype="uint8").tobytes()))
+
+        socketio.emit(
+            "ret_array",
+            {"rgba": rgba, "vxy": vxy_char, "fxy": fxy},
+            namespace=namespace,
+            room=room,
+        )
         # Need to figure out the tracers or dump it altogether.
         if opts.tracers == True:
-            print('Getting Tracers...')
-            trace = server.server.get_array('tracers').tolist()
-            
-            socketio.emit('ret_trace', {'trace': trace},
-                                        namespace=namespace,
-                                        room=room)
+            print("Getting Tracers...")
+            trace = server.server.get_array("tracers").tolist()
+
+            socketio.emit("ret_trace", {"trace": trace}, namespace=namespace, room=room)
         socketio.sleep(0)
+
 
 ###############################################################################
 # Minor re-write of the get_server() function from Server module that sidesteps
 # NoInterrupt 'not main thread' exceptions.
 ###############################################################################
 
-def call_server(model, block=True, network_server=True, interrupted=False,
-               args=None, kwargs={}):
+
+def call_server(
+    model, block=True, network_server=True, interrupted=False, args=None, kwargs={}
+):
     parser = config.get_server_parser()
     opts, other_args = parser.parse_known_args(args=args)
     opts.__dict__.update(kwargs)
 
-#    module = ".".join(['physics'] + opts.model.split(".")[:-1])
+    #    module = ".".join(['physics'] + opts.model.split(".")[:-1])
     module = importlib.import_module(modpath)
-#    cls = opts.model.split('.')[-1]
-#    pkg = "super_hydro"
-#    opts.State = getattr(importlib.import_module("." + module, pkg), cls)
+    #    cls = opts.model.split('.')[-1]
+    #    pkg = "super_hydro"
+    #    opts.State = getattr(importlib.import_module("." + module, pkg), cls)
     opts.State = getattr(module, model)
     if network_server:
         _server = server.NetworkServer(opts=opts)
@@ -504,10 +526,12 @@ def get_server(model, tracer_particles=None, steps=5, args=None, kwargs={}):
 
     return svr
 
+
 ###############################################################################
 # Function to establish server communication
 ###############################################################################
 _OPTS = None
+
 
 def get_app(model, run_server=False, network_server=True, **kwargs):
     global _OPTS
@@ -520,21 +544,27 @@ def get_app(model, run_server=False, network_server=True, **kwargs):
 
     if run_server:
         from super_hydro.server import server
-#        app.server = server.run(args='', interrupted=app.interrupted,
-#                                block=False,
-#                                network_server=network_server,
-#                                kwargs=kwargs)
-        app.server = call_server(model, args='', interrupted=app.interrupted,
-                                block=False,
-                                network_server=network_server,
-                                kwargs=kwargs)
+
+        #        app.server = server.run(args='', interrupted=app.interrupted,
+        #                                block=False,
+        #                                network_server=network_server,
+        #                                kwargs=kwargs)
+        app.server = call_server(
+            model,
+            args="",
+            interrupted=app.interrupted,
+            block=False,
+            network_server=network_server,
+            kwargs=kwargs,
+        )
     return app
+
 
 def run():
     """Run the Flask web framework.
 
     Starts the Flask/Flask-SocketIO web framework app, which provides HTML and
-    Javascript page rendering/routing and web socket mediation between User 
+    Javascript page rendering/routing and web socket mediation between User
     Javascript requests to a model Computational Server.
     """
 

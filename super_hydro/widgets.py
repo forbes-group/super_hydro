@@ -7,54 +7,56 @@ import traitlets
 import ipywidgets
 from .client.canvas_widget import Canvas
 
-__all__ = ['density',
-           'Checkbox',
-           'ToggleButton',
-           'Valid',
-           'Button',
-           'ButtonStyle',
-           'Box',
-           'HBox',
-           'VBox',
-           'GridBox',
-           'FloatText',
-           'BoundedFloatText',
-           'FloatSlider',
-           'FloatProgress',
-           'FloatRangeSlider',
-           'FloatLogSlider',
-           'IntText',
-           'BoundedIntText',
-           'IntSlider',
-           'IntProgress',
-           'IntRangeSlider',
-           'Play',
-           'SliderStyle',
-           'ColorPicker',
-           'DatePicker',
-           'RadioButtons',
-           'ToggleButtons',
-           'ToggleButtonsStyle',
-           'Dropdown',
-           'Select',
-           'SelectionSlider',
-           'SelectMultiple',
-           'SelectionRangeSlider',
-           'Tab',
-           'Accordion',
-           'HTML',
-           'HTMLMath',
-           'Label',
-           'Text',
-           'Textarea',
-           'Password',
-           'Controller',
-           'Image',
-           'Video',
-           'Audio',
-           'Canvas'
-           'get_descriptions', 'get_interactive_and_special_widgets',
-           'get_interactive_widgets']
+__all__ = [
+    "density",
+    "Checkbox",
+    "ToggleButton",
+    "Valid",
+    "Button",
+    "ButtonStyle",
+    "Box",
+    "HBox",
+    "VBox",
+    "GridBox",
+    "FloatText",
+    "BoundedFloatText",
+    "FloatSlider",
+    "FloatProgress",
+    "FloatRangeSlider",
+    "FloatLogSlider",
+    "IntText",
+    "BoundedIntText",
+    "IntSlider",
+    "IntProgress",
+    "IntRangeSlider",
+    "Play",
+    "SliderStyle",
+    "ColorPicker",
+    "DatePicker",
+    "RadioButtons",
+    "ToggleButtons",
+    "ToggleButtonsStyle",
+    "Dropdown",
+    "Select",
+    "SelectionSlider",
+    "SelectMultiple",
+    "SelectionRangeSlider",
+    "Tab",
+    "Accordion",
+    "HTML",
+    "HTMLMath",
+    "Label",
+    "Text",
+    "Textarea",
+    "Password",
+    "Controller",
+    "Image",
+    "Video",
+    "Audio",
+    "Canvas" "get_descriptions",
+    "get_interactive_and_special_widgets",
+    "get_interactive_widgets",
+]
 
 
 class Checkbox(ipywidgets.Checkbox):
@@ -235,19 +237,18 @@ class Audio(ipywidgets.Audio):
 
 ######################################################################
 # Special widgets that should always be included.
-density = Canvas(name='density')
-reset = Button(name='reset', description="Reset", layout=dict(width="5em"))
-reset_tracers = Button(name='reset_tracers',
-                       description="Reset Tracers",
-                       layout=dict(width="8em"))
-fps = IntSlider(20, 0, 60, name='fps')
-quit = Button(name='quit', description="Quit", layout=dict(width="4em"))
+density = Canvas(name="density")
+reset = Button(name="reset", description="Reset", layout=dict(width="5em"))
+reset_tracers = Button(
+    name="reset_tracers", description="Reset Tracers", layout=dict(width="8em")
+)
+fps = IntSlider(20, 0, 60, name="fps")
+quit = Button(name="quit", description="Quit", layout=dict(width="4em"))
 messages = Label("Messages", name="messages")
-controls = HBox([quit, reset, reset_tracers, fps, messages], name='controls')
-special_widget_names = set(['density',
-                            'quit', 'reset', 'reset_tracers', 'fps', 
-                            'messages',
-                            'controls'])
+controls = HBox([quit, reset, reset_tracers, fps, messages], name="controls")
+special_widget_names = set(
+    ["density", "quit", "reset", "reset_tracers", "fps", "messages", "controls"]
+)
 
 
 ######################################################################
@@ -256,15 +257,16 @@ def get_descriptions(layout):
     """Return a dictionary of all descriptions."""
     # Walk through layout and gather widgets with names.
     descriptions = {}
-    
+
     def walk(root):
         if root.name is not "_":
-            descriptions[root.name] = getattr(root, 'description', root.name)
-        list(map(walk, getattr(root, 'children', [])))
+            descriptions[root.name] = getattr(root, "description", root.name)
+        list(map(walk, getattr(root, "children", [])))
 
     walk(layout)
     return descriptions
-    
+
+
 def get_interactive_and_special_widgets(layout):
     """Return a set of interactive widgets - those with a valid `name`"""
 
@@ -278,7 +280,7 @@ def get_interactive_and_special_widgets(layout):
             special_widgets[root.name] = root
         elif root.name is not "_":
             interactive_widgets.add(root)
-        list(map(walk, getattr(root, 'children', [])))
+        list(map(walk, getattr(root, "children", [])))
 
     walk(layout)
     return (interactive_widgets, special_widgets)

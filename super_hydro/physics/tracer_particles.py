@@ -26,9 +26,9 @@ class TracerParticles(object):
             ix = np.random.randint(Nx)
             iy = np.random.randint(Ny)
 
-            if np.random.random()*n_max <= n[ix, iy]:
-                particles.append(x[ix] + 1j*y[iy])
-        return (np.asarray(particles))
+            if np.random.random() * n_max <= n[ix, iy]:
+                particles.append(x[ix] + 1j * y[iy])
+        return np.asarray(particles)
 
     def get_inds(self, pos, state):
         """Return the indices (ix, iy) on the grid.
@@ -39,7 +39,7 @@ class TracerParticles(object):
         x, y = state.xy
         Lx, Ly = state.Lxy
         Nx, Ny = state.Nxy
-        pos = (pos + (Lx+1j*Ly)/2.0)
+        pos = pos + (Lx + 1j * Ly) / 2.0
         ix = (pos.real % Lx) / Lx * (Nx - 1)
         iy = (pos.imag % Ly) / Ly * (Ny - 1)
         return (ix, iy)
@@ -59,19 +59,18 @@ class TracerParticles(object):
     def update_tracer_pos(self, dt, state):
         """Applies the velocity field to the particle positions and
         updates with time dt"""
-        if not hasattr(self, '_par_pos'):
+        if not hasattr(self, "_par_pos"):
             return
-        if not hasattr(self, 'v_trace'):
+        if not hasattr(self, "v_trace"):
             self.update_tracer_velocity()
         pos = self._par_pos
-        ix, iy = [np.round(_i).astype(int)
-                  for _i in self.get_inds(pos, state=state)]
+        ix, iy = [np.round(_i).astype(int) for _i in self.get_inds(pos, state=state)]
         v = self.v_trace[ix, iy]
-        pos += dt*v
+        pos += dt * v
 
     def get_tracer_particles(self):
         """Return the tracer particle positions.
 
         This is a 1D complex array of the particle positions in data
         coordinates."""
-        return getattr(self, '_par_pos', [])
+        return getattr(self, "_par_pos", [])

@@ -24,7 +24,7 @@ from . import utils
 from .interfaces import IServer, implementer, verifyClass
 
 
-__all__ = ['Client', 'Server', 'TimeoutError', 'error']
+__all__ = ["Client", "Server", "TimeoutError", "error"]
 
 _LOGGER = utils.Logger(__name__)
 log = _LOGGER.log
@@ -49,6 +49,7 @@ def error(msg):
 # recv() and then send().
 class Client(object):
     """Basic communication class for the client."""
+
     def __init__(self, opts):
         url = "tcp://{0.host}:{0.port}".format(opts)
         with log_task("Connecting to server: {}".format(url)):
@@ -74,8 +75,7 @@ class Client(object):
             self.socket.send(b"_get")
             response = self.socket.recv()
             if response != b"ok":
-                raise IOError(
-                    f"Server declined request to get saying {response}")
+                raise IOError(f"Server declined request to get saying {response}")
             self.socket.send_json(params)
             return self.socket.recv_json()
 
@@ -86,8 +86,8 @@ class Client(object):
             response = self.socket.recv()
             if response != b"ok":
                 raise IOError(
-                    "Server declined request to send {} saying {}"
-                    .format(msg, response))
+                    "Server declined request to send {} saying {}".format(msg, response)
+                )
             self.socket.send_json(obj)
             return self.socket.recv()
 
@@ -98,7 +98,7 @@ class Client(object):
             self.socket.send(msg)
             md = self.socket.recv_json(flags=flags)
             msg = self.socket.recv(flags=flags, copy=copy, track=track)
-            return np.frombuffer(msg, dtype=md['dtype']).reshape(md['shape'])
+            return np.frombuffer(msg, dtype=md["dtype"]).reshape(md["shape"])
 
     def send_array(self, msg, A, flags=0, copy=True, track=False):
         """Request a numpy array."""
@@ -111,8 +111,8 @@ class Client(object):
             response = self.socket.recv()
             if response != b"ok":
                 raise IOError(
-                    "Server declined request to send {} saying {}"
-                    .format(msg, response))
+                    "Server declined request to send {} saying {}".format(msg, response)
+                )
             self.socket.send_json(md, flags | zmq.SNDMORE)
             self.socket.send(A, flags, copy=copy, track=track)
             return self.socket.recv()
@@ -186,7 +186,7 @@ class Server(object):
         md = self.socket.recv_json(flags=flags)
         data = self.socket.recv(flags=flags, copy=copy, track=track)
         self.socket.send(response)
-        return np.frombuffer(data, dtype=md['dtype']).reshape(md['shape'])
+        return np.frombuffer(data, dtype=md["dtype"]).reshape(md["shape"])
 
 
 @implementer(IServer)
@@ -196,13 +196,14 @@ class NetworkServer(object):
     This is used when the server is not started locally and the client
     must communicate over the network.
     """
+
     def __init__(self, opts):
         self.opts = opts
         with log_task("Connecting to server"):
             self.comm = Client(opts=self.opts)
 
     def get_available_commands(self, client=None):
-        return self.comm.get(params=['available_commands'])
+        return self.comm.get(params=["available_commands"])
 
     def do(self, action, client=None):
         self.comm.do(action)
@@ -210,8 +211,7 @@ class NetworkServer(object):
     def get(self, params, client=None):
         return self.comm.get(params=params)
 
-        param_dict = {param: self.comm.get(param.encode())
-                      for param in params}
+        param_dict = {param: self.comm.get(param.encode()) for param in params}
         return param_dict
 
     def set(self, param_dict, client=None):

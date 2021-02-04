@@ -12,7 +12,8 @@ import numpy as np
 
 from .. import config, communication, utils, widgets
 from ..physics import tracer_particles
-#from mmfutils.conexts import nointerrupt
+
+# from mmfutils.conexts import nointerrupt
 from ..contexts import nointerrupt
 
 from ..interfaces import IServer, implementer, verifyClass
@@ -22,7 +23,7 @@ PROFILE = False
 if PROFILE:
     import cProfile
 
-    def profile(filename='prof.dat'):
+    def profile(filename="prof.dat"):
         def wrap(f):
             def wrapped_f(*v, **kw):
                 with log_task("Profiling to {}".format(filename), level=100):
@@ -34,16 +35,22 @@ if PROFILE:
                         pr.disable()
                         pr.dump_stats(filename)
                     return res
+
             return wrapped_f
+
         return wrap
+
+
 else:
+
     def profile(filename=None):
         def wrap(f):
             return f
+
         return wrap
 
 
-__all__ = ['run', '__doc__', '__all__']
+__all__ = ["run", "__doc__", "__all__"]
 
 
 _LOGGER = utils.Logger(__name__)
@@ -53,9 +60,10 @@ log_task = _LOGGER.log_task
 
 class ThreadMixin(object):
     """Couple of useful methods for threads."""
+
     def heartbeat(self, msg="", timeout=1):
         """Log a heartbeat to show if the server is running."""
-        tic = getattr(self, '_heartbeat_tic', 0)
+        tic = getattr(self, "_heartbeat_tic", 0)
         toc = time.time()
         if toc - tic > timeout:
             _LOGGER.debug(f"Alive: {msg}")
@@ -67,10 +75,11 @@ class Computation(ThreadMixin):
     interacting with the clients.
     """
 
-    pause_timeout = 0.1         # Time to wait when paused.
+    pause_timeout = 0.1  # Time to wait when paused.
 
-    def __init__(self, opts,
-                 message_queue, param_queue, density_queue, pot_queue, tracer_queue):
+    def __init__(
+        self, opts, message_queue, param_queue, density_queue, pot_queue, tracer_queue
+    ):
         self.opts = opts
         self.do_reset()
         self.param_queue = param_queue
@@ -94,17 +103,20 @@ class Computation(ThreadMixin):
         try:
             yield
         finally:
-            dt = (time.perf_counter() - tic)
+            dt = time.perf_counter() - tic
             self._times.append(dt)
             if PROFILE:
-                log("{:.2g}+-{:.2g}ms/step".format(
-                    np.mean(self._times)*1000/self.steps,
-                    np.std(self._times)*1000/self.steps),
-                    level=100)
-            t_sleep = max(0, 1./self.fps - dt)
+                log(
+                    "{:.2g}+-{:.2g}ms/step".format(
+                        np.mean(self._times) * 1000 / self.steps,
+                        np.std(self._times) * 1000 / self.steps,
+                    ),
+                    level=100,
+                )
+            t_sleep = max(0, 1.0 / self.fps - dt)
             time.sleep(t_sleep)
 
-    @profile('prof.dat')
+    @profile("prof.dat")
     def run(self):
         """Start the computation."""
         while self.running:
@@ -113,8 +125,7 @@ class Computation(ThreadMixin):
                 if self.paused:
                     time.sleep(self.pause_timeout)
                 else:
-                    self.state.step(self.steps,
-                                    tracer_particles=self.tracer_particles)
+                    self.state.step(self.steps, tracer_particles=self.tracer_particles)
                 self.process_queue()
 
         log("Computation Finished.", level=100)
@@ -166,29 +177,28 @@ class Computation(ThreadMixin):
         tracers = np.empty(0)
         if self.opts.tracer_particles:
             trpos = self.tracer_particles.get_tracer_particles()
-            trinds = self.tracer_particles.get_inds(trpos,
-                                                    state=self.state)
+            trinds = self.tracer_particles.get_inds(trpos, state=self.state)
             tracers = np.asarray(trinds)
         self.tracer_queue.put(tracers)
 
     def do_update_finger(self, x, y):
-        self.state.set('xy0', (x, y))
+        self.state.set("xy0", (x, y))
 
     def do_update_cooling_phase(self, cooling_phase):
-        self.state.set('cooling_phase', cooling_phase)
+        self.state.set("cooling_phase", cooling_phase)
 
     def do_get_cooling_phase(self):
-        return self.state.get('cooling_phase')
+        return self.state.get("cooling_phase")
 
     def do_get_pot(self):
-        self.pot_queue.put(self.state.get('pot_z'))
+        self.pot_queue.put(self.state.get("pot_z"))
 
     def do_reset_tracers(self):
         opts = self.opts
         if opts.tracer_particles:
             self.tracer_particles = tracer_particles.TracerParticles(
-                state=self.state,
-                N_particles=opts.tracer_particles)
+                state=self.state, N_particles=opts.tracer_particles
+            )
         else:
             self.tracer_particles = None
 
@@ -204,6 +214,7 @@ class Computation(ThreadMixin):
 # Global list of servers so we can kill them all
 _SERVERS = []
 
+
 @implementer(IServer)
 class Server(ThreadMixin):
     """Server Class.
@@ -213,8 +224,9 @@ class Server(ThreadMixin):
     python clients, or encapsulated by the NetworkServer class which
     allows clients to connect through a socket.
     """
+
     _poll_interval = 0.1
-    _tries = 10               # Number of times to try getting a param
+    _tries = 10  # Number of times to try getting a param
 
     def __init__(self, opts, **kwargs):
         self.opts = opts
@@ -223,12 +235,14 @@ class Server(ThreadMixin):
         self.density_queue = queue.Queue()
         self.tracer_queue = queue.Queue()
         self.pot_queue = queue.Queue()
-        self.computation = Computation(opts=opts,
-                                       param_queue=self.param_queue,
-                                       message_queue=self.message_queue,
-                                       density_queue=self.density_queue,
-                                       pot_queue=self.pot_queue,
-                                       tracer_queue=self.tracer_queue)
+        self.computation = Computation(
+            opts=opts,
+            param_queue=self.param_queue,
+            message_queue=self.message_queue,
+            density_queue=self.density_queue,
+            pot_queue=self.pot_queue,
+            tracer_queue=self.tracer_queue,
+        )
         self.computation_thread = threading.Thread(target=self.computation.run)
         self.state = opts.State(opts=opts)
         super().__init__(**kwargs)
@@ -243,7 +257,8 @@ class Server(ThreadMixin):
             return self._run_server(**kwargs)
         else:
             self.server_thread = threading.Thread(
-                target=self._run_server, kwargs=kwargs)
+                target=self._run_server, kwargs=kwargs
+            )
             self.server_thread.start()
 
     def _run_server(self, interrupted=None):
@@ -254,20 +269,20 @@ class Server(ThreadMixin):
         try:
             while not self.finished and not interrupted:
                 self.heartbeat("Server")
-                time.sleep(min(self._poll_interval, 1/self.opts.fps))
+                time.sleep(min(self._poll_interval, 1 / self.opts.fps))
             print("Done")
         finally:
             self.message_queue.put(("quit",))
-            #print(f"finished status is {self.finished} and Interrupted is {interrupted}")
+            # print(f"finished status is {self.finished} and Interrupted is {interrupted}")
             self.computation_thread.join()
 
     def _pos_to_xy(self, pos):
         """Return the (x, y) coordinates of (pos_x, pos_y) in the frame."""
-        return (np.asarray(pos) - 0.5)*self.state.get('Lxy')
+        return (np.asarray(pos) - 0.5) * self.state.get("Lxy")
 
     def _xy_to_pos(self, xy):
         """Return the frame (pos_x, pos_y) from (x, y) coordinates."""
-        return np.asarray(xy)/self.state.get('Lxy') + 0.5
+        return np.asarray(xy) / self.state.get("Lxy") + 0.5
 
     ######################################################################
     # Communication layer.
@@ -294,7 +309,7 @@ class Server(ThreadMixin):
         self.message_queue.put(("get_pot",))
         pot_z = self.pot_queue.get()
         xy = self._xy_to_pos((pot_z.real, pot_z.imag))
-        #return tuple(xy.tolist())
+        # return tuple(xy.tolist())
         return xy
 
     def _get_layout(self, client=None):
@@ -357,38 +372,43 @@ class Server(ThreadMixin):
     def _get_available_commands(self, client=None):
         """Get a dictionary of available commands."""
         do_commands = {
-            _name[len('_do_'):]: _val.__doc__
+            _name[len("_do_") :]: _val.__doc__
             for _name, _val in inspect.getmembers(self)
-            if _name.startswith('_do_')}
+            if _name.startswith("_do_")
+        }
         get_commands = {
-            _name[len('_get_'):]: _val.__doc__
+            _name[len("_get_") :]: _val.__doc__
             for _name, _val in inspect.getmembers(self)
-            if _name.startswith('_get_')
-            and not _name.startswith('_get_array_')}
+            if _name.startswith("_get_") and not _name.startswith("_get_array_")
+        }
         set_commands = {
-            _name[len('_set_'):]: _val.__doc__
+            _name[len("_set_") :]: _val.__doc__
             for _name, _val in inspect.getmembers(self)
-            if _name.startswith('_set_')}
+            if _name.startswith("_set_")
+        }
         get_array_commands = {
-            _name[len('_get_array_'):]: _val.__doc__
+            _name[len("_get_array_") :]: _val.__doc__
             for _name, _val in inspect.getmembers(self)
-            if _name.startswith('_get_array_')}
+            if _name.startswith("_get_array_")
+        }
 
         # Add all other parameters
         descriptions = widgets.get_descriptions(self.state.layout)
         for _v in self.state.params:
             if _v not in get_commands and _v not in get_array_commands:
                 get_commands[_v] = self.state.params_doc.get(
-                    _v, descriptions.get(_v, f"Parameter {_v}"))
+                    _v, descriptions.get(_v, f"Parameter {_v}")
+                )
             if _v not in set_commands and _v not in get_array_commands:
                 set_commands[_v] = self.state.params_doc.get(
-                    _v, descriptions.get(_v, f"Parameter {_v}"))
+                    _v, descriptions.get(_v, f"Parameter {_v}")
+                )
 
         available_commands = {
-            'do': do_commands,
-            'get': get_commands,
-            'set': set_commands,
-            'get_array': get_array_commands,
+            "do": do_commands,
+            "get": get_commands,
+            "set": set_commands,
+            "get_array": get_array_commands,
         }
         return available_commands
 
@@ -486,6 +506,7 @@ class NetworkServer(Server):
     Wraps the Server class, provding all interface through sockets so
     that non-python clients can interact with the server.
     """
+
     def __init__(self, opts, **kwargs):
         self.comm = communication.Server(opts=opts)
         super().__init__(opts=opts, **kwargs)
@@ -501,7 +522,8 @@ class NetworkServer(Server):
                     # Do this so we can receive interrupted messages
                     # if the user interrupts.
                     client_message = self.comm.recv(
-                        timeout=min(self._poll_interval, 1/self.opts.fps))
+                        timeout=min(self._poll_interval, 1 / self.opts.fps)
+                    )
                 except communication.TimeoutError:
                     continue
 
@@ -515,13 +537,13 @@ class NetworkServer(Server):
                 elif client_message == b"set":
                     param, value = self.comm.get()
                     self.set(param=param, value=value)
-                #elif client_message == b"Vpos":
+                # elif client_message == b"Vpos":
                 #    self.comm.send(self._get_Vpos())
-                #elif client_message == b"layout":
+                # elif client_message == b"layout":
                 #    self.comm.send(self._get_layout())
                 elif client_message == b"OnTouch":
                     self.set_touch_pos(self.comm.get())
-                #elif client_message == b"Cooling":
+                # elif client_message == b"Cooling":
                 #    self._set_cooling(self.comm.get())
                 elif client_message == b"reset":
                     param_vals = self._do_reset()
@@ -529,7 +551,7 @@ class NetworkServer(Server):
                 elif client_message == b"reset_tracers":
                     self._do_reset_tracers()
                     self.comm.respond(b"Tracers Reset")
-                #elif client_message == b"Nxy":
+                # elif client_message == b"Nxy":
                 #    self.comm.send(self._get_Nxy())
                 elif client_message == b"Start":
                     self._do_start()
@@ -550,8 +572,7 @@ class NetworkServer(Server):
 
 
 @nointerrupt
-def run(block=True, network_server=True, interrupted=False,
-        args=None, kwargs={}):
+def run(block=True, network_server=True, interrupted=False, args=None, kwargs={}):
     """Load the configuration and start the server.
 
     This can also be called programmatically to start a server.
@@ -577,8 +598,8 @@ def run(block=True, network_server=True, interrupted=False,
     opts.__dict__.update(kwargs)
 
     # Get the physics model.
-    module = ".".join(['physics'] + opts.model.split(".")[:-1])
-    cls = opts.model.split('.')[-1]
+    module = ".".join(["physics"] + opts.model.split(".")[:-1])
+    cls = opts.model.split(".")[-1]
     pkg = "super_hydro"
     opts.State = getattr(importlib.import_module("." + module, pkg), cls)
     if network_server:

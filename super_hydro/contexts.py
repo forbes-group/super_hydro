@@ -45,7 +45,7 @@ class NoInterrupt(object):
     Interrupts can also be suspended in contexts.  These can be
     nested.  These instances will become False at the end of the
     context.
-    
+
     Auxiliary Threads
     -----------------
     Auxiliary threads can create instances of NoInterrupt() or use
@@ -110,7 +110,7 @@ class NoInterrupt(object):
     1s).  Interrupts are ignored by default unless `ignore=False` is
     specified, in which case they will be raised when the context is
     ended.
-    
+
     If you want to control when you exit the block, use the
     `interrupted` flag. This could be used, for example, while
     plotting frames in an animation (see doc/Animation.ipynb).
@@ -212,6 +212,7 @@ class NoInterrupt(object):
     >>> n
     [5, 5]
     """
+
     # Each time a signal is raised, it is inserted into the
     # _signals_raised dict and the corresponding entry of
     # _signal_count is incremented.  At the end of the final context
@@ -221,14 +222,14 @@ class NoInterrupt(object):
     # instance to determined if a signal was raised in that context
     # allowing threads to use the interrupted flag even if there is no
     # active context in the main thread.
-    
+
     _instances = set()
-    _original_handlers = {}     # Dictionary of original handlers
-    _signals_raised = {}        # Dictionary if signals raised
-    _signal_count = {}          # Dictionary of signal counts
+    _original_handlers = {}  # Dictionary of original handlers
+    _signals_raised = {}  # Dictionary if signals raised
+    _signal_count = {}  # Dictionary of signal counts
     _signals = set((signal.SIGINT, signal.SIGTERM))
     _signals_suspended = set()
-    
+
     # Time, in seconds, for which force_n successive interrupts will
     # toggle the default handler.
     force_n = 3
@@ -250,27 +251,34 @@ class NoInterrupt(object):
         with cls._lock:
             registered = bool(cls._signals.intersection(cls._original_handlers))
             if False and registered:
-                assert all([
-                    signal.getsignal(_signum) == cls.handle_signal
-                    for _signum in cls._original_handlers])
+                assert all(
+                    [
+                        signal.getsignal(_signum) == cls.handle_signal
+                        for _signum in cls._original_handlers
+                    ]
+                )
             return registered
 
     @classmethod
     def register(cls):
         """Register the handlers so that signals can be suspended."""
         if not is_main_thread():
-            _msg = " ".join([
-                "Can only register handlers from the main thread."
-                "(Called from thread {})".format(threading.get_ident())])
+            _msg = " ".join(
+                [
+                    "Can only register handlers from the main thread."
+                    "(Called from thread {})".format(threading.get_ident())
+                ]
+            )
             raise RuntimeError(_msg)
-        
+
         with cls._lock:
             if not cls.is_registered():
                 cls._original_handlers = {
                     _signum: signal.signal(_signum, cls.handle_signal)
-                    for _signum in cls._signals}
+                    for _signum in cls._signals
+                }
             assert cls.is_registered()
-            
+
     @classmethod
     def unregister(cls, full=False):
         """Reset handlers to the original values.  No more signal suspension.
@@ -288,14 +296,14 @@ class NoInterrupt(object):
             if full:
                 cls.reset()
                 cls._signal_count = {}
-                
+
             if not full:
                 assert not cls.is_registered()
 
     @classmethod
     def set_signals(cls, signals):
         """Change the signal handlers.
-        
+
         Note: This does not change the signals listed in _suspended_signals list.
 
         Arguments
@@ -309,7 +317,7 @@ class NoInterrupt(object):
                 cls.unregister()
                 cls._signals = set(signals)
                 cls.register()
-                
+
     @classmethod
     def suspend(cls, signals=None):
         """Suspends the specified signals."""
@@ -319,10 +327,13 @@ class NoInterrupt(object):
                 for signum in signals:
                     if signum not in cls._original_handlers:
                         warnings.warn(
-                            " ".join([
-                                "No handler registered for signal {}.",
-                                "Signal will not be suspended."])
-                            .format(signum))
+                            " ".join(
+                                [
+                                    "No handler registered for signal {}.",
+                                    "Signal will not be suspended.",
+                                ]
+                            ).format(signum)
+                        )
                     cls._signals_suspended.add(signum)
 
     @classmethod
@@ -335,17 +346,16 @@ class NoInterrupt(object):
 
     @classmethod
     def reset(cls):
-        """Reset the signal logs and return last signal `(signum, frame, time)`.
-        """
+        """Reset the signal logs and return last signal `(signum, frame, time)`."""
         res = None
         with cls._lock:
-            if hasattr(cls, '_last_signal'):
+            if hasattr(cls, "_last_signal"):
                 res = cls._last_signal
                 del cls._last_signal
             cls._signals_raised = {}
 
-        return(res)
-    
+        return res
+
     @classmethod
     def handle_signal(cls, signum, frame):
         """Custom signal handler.
@@ -360,8 +370,7 @@ class NoInterrupt(object):
             cls._signals_raised[signum].append(cls._last_signal)
             cls._signal_count.setdefault(signum, 0)
             cls._signal_count[signum] += 1
-            if (cls._forced_interrupt(signum)
-                    or signum not in cls._signals_suspended):
+            if cls._forced_interrupt(signum) or signum not in cls._signals_suspended:
                 cls.handle_original_signal(signum=signum, frame=frame)
 
     @classmethod
@@ -386,9 +395,9 @@ class NoInterrupt(object):
         `force_timeout` seconds"""
         with cls._lock:
             signals_raised = cls._signals_raised.get(signum, [])
-            return (cls.force_n <= len(signals_raised)
-                    and cls.force_timeout > (signals_raised[-1][-1]
-                                             - signals_raised[-cls.force_n][-1]))
+            return cls.force_n <= len(signals_raised) and cls.force_timeout > (
+                signals_raised[-1][-1] - signals_raised[-cls.force_n][-1]
+            )
 
     #############
     # Dummy handlers to thwart ipykernel's attempts to restore the
@@ -397,22 +406,23 @@ class NoInterrupt(object):
     @staticmethod
     def _pre_handler_hook():
         pass
-    
+
     @staticmethod
     def _post_handler_hook():
         pass
-    
+
     def __enter__(self):
         """Enter context."""
         with self._lock:
             try:
                 import IPython
+
                 kernel = IPython.get_ipython().kernel
                 kernel.pre_handler_hook = self._pre_handler_hook
                 kernel.post_handler_hook = self._post_handler_hook
             except (ImportError, AttributeError):
                 pass
-            
+
             self._active = True
             self.signal_count_at_start = dict(self._signal_count)
             if is_main_thread():
@@ -421,13 +431,15 @@ class NoInterrupt(object):
                 self.suspend()
                 NoInterrupt._instances.add(self)
             elif not self.is_registered():
-                    _msg = "\n".join([
+                _msg = "\n".join(
+                    [
                         "Thread {} entering unregistered NoInterrupt() context.",
                         "Interrupts will not be processed!  "
-                        + "Call register() in main thread."
-                    ]).format(threading.get_ident())
-                    warnings.warn(_msg)
-            
+                        + "Call register() in main thread.",
+                    ]
+                ).format(threading.get_ident())
+                warnings.warn(_msg)
+
         return self
 
     def __exit__(self, exc_type, exc_value, traceback):
@@ -435,7 +447,7 @@ class NoInterrupt(object):
             self._active = False
             if not is_main_thread():
                 return
-            
+
             self._instances.remove(self)
             if not self._instances:
                 # Only raise an exception if all the instances have been
@@ -444,13 +456,14 @@ class NoInterrupt(object):
 
                 self.resume()
                 last_signal = self.reset()
-                
+
                 if last_signal and not self.ignore:
                     # Call original handler.
                     signum, frame, _time = last_signal
                     self.handle_original_signal(signum=signum, frame=frame)
             try:
                 import IPython
+
                 kernel = IPython.get_ipython().kernel
                 del kernel.pre_handler_hook
                 del kernel.post_handler_hook
@@ -460,14 +473,15 @@ class NoInterrupt(object):
     def __bool__(self):
         """Return True if interrupted."""
         with self._lock:
-            return (
-                not self._active
-                or any([
+            return not self._active or any(
+                [
                     self._signal_count.get(_signum, 0)
                     > self.signal_count_at_start.get(_signum, 0)
-                    for _signum in self._signals]))
+                    for _signum in self._signals
+                ]
+            )
 
-    __nonzero__ = __bool__      # For python 2.
+    __nonzero__ = __bool__  # For python 2.
 
     def map(self, function, sequence, *v, **kw):
         """Map function onto sequence until interrupted or done.
@@ -482,7 +496,7 @@ class NoInterrupt(object):
                 res.append(function(s, *v, **kw))
         return res
 
-    
+
 def nointerrupt(f):
     """Decorator that suspends signals and passes an interrupted flag
     to the protected function.  Can only be called from the main
@@ -504,15 +518,17 @@ def nointerrupt(f):
     """
     _msg = " ".join(
         "@nointerrupt function called from non-main thread {}."
-        "(Use @interrupt instead).")
-    
+        "(Use @interrupt instead)."
+    )
+
     @functools.wraps(f)
     def wrapper(*v, **kw):
         if not is_main_thread():
             raise RuntimeError(_msg.format(threading.get_ident()))
         with NoInterrupt() as interrupted:
-            kw.setdefault('interrupted', interrupted)
+            kw.setdefault("interrupted", interrupted)
             return f(*v, **kw)
+
     return wrapper
 
 
@@ -522,12 +538,13 @@ class CoroutineWrapper(object):
     function or as a file object.  Note: be sure to call close() if you do not
     use this as a context.
     """
+
     def __init__(self, coroutine):
         self.coroutine = coroutine
         self.started = False
 
     def __enter__(self, *v, **kw):
-        self.res = next(self.coroutine)   # Prime the coroutine
+        self.res = next(self.coroutine)  # Prime the coroutine
         self.started = True
         return self.send
 
@@ -613,4 +630,5 @@ def coroutine(coroutine):
         # next(primed_coroutine)
         # yield primed_coroutine.send
         # primed_coroutine.close()
+
     return wrapper

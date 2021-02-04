@@ -22,7 +22,7 @@ import numpy as np
 
 import ipywidgets
 
-#from mmfutils.contexts import nointerrupt, NoInterrupt
+# from mmfutils.contexts import nointerrupt, NoInterrupt
 from ..contexts import nointerrupt, NoInterrupt
 
 from .. import config, communication, utils, widgets
@@ -67,6 +67,7 @@ class _Interrupted(object):
     Pass as the interrupted flag to the server to allow the client App
     to terminate it.
     """
+
     def __init__(self, app):
         self.app = app
 
@@ -77,25 +78,25 @@ class _Interrupted(object):
 
 
 class NotebookApp(App):
-    fmt = 'PNG'
+    fmt = "PNG"
     browser_control = True
     server = None
 
     def _get_widget(self):
         layout = self.get_layout()
-        (self._interactive_widgets,
-         special_widgets) = widgets.get_interactive_and_special_widgets(layout)
+        (
+            self._interactive_widgets,
+            special_widgets,
+        ) = widgets.get_interactive_and_special_widgets(layout)
 
-        self._density = special_widgets['density']
+        self._density = special_widgets["density"]
         self._txt = ipywidgets.Label()
-        self._inp = ipywidgets.FloatLogSlider(value=0.01, base=10,
-                                              min=-10, max=1,
-                                              step=0.2,
-                                              description="Cooling")
-        self._inp.observe(self.on_value_change, names='value')
+        self._inp = ipywidgets.FloatLogSlider(
+            value=0.01, base=10, min=-10, max=1, step=0.2, description="Cooling"
+        )
+        self._inp.observe(self.on_value_change, names="value")
         self._msg = ipywidgets.Label()
-        self._wid = ipywidgets.VBox([self._inp, self._txt,
-                                     self._img, self._msg])
+        self._wid = ipywidgets.VBox([self._inp, self._txt, self._img, self._msg])
         return self._wid
 
     ######################################################################
@@ -106,7 +107,7 @@ class NotebookApp(App):
     def on_value_change(self, change):
         if not self._running:
             return
-        self.server.set({change['owner'].name: change['new']})
+        self.server.set({change["owner"].name: change["new"]})
 
     def on_click(self, button):
         if not self._running:
@@ -136,40 +137,43 @@ class NotebookApp(App):
 
     def get_widget(self):
         layout = self.get_layout()
-        (self._interactive_widgets, special_widgets) = (
-            widgets.get_interactive_and_special_widgets(layout))
+        (
+            self._interactive_widgets,
+            special_widgets,
+        ) = widgets.get_interactive_and_special_widgets(layout)
 
         extra_widgets = []
 
         # Add the density and control widgets if they have not been
         # provided yet.
-        if 'density' not in special_widgets:
+        if "density" not in special_widgets:
             extra_widgets.append(widgets.density)
-        if 'controls' not in special_widgets:
+        if "controls" not in special_widgets:
             extra_widgets.append(widgets.controls)
         if extra_widgets:
             layout = widgets.VBox([layout] + extra_widgets)
 
-        (self._interactive_widgets, special_widgets) = (
-            widgets.get_interactive_and_special_widgets(layout))
+        (
+            self._interactive_widgets,
+            special_widgets,
+        ) = widgets.get_interactive_and_special_widgets(layout)
 
-        self._density = special_widgets['density']
-        self._density.width = 500#self.width
-        self._reset = special_widgets['reset']
+        self._density = special_widgets["density"]
+        self._density.width = 500  # self.width
+        self._reset = special_widgets["reset"]
         self._reset.on_click(self.on_click)
-        self._reset_tracers = special_widgets['reset_tracers']
+        self._reset_tracers = special_widgets["reset_tracers"]
         self._reset_tracers.on_click(self.on_click)
-        self._quit = special_widgets['quit']
+        self._quit = special_widgets["quit"]
         self._quit.on_click(self.on_click)
-        self._fps = special_widgets['fps']
-        self._msg = special_widgets['messages']
+        self._fps = special_widgets["fps"]
+        self._msg = special_widgets["messages"]
 
         # Link fps slider and density fps value.
-        _l = ipywidgets.jslink((self._fps, 'value'),
-                               (self._density, 'fps'))
+        _l = ipywidgets.jslink((self._fps, "value"), (self._density, "fps"))
 
         for w in self._interactive_widgets:
-            w.observe(self.on_value_change, names='value')
+            w.observe(self.on_value_change, names="value")
 
         return layout
 
@@ -177,7 +181,8 @@ class NotebookApp(App):
         if not self._running:
             return
         import PIL
-        if self.fmt.lower() == 'jpeg':
+
+        if self.fmt.lower() == "jpeg":
             # Discard alpha channel
             rgba = rgba[..., :3]
         img = PIL.Image.fromarray(rgba)
@@ -187,7 +192,7 @@ class NotebookApp(App):
 
     def get_layout(self):
         """Return the model specified layout."""
-        layout = eval(self.server.get(['layout'])['layout'], widgets.__dict__)
+        layout = eval(self.server.get(["layout"])["layout"], widgets.__dict__)
         return layout
 
     def get_tracer_particles(self):
@@ -201,7 +206,8 @@ class NotebookApp(App):
         if self.server is None:
             self.server = communication.NetworkServer(opts=self.opts)
         from IPython.display import display
-        self.Nx, self.Ny = self.server.get(['Nxy'])['Nxy']
+
+        self.Nx, self.Ny = self.server.get(["Nxy"])["Nxy"]
         self._frame = 0
         self._tic0 = time.time()
 
@@ -209,9 +215,9 @@ class NotebookApp(App):
 
         # Broken!  Fix aspect ratio better with reasonable sliders.
         Nx = max(500, self.Nx)
-        Ny = int(self.Ny/self.Nx*Nx)
+        Ny = int(self.Ny / self.Nx * Nx)
         self._density.width = Nx
-        #self._density.height = Ny
+        # self._density.height = Ny
 
         self._frame = 0
         if self.browser_control:
@@ -231,7 +237,7 @@ class NotebookApp(App):
                 tic0 = time.time()
                 self.on_update()
                 toc = time.time()
-                self._msg.value = "{:.2f}fps".format(self._frame/(toc-tic0))
+                self._msg.value = "{:.2f}fps".format(self._frame / (toc - tic0))
         if self._running:
             self.quit()
 
@@ -239,19 +245,19 @@ class NotebookApp(App):
         """Convert the density array into an rgba array for display."""
         density = density.T
         # array = cm.viridis((n_-n_.min())/(n_.max()-n_.min()))
-        array = cm.viridis(density/density.max())
-        #array = self._update_frame_with_tracer_particles(array)
-        array *= int(255/array.max())  # normalize values
-        rgba = array.astype(dtype='uint8')
+        array = cm.viridis(density / density.max())
+        # array = self._update_frame_with_tracer_particles(array)
+        array *= int(255 / array.max())  # normalize values
+        rgba = array.astype(dtype="uint8")
         return rgba
 
     def _update_frame_with_tracer_particles(self, array):
         tracers = self.get_tracer_particles()
         ix, iy = [np.round(_i).astype(int) for _i in tracers]
         alpha = self.opts.tracer_alpha
-        array[iy, ix, ...] = (
-            (1-alpha)*array[iy, ix, ...]
-            + alpha*np.array(self.opts.tracer_color))
+        array[iy, ix, ...] = (1 - alpha) * array[iy, ix, ...] + alpha * np.array(
+            self.opts.tracer_color
+        )
         return array
 
     def _update_fg_objects(self):
@@ -264,7 +270,8 @@ class NotebookApp(App):
             _num = 0
             for _i in ix:
                 tracer_container["tracer"].append(
-                    ["tracer", ix[_num], iy[_num], 0.5, color, alpha, 0, 0])
+                    ["tracer", ix[_num], iy[_num], 0.5, color, alpha, 0, 0]
+                )
                 _num += 1
         return tracer_container
 
@@ -279,7 +286,7 @@ class NotebookApp(App):
             yield
         finally:
             dt = time.perf_counter() - tic
-            t_sleep = 1./self.opts.fps - dt
+            t_sleep = 1.0 / self.opts.fps - dt
             if t_sleep > 0:
                 time.sleep(t_sleep)
         return
@@ -304,10 +311,14 @@ def get_app(run_server=True, network_server=False, notebook=True, **kwargs):
         # Delay import because server requires many more modules than
         # the client.
         from ..server import server
-        app.server = server.run(args='', interrupted=app.interrupted,
-                                block=False,
-                                network_server=network_server,
-                                kwargs=kwargs)
+
+        app.server = server.run(
+            args="",
+            interrupted=app.interrupted,
+            block=False,
+            network_server=network_server,
+            kwargs=kwargs,
+        )
     return app
 
 
@@ -325,6 +336,5 @@ def run(run_server=True, network_server=True, **kwargs):
        communicate through sockets, otherwise, directly connect to a
        server.
     """
-    app = get_app(run_server=run_server, network_server=network_server,
-                  **kwargs)
+    app = get_app(run_server=run_server, network_server=network_server, **kwargs)
     return app.run()
