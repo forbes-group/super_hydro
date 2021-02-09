@@ -40,7 +40,6 @@ if opts.file is not None:
     newpath = "/".join(udfp)
     sys.path.insert(0, f"{newpath}")
     modpath = tmp[-1]
-    print(modpath)
     module = importlib.import_module(modpath)
 else:
     modpath = "super_hydro.physics.gpe"
@@ -262,6 +261,7 @@ class Demonstration(Namespace):
                 self.fsh[f"{model}"]["server"] = get_app(
                     run_server=False, network_server=True, steps=3, model=model
                 )
+                self.fsh[f'{model}']['server'].run()
         join_room(model)
         if self.fsh[f"{model}"]["users"] is None:
             self.fsh[f"{model}"]["users"] = 1
@@ -269,10 +269,7 @@ class Demonstration(Namespace):
             self.fsh[f"{model}"]["users"] += 1
         self.fsh["init"] = {}
         for param in data["params"]:
-            self.fsh[f"{param}"] = self.fsh[f"{model}"]["server"].server._get(param)
-            print(self.fsh[f"{param}"])
-            self.fsh["init"].update({f"{param}": self.fsh[f"{param}"]})
-            self.fsh.pop(f"{param}")
+            self.fsh['init'].update(self.fsh[f'{model}']['server'].server.get([f'{param}']))
         emit("init", self.fsh["init"], room=model)
         if self.fsh[f"{model}"]["d_thread"] is None:
             self.fsh[f"{model}"]["d_thread"] = socketio.start_background_task(
@@ -368,13 +365,13 @@ class Demonstration(Namespace):
 
         model = data["data"]
         server = self.fsh[f"{model}"]["server"].server
-        print(data["position"]["xy0"])
         for key, value in data["position"].items():
             # Below may be the workaround?
             # Needs to be able to get Lxy, not sure how at the moment.
             Nxy = server.get(["Nxy"])["Nxy"]
-            dx = server._get("dx")
+            dx = server.get(["dx"])['dx']
             pos = (np.asarray(data["position"]["xy0"]) - 0.5) * Nxy * dx
+            pos = pos.tolist()
             self.fsh[f"{model}"]["server"].server.set({f"{key}": pos})
 
     def on_user_exit(self, data):
@@ -391,7 +388,6 @@ class Demonstration(Namespace):
         """
 
         model = data["data"]
-        print(model)
         leave_room(model)
         self.fsh[f"{model}"]["users"] -= 1
         if self.fsh[f"{model}"]["users"] == 0:
@@ -443,11 +439,12 @@ def push_thread(namespace, server, room):
     """
 
     while server._running is True:
-        fxy = [server.server._get("finger_x"), server.server._get("finger_y")]
-        vxy = (server.server._get_Vpos()).tobytes()
-        vxy_char = "".join([chr(i) for i in vxy])
+        fxy = [server.server.get(["finger_x"])['finger_x'],
+                server.server.get(["finger_y"])['finger_y']]
+        #vxy = (server.server.get(['Vpos'])['Vpos']).tobytes()
+        #vxy_char = "".join([chr(i) for i in vxy])
+        vxy_char = server.server.get(['Vpos'])['Vpos']
 
-        print("Getting Density array...")
         density = server.server.get_array("density")
 
         from matplotlib import cm
@@ -464,7 +461,6 @@ def push_thread(namespace, server, room):
         )
         # Need to figure out the tracers or dump it altogether.
         if opts.tracers == True:
-            print("Getting Tracers...")
             trace = server.server.get_array("tracers").tolist()
 
             socketio.emit("ret_trace", {"trace": trace}, namespace=namespace, room=room)

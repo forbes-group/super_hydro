@@ -310,7 +310,7 @@ class Server(ThreadMixin):
         self.message_queue.put(("get_pot",))
         pot_z = self.pot_queue.get()
         xy = self._xy_to_pos((pot_z.real, pot_z.imag))
-        # return tuple(xy.tolist())
+        #return tuple(xy.tolist())
         return xy
 
     def _get_layout(self, client=None):

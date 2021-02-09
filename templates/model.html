@@ -146,8 +146,9 @@
   socket.on('ret_array', function(data){
    rgba = Uint8ClampedArray.from(data.rgba, c => c.charCodeAt(0));
    drawCustom(rgba, sh.nx, sh.ny);
-   vbytes = Uint8Array.from(data.vxy, c => c.charCodeAt(0));
-   vfloats = new Float64Array(vbytes.buffer);
+   //vbytes = Uint8Array.from(data.vxy, c => c.charCodeAt(0));
+   //vfloats = new Float64Array(vbytes.buffer);
+   vfloats = data.vxy;
    sh.fx = chartFinger.width - data.fxy[1]*chartFinger.width;
    sh.fy = data.fxy[0]*chartFinger.height;
 
