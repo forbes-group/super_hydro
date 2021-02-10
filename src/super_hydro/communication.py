@@ -72,7 +72,7 @@ class Client(object):
     def get(self, params):
         """Request data from server."""
         with log_task(f"Getting {params} from server"):
-            self.socket.send(b"_get")
+            self.socket.send(b"get")
             response = self.socket.recv()
             if response != b"ok":
                 raise IOError(f"Server declined request to get saying {response}")
@@ -161,11 +161,15 @@ class Server(object):
         self.socket.send_json(obj)
 
     def get_params(self):
-        """Receive a JSON encoded list of params."""
+        """Receive a JSON encoded list of params.
+
+        This method could in principle be replaced by a call to get(), but then we need
+        to insert a complete set of send-recv pairs.
+        """
         self.socket.send(b"ok")
         return self.socket.recv_json()
 
-    def get(self, response=b""):
+    def get(self, response=b"ok"):
         """Receive a JSON encoded object and return the decoded object."""
         self.socket.send(b"ok")
         obj = self.socket.recv_json()
@@ -203,7 +207,7 @@ class NetworkServer(object):
             self.comm = Client(opts=self.opts)
 
     def get_available_commands(self, client=None):
-        return self.comm.get(params=["available_commands"])
+        return self.comm.get(params=["available_commands"])["available_commands"]
 
     def do(self, action, client=None):
         self.comm.do(action)
@@ -216,8 +220,7 @@ class NetworkServer(object):
 
     def set(self, param_dict, client=None):
         """Set specified parameter."""
-        for param in param_dict:
-            self.comm.send(b"set", (param, param_dict[param]))
+        self.comm.send(b"set", param_dict)
 
     def get_array(self, param, client=None):
         return self.comm.get_array(param.encode())

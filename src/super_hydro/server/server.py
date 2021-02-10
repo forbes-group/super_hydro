@@ -310,8 +310,8 @@ class Server(ThreadMixin):
         self.message_queue.put(("get_pot",))
         pot_z = self.pot_queue.get()
         xy = self._xy_to_pos((pot_z.real, pot_z.imag))
-        #return tuple(xy.tolist())
-        return xy
+        return tuple(xy.tolist())
+        #return xy
 
     def _get_layout(self, client=None):
         """Return the widget layout."""
@@ -525,40 +525,13 @@ class NetworkServer(Server):
                 except communication.TimeoutError:
                     continue
 
-                if client_message == b"_get":
+                if client_message == b"get":
                     params = self.comm.get_params()
-                    self.comm.send(self.get(params))
-                elif client_message == b"tracers":
-                    self.comm.send_array(self._get_array_tracers())
-                elif client_message == b"density":
-                    self.comm.send_array(self._get_array_density())
+                    self.comm.send(self.get(params=params))
+                elif client_message == b"do":
+                    self.do(action=self.comm.get())
                 elif client_message == b"set":
-                    param, value = self.comm.get()
-                    self.set(param=param, value=value)
-                # elif client_message == b"Vpos":
-                #    self.comm.send(self._get_Vpos())
-                # elif client_message == b"layout":
-                #    self.comm.send(self._get_layout())
-                elif client_message == b"OnTouch":
-                    self.set_touch_pos(self.comm.get())
-                # elif client_message == b"Cooling":
-                #    self._set_cooling(self.comm.get())
-                elif client_message == b"reset":
-                    param_vals = self._do_reset()
-                    self.comm.send(param_vals)
-                elif client_message == b"reset_tracers":
-                    self._do_reset_tracers()
-                    self.comm.respond(b"Tracers Reset")
-                # elif client_message == b"Nxy":
-                #    self.comm.send(self._get_Nxy())
-                elif client_message == b"Start":
-                    self._do_start()
-                    self.comm.respond(b"Starting")
-                elif client_message == b"Pause":
-                    self._do_pause()
-                    self.comm.respond(b"Paused")
-                elif client_message == b"quit":
-                    self._do_quit()
+                    self.set(param_dict=self.comm.get())
                 else:
                     print("Unknown data type")
                     print("client message:", client_message)

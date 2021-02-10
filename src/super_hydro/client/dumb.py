@@ -73,13 +73,15 @@ class App(object):
 _OPTS = None
 
 
-def get_app(run_server=False, network_server=True, **kwargs):
+def get_app(run_server=False, network_server=True, opts=None, **kwargs):
     global _OPTS
     if _OPTS is None:
         with log_task("Reading configuration"):
             parser = config.get_client_parser()
             _OPTS, _other_opts = parser.parse_known_args(args="")
 
+    if opts:
+        vars(_OPTS).update(opts)
     app = App(opts=_OPTS)
 
     if run_server:
