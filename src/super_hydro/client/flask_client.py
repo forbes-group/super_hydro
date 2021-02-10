@@ -494,35 +494,6 @@ def call_server(
     return _server
 
 
-def get_server(model, tracer_particles=None, steps=5, args=None, kwargs={}):
-    """Establishes Server object for a particular model.
-
-    Reads configuration options and keyword arguments to create a computational
-    server object for a particular model.
-
-    Parameters
-    ----------
-    args : optional
-        Variable length argument list
-    kwargs : optional
-        Arbitrary keyword arguments.
-
-    Returns
-    -------
-    svr : obj
-        Computational server object with attached physics model.
-    """
-    print("Getting model from", modpath)
-    module = importlib.import_module(modpath)
-
-    opts.State = getattr(module, model)
-    opts.tracer_particles = tracer_particles
-    opts.steps = steps
-    svr = server.Server(opts=opts)
-
-    return svr
-
-
 ###############################################################################
 # Function to establish server communication
 ###############################################################################
@@ -564,4 +535,5 @@ def run():
     Javascript requests to a model Computational Server.
     """
 
+    print(f"Running Flask client on http://{opts.host}:{opts.port}")
     socketio.run(app, host=opts.host, port=opts.port, debug=opts.debug)

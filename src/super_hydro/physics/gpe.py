@@ -187,11 +187,6 @@ class BEC(GPEBase):
         [w.Checkbox(True, name="cylinder", description="Trap"), GPEBase.layout]
     )
 
-    #sliders = [
-    #    ["cooling", "slider", "logarithmic", "range", -10, 1, 0.20],
-    #    ["finger_V0_mu", "slider", None, "range", -2, 2, 0.1],
-    #    ["cylinder", "toggle", None, "checkbox", None, None, None],
-    #]
 
     def __init__(self, opts):
         super().__init__(opts=opts)
@@ -347,13 +342,6 @@ class BECVortices(BEC):
         ]
     )
 
-    sliders = [
-        ["cooling", "slider", "logarithmic", "range", -10, 1, 0.20],
-        ["finger_V0_mu", "slider", None, "range", -2, 2, 0.1],
-        ["bump_h", "slider", None, "range", 0, 0.5, 0.01],
-        ["N_vortex", "slider", None, "range", -100, 100, 0.1],
-        ["bump_N", "slider", None, "range", 0, 100, 1],
-    ]
 
     def init(self):
         self.Omega = 0
@@ -399,11 +387,6 @@ class BECFlow(BEC):
         ]
     )
 
-    sliders = [
-        ["cooling", "slider", "logarithmic", "range", -10, 1, 0.20],
-        ["finger_V0_mu", "slider", None, "range", -2, 2, 0.1],
-        ["v_v_c", "slider", None, "range", -5, 5, 0.1],
-    ]
 
     def init(self):
         super().init()
@@ -428,10 +411,6 @@ class BECVortexRing(BECFlow):
 
     layout = w.VBox([BECFlow.layout])
 
-    sliders = [
-        ["cooling", "slider", "logarithmic", "range", -10, 1, 0.20],
-        ["finger_V0_mu", "slider", None, "range", -2, 2, 0.1],
-    ]
 
     def init(self):
         super().init()
@@ -479,11 +458,6 @@ class BECSoliton(BECFlow):
         ]
     )
 
-    sliders = [
-        ["cooling", "slider", "logarithmic", "range", -10, 1, 0.20],
-        ["finger_V0_mu", "slider", None, "range", -2, 2, 0.1],
-        ["v_c", "slider", None, "range", -0.99, 0.99, 0.01],
-    ]
 
     def set(self, param, value):
         super().set(param, value)
@@ -534,11 +508,6 @@ class BECQuantumFriction(BEC):
         ]
     )
 
-    sliders = [
-        ["cooling", "slider", "logarithmic", "range", -10, 1, 0.20],
-        ["finger_V0_mu", "slider", None, "range", -2, 2, 0.1],
-        ["Vc_cooling", "slider", "logarithmic", "range", -10, 1, 0.2],
-    ]
 
     def get_Kc(self):
         raise NotImplementedError()
@@ -581,10 +550,6 @@ class BECBreather(BEC):
 
     layout = w.VBox([BEC.layout])
 
-    sliders = [
-        ["cooling", "slider", "logarithmic", "range", -10, 1, 0.20],
-        ["finger_V0_mu", "slider", None, "range", -2, 2, 0.1],
-    ]
 
     def get_V_trap(self):
         """Return any static trapping potential."""

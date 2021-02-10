@@ -532,6 +532,10 @@ class NetworkServer(Server):
                     self.do(action=self.comm.get())
                 elif client_message == b"set":
                     self.set(param_dict=self.comm.get())
+                elif client_message == b"density":
+                    self.comm.send_array(self._get_array_density())
+                elif client_message == b"tracers":
+                    self.comm.send_array(self._get_array_tracers())
                 else:
                     print("Unknown data type")
                     print("client message:", client_message)
