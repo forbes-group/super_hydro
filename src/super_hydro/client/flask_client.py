@@ -68,6 +68,13 @@ class _Interrupted(object):
     """
 
     def __init__(self, app):
+        """Initializes and attaches the App to the class.
+
+        Parameters
+        ----------
+        app : :obj:
+            App instance being attached.
+        """
         self.app = app
 
     def __bool__(self):
@@ -79,25 +86,25 @@ class _Interrupted(object):
 class App(object):
     """Dumb application that allows the user to interact with a computational
     server.
+
+    Attributes
+    ----------
+    server : :obj:
+        Attribute determining Local or Network server communications.
     """
 
     server = None
 
     def __init__(self, opts):
+        """Initializes and loads configuration options, then flags as running.
+
+        Parameters
+        ----------
+        opts : dict
+            dict containing configuration options
+        """
         self.opts = opts
         self._running = True
-
-    @property
-    def comm(self):
-        """Return the communication object, but only if running."""
-        if self._running:
-            return self.server.comm
-
-    @property
-    def density(self):
-        """Return the density data to plot: intiates call to server."""
-        with log_task("Get density from server."):
-            return self.server.get_array("density")
 
     @property
     def interrupted(self):
@@ -107,6 +114,9 @@ class App(object):
         return _Interrupted(app=self)
 
     def run(self):
+        """Sets the server communication type to NetworkServer if no other
+        type established.
+        """
         if self.server is None:
             self.server = communication.NetworkServer(opts=self.opts)
 
@@ -115,6 +125,8 @@ class App(object):
     #
     # These methods communicate with the server.
     def quit(self):
+        """Passes 'quit' command to connected server.
+        """
         self.server.do("quit")
         self._running = False
 
@@ -127,6 +139,8 @@ class App(object):
 
 
 def shutdown_server():
+    """Shuts down the Flask-SocketIO instance.
+    """
     print("Shutting down...")
     socketio.stop()
 
@@ -255,11 +269,11 @@ class Demonstration(Namespace):
             self.fsh[f"{model}"] = dict.fromkeys(["server", "users", "d_thread"])
             if opts.network == False:
                 self.fsh[f"{model}"]["server"] = get_app(
-                    run_server=True, network_server=False, steps=3, model=model
+                    run_server=True, network_server=False, steps=opts.steps, model=model
                 )
             else:
                 self.fsh[f"{model}"]["server"] = get_app(
-                    run_server=False, network_server=True, steps=3, model=model
+                    run_server=False, network_server=True, steps=opts.steps, model=model
                 )
                 self.fsh[f'{model}']['server'].run()
         join_room(model)
@@ -366,8 +380,6 @@ class Demonstration(Namespace):
         model = data["data"]
         server = self.fsh[f"{model}"]["server"].server
         for key, value in data["position"].items():
-            # Below may be the workaround?
-            # Needs to be able to get Lxy, not sure how at the moment.
             Nxy = server.get(["Nxy"])["Nxy"]
             dx = server.get(["dx"])['dx']
             pos = (np.asarray(data["position"]["xy0"]) - 0.5) * Nxy * dx
@@ -436,13 +448,13 @@ def push_thread(namespace, server, room):
     -------
     socketio.emit('ret_array')
         Transmits display information to Javascript via web socket connection.
+    socketio.emit('ret_trace')
+        Transmits tracer particle position data to Javascript via web socket.
     """
 
     while server._running is True:
         fxy = [server.server.get(["finger_x"])['finger_x'],
                 server.server.get(["finger_y"])['finger_y']]
-        #vxy = (server.server.get(['Vpos'])['Vpos']).tobytes()
-        #vxy_char = "".join([chr(i) for i in vxy])
         vxy_char = server.server.get(['Vpos'])['Vpos']
 
         density = server.server.get_array("density")
@@ -476,15 +488,35 @@ def push_thread(namespace, server, room):
 def call_server(
     model, block=True, network_server=True, interrupted=False, args=None, kwargs={}
 ):
+    """Generates a Server object for computation and communication. Loads in a 
+    series of configuration options as well as the specified computational 
+    model to run.
+
+    Parameters
+    ----------
+    model : str
+        Name of the class representing a physical model
+    block : bool
+        Boolean for Asynchronous/Synchronous thread running.
+    network_server : bool
+        Boolean determining whether creating a local or network server
+    interrupted : bool
+        Boolean to flag whether process is interrupted or not
+    args : dict
+        Additional arguments to be passes for parsing
+    kwargs : dict
+        Additional keyword arguments to update configuration options
+
+    Returns
+    -------
+    _server : :obj:
+        The running server object with loaded configuration options.
+    """
     parser = config.get_server_parser()
     opts, other_args = parser.parse_known_args(args=args)
     opts.__dict__.update(kwargs)
 
-    #    module = ".".join(['physics'] + opts.model.split(".")[:-1])
     module = importlib.import_module(modpath)
-    #    cls = opts.model.split('.')[-1]
-    #    pkg = "super_hydro"
-    #    opts.State = getattr(importlib.import_module("." + module, pkg), cls)
     opts.State = getattr(module, model)
     if network_server:
         _server = server.NetworkServer(opts=opts)
@@ -501,6 +533,25 @@ _OPTS = None
 
 
 def get_app(model, run_server=False, network_server=True, **kwargs):
+    """Sets the App object with appropriate local server or network
+    server communication property.
+
+    Parameters
+    ----------
+    model : str
+        Name of the model class to load into server object property.
+    run_server : bool
+        Boolean determining whether to create a local running server object
+    network_server : bool
+        Boolean determining whether to creat a network communication process
+    **kwargs :
+        Arbitrary keyword arguments
+
+    Returns
+    -------
+    app : :obj:
+        Communication object with either local or network server communication.
+    """
     global _OPTS
     if _OPTS is None:
         with log_task("Reading Configuration"):
@@ -512,10 +563,6 @@ def get_app(model, run_server=False, network_server=True, **kwargs):
     if run_server:
         from super_hydro.server import server
 
-        #        app.server = server.run(args='', interrupted=app.interrupted,
-        #                                block=False,
-        #                                network_server=network_server,
-        #                                kwargs=kwargs)
         app.server = call_server(
             model,
             args="",

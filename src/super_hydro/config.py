@@ -113,23 +113,6 @@ def get_client_parser():
     #               dest='kill_server',
     #               help="Kill server on exit",)
     PARSER.add("-f", "--file", help="Absolute path to model")
-    PARSER.add("--Nx", default=64, type=int, help="Horizontal grid resolution")
-    PARSER.add("--Ny", default=64, type=int, help="Vertical grid resolution")
-    PARSER.add(
-        "--healing_length",
-        default=1.0,
-        type=float,
-        help="Healing length (in lattice units)",
-    )
-    PARSER.add(
-        "--dt_t_scale",
-        default=0.1,
-        type=float,
-        help="Integration timestep in units of t_scale=hbar/E_max",
-    )
-    PARSER.add(
-        "--V0_mu", default=0.5, type=float, help="Finger potential depth in units of mu"
-    )
     PARSER.add(
         "--steps",
         default=5,
