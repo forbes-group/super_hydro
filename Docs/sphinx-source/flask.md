@@ -25,7 +25,9 @@ variables.
 Once the model page is loaded by a User, the Client requests startup information
 for the relevant model. This triggers Flask to either start a new Server 
 instance for the relevant physics model, or update the User count for the
-currently running Server.
+currently running Server. If a new Server instance is required, Flask reads
+appropriate configuration options to either start a local Server thread or
+establishes a socket connection to a separate Server process.
 
 When the Server is running, Flask then queries all current parameters and
 returns them to the model page for update and display.
@@ -64,6 +66,11 @@ parameter/action being modified, and the new parameter value.
 
 Flask recieves this information and passes it into appropriate Server calls,
 emitting Server return information (as appropriate).
+
+Communication with the server is handled by an internal `communication.py` 
+script, allowing connection to either a locally started computational server
+thread (Local) or establishing a socket connection to a separate running 
+server process via [ZMQ](https://pyzmq.readthedocs.io/en/latest/).
 
 ### HTML/JS User Interface
 

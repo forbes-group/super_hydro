@@ -269,7 +269,8 @@ class Demonstration(Namespace):
             self.fsh[f"{model}"] = dict.fromkeys(["server", "users", "d_thread"])
             if opts.network == False:
                 self.fsh[f"{model}"]["server"] = get_app(
-                    run_server=True, network_server=False, steps=opts.steps, model=model
+                    run_server=True, network_server=False, steps=opts.steps, model=model,
+                    Nx=opts.Nx, Ny=opts.Ny
                 )
             else:
                 self.fsh[f"{model}"]["server"] = get_app(
@@ -455,7 +456,7 @@ def push_thread(namespace, server, room):
     while server._running is True:
         fxy = [server.server.get(["finger_x"])['finger_x'],
                 server.server.get(["finger_y"])['finger_y']]
-        vxy_char = server.server.get(['Vpos'])['Vpos']
+        vxy = server.server.get(['Vpos'])['Vpos']
 
         density = server.server.get_array("density")
 
@@ -467,11 +468,11 @@ def push_thread(namespace, server, room):
 
         socketio.emit(
             "ret_array",
-            {"rgba": rgba, "vxy": vxy_char, "fxy": fxy},
+            {"rgba": rgba, "vxy": vxy, "fxy": fxy},
             namespace=namespace,
             room=room,
         )
-        # Need to figure out the tracers or dump it altogether.
+
         if opts.tracers == True:
             trace = server.server.get_array("tracers").tolist()
 
@@ -480,8 +481,7 @@ def push_thread(namespace, server, room):
 
 
 ###############################################################################
-# Minor re-write of the get_server() function from Server module that sidesteps
-# NoInterrupt 'not main thread' exceptions.
+# Functions for establishing the server communication object.
 ###############################################################################
 
 
@@ -515,6 +515,7 @@ def call_server(
     parser = config.get_server_parser()
     opts, other_args = parser.parse_known_args(args=args)
     opts.__dict__.update(kwargs)
+    
 
     module = importlib.import_module(modpath)
     opts.State = getattr(module, model)

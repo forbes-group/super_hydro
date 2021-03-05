@@ -113,6 +113,8 @@ def get_client_parser():
     #               dest='kill_server',
     #               help="Kill server on exit",)
     PARSER.add("-f", "--file", help="Absolute path to model")
+    PARSER.add("--Nx", default=32, type=int, help="Horizontal grid resolution")
+    PARSER.add("--Ny", default=32, type=int, help="Vertical grid resolution")
     PARSER.add(
         "--steps",
         default=5,

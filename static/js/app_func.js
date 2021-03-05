@@ -39,9 +39,9 @@ function drawCustom(rgba, nx, ny) {
   var im_height = ny;
 
   if (height < window.innerWidth) {
-	  width = height;
+	  width = height * nx / ny;
   } else {
-	  height = width;
+	  height = width * ny / nx;
   }
 
   if (width == im_width && height == im_height) {
