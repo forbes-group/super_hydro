@@ -161,8 +161,10 @@
    var sum = 0;
    for (var i = 0; i < pingTimes.length; i++)
     sum += pingTimes[i];
-   document.getElementById('ping-pong').innerHTML = Math.floor(10000/ Math.round(10 * sum / pingTimes.length));
+   sh.fps = Math.floor(10000/ Math.round(10 * sum / pingTimes.length));
+   document.getElementById('ping-pong').innerHTML = sh.fps;
    timeStart = sh.timeEnd;
+   socket.emit('fps', {fps : sh.fps});
 
    //Draw the Finger Potential (placed last to allow consistent FPS tracking)
    drawFinger(sh.fx, sh.fy, vfloats[1], vfloats[0]);

@@ -387,6 +387,19 @@ class Demonstration(Namespace):
             pos = pos.tolist()
             self.fsh[f"{model}"]["server"].server.set({f"{key}": pos})
 
+
+    def on_fps(self, data):
+        """Framerate retrieval from User Display.
+
+        Retrieves and displays the current framerate from the User Display.
+
+        Parameters
+        ----------
+        data: dict
+            dict containing the framerate value.
+        """
+        print("Current framerate is ", data["fps"])
+
     def on_user_exit(self, data):
         """Model Room updating on User exit from page.
 
@@ -454,9 +467,13 @@ def push_thread(namespace, server, room):
     """
 
     while server._running is True:
-        fxy = [server.server.get(["finger_x"])['finger_x'],
-                server.server.get(["finger_y"])['finger_y']]
-        vxy = server.server.get(['Vpos'])['Vpos']
+        #Exchange comments to revert display/performance:
+
+        #fxy = [server.server.get(["finger_x"])['finger_x'],
+        #        server.server.get(["finger_y"])['finger_y']]
+        #vxy = server.server.get(['Vpos'])['Vpos']
+        
+        fxy = vxy = [0.5,0.5]
 
         density = server.server.get_array("density")
 
