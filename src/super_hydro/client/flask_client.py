@@ -387,19 +387,6 @@ class Demonstration(Namespace):
             pos = pos.tolist()
             self.fsh[f"{model}"]["server"].server.set({f"{key}": pos})
 
-
-    def on_fps(self, data):
-        """Framerate retrieval from User Display.
-
-        Retrieves and displays the current framerate from the User Display.
-
-        Parameters
-        ----------
-        data: dict
-            dict containing the framerate value.
-        """
-        print("Current framerate is ", data["fps"])
-
     def on_user_exit(self, data):
         """Model Room updating on User exit from page.
 
@@ -467,6 +454,7 @@ def push_thread(namespace, server, room):
     """
 
     while server._running is True:
+        start_time = time.time()
         #Exchange comments to revert display/performance:
 
         #fxy = [server.server.get(["finger_x"])['finger_x'],
@@ -494,6 +482,7 @@ def push_thread(namespace, server, room):
             trace = server.server.get_array("tracers").tolist()
 
             socketio.emit("ret_trace", {"trace": trace}, namespace=namespace, room=room)
+        print("Framerate currently is: ", int(1.0 / (time.time() - start_time)))
         socketio.sleep(0)
 
 

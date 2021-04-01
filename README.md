@@ -278,3 +278,59 @@ Flask Communication Schema
         * HTML
           * Uses stacked HTML5 Canvas containers for model animation display
             area
+
+CHECKING FRAMERATE PERFORMANCE WITH FLASK
+
+There are two primary methods of looking at the framerate performance of the
+Flask client during operation: local and network.
+
+Local involves running the Flask client with a local computational thread and
+viewing the framerate for a running model. The default is to look at the BEC
+model of the gpe.py file, since this doesn't require manual loading of a 
+custom file (such as modeltest.py).
+
+Network involves running the Flask client with the configuration option 
+`--network True` argument, then starting a computational server process either
+locally on the same machine or remotely (such as via Swan). This will only load
+the `gpe.py` model `BEC` by default.
+
+The configuration options are given below:
+
+For local:
+	* `python bin/client --steps # --Nx # --Ny #`
+	* (optional) `--tracers True` to display tracer particles, with an 
+	  approximate factor of 2 reduction in performance.
+
+For network:
+	* `python bin/client --port 27000 --network True`
+	* (optional) `--tracers True` to display tracer particles, with an 
+	  approximate factor of 2 reduction in performance
+	* `python bin/server --steps # --Nx # --Ny #`
+
+Description of options:
+
+	* `--steps`, int, determines number of integration steps calculated
+	* `--Nx/--Ny`, int, determines x/y size of density/tracer arrays
+	* `--tracers`, bool, queues and displays tracer array particles
+	* `--network`, bool, establishes ZMQ socket remote communication
+	* `--port`, int, sets Flask client port number
+		* Needed during `--network True` to not override ZMQ port
+
+Once the client is running, there are two framerate information displays: in
+the client itself, and in the console.
+
+The client framerate information tracks total transfer time, from queueing the
+computational server, retrieval of information, transfer to client, and display.
+
+The console framerate information tracks backend transfer time, from queueing
+the computational server, retrieval of information, and transfer to the client.
+
+There has been negligible observed difference between the average of either 
+measurement.
+
+To gain a good estimation of the framerate, start the client in the appropriate
+configuration and allow 20 to 30 seconds for the framerate to stabilize.
+
+NOTE: There is not currently a more time efficient method of checking the
+framerate of varying Nxy or step sizes than starting and stopping the client
+while manually changing the configuration options for each test.
