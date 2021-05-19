@@ -2,6 +2,8 @@ syntax: glob
 
 _ext
 __pycache__
+_trash/
+.conda/
 \.nox
 \.git/
 \.cache/

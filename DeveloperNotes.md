@@ -1,12 +1,50 @@
-# Documentation
+Developer Notes
+===============
+
+## Install
+
+The install process should be specified in `Makefile`.  Currently this uses [Poetry] to
+specify dependencies etc. in `pyproject.toml`, then uses [`poetry2conda`] to generate an
+`environment-*.yml` file which can be used to create a [Conda] `super_hydro`
+environment:
+
+```bash
+make conda-env
+make conda-env-gpu    # Add cupy
+```
+
+### Conda
+
+Some issues/questions related to the [Conda] `super_hydro` environment:
+
+* Where should we create this?  Probably not in the user's base installation (which
+  might be write-only), so we should probably allow the `--prefix ${CONDA_PREFIX}`
+  option to be set.  (Maybe provide a `configure` script which allows this to be set?).
+  To be able to activate this environment by name we need to run something like:
+  
+  ```bash
+  conda config --append envs_dirs ${CONDA_PREFIX}
+  ```
+  
+  Unfortunately, this update the global
+  [env_dirs](https://docs.conda.io/projects/conda/en/latest/user-guide/configuration/use-condarc.html#specify-env-directories)
+  path, which is the hard to remove (uninstall).  We should probably just rely on
+  setting `CONDA_ENVS_PATH` as part of the environment.
+  
+
+## Conda Environment
+
+
+
+## Documentation
 
 The main API documentation is in `Docs/sphinx-source` and can be made
 by running:
 
 ```bash
-# If you need to create the environment:
-mamba devenv -f environment.dev.devenv.yml
-conda activate super_hydro
+# If you need to, activate an environment:
+poetry env use 3.8
+poetry shell
 
 # Now build the documentation.
 cd Docs
@@ -24,7 +62,7 @@ for details.
 We use the `nbsphinx` extension so that we can include Jupyter
 notebooks in the documentation.
 
-## References
+### References
 * [`numpydoc` format]
   (https://numpydoc.readthedocs.io/en/latest/format.html): We use the
   `numpydoc` format for documenting functions, classes, etc. so that
@@ -32,7 +70,7 @@ notebooks in the documentation.
 * [Sphinx](https://www.sphinx-doc.org/en/master/)
 
 
-# Publication Goals
+## Publication Goals
 
 * Installation:
 
@@ -77,13 +115,11 @@ notebooks in the documentation.
     combination of
 
 
-# Deployment
+## Deployment
 
 * Update version number in:
 
-  * `setup.py`
-  * `src/super_hydro/__init__.py`
-
+  * `pyproject.toml`
 
 # To Do
 
@@ -181,3 +217,21 @@ Remaining issues:
 * drag finger potential interaction
 * sane cooling range and interpretation
 * Running at high latency can result in overspooling computational servers
+
+
+
+Developer Notes
+===============
+
+<!-- Links -->
+[Nox]: <https://nox.thea.codes> "Nox: Flexible test automation"
+[Hypermodern Python]: <https://cjolowicz.github.io/posts/hypermodern-python-01-setup/> "Hypermodern Python"
+[`pyenv`]: <https://github.com/pyenv/pyenv> "Simple Python Version Management: pyenv"
+[`minconda`]: <https://docs.conda.io/en/latest/miniconda.html> "Miniconda"
+[Conda]: <https://docs.conda.io> "Conda"
+[Heptapod]: <https://heptapod.net> "Heptapod website"
+[pytest]: <https://docs.pytest.org> "pytest"
+[PyPI]: <https://pypi.org> "PyPI: The Python Package Index"
+[MyPI]: <https://alum.mit.edu/www/mforbes/mypi/> "MyPI: My personal package index"
+[Poetry]: <https://python-poetry.org> "Poetry: Python packaging and dependency management made easy""
+[`poetry2conda`]: <https://github.com/dojeda/poetry2conda> "poetry2conda"

@@ -1,5 +1,36 @@
+CONDA=conda
+#CONDA=mamba
+CONDA_ENVS=./.conda/envs
+CONDA_FLAGS=--prefix $(CONDA_ENVS)/super_hydro
+
+conda-env: environment-cpu.yml
+	$(CONDA) env create $(CONDA_FLAGS) -f $<
+	$(CONDA) run $(CONDA_FLAGS) pip install .
+	$(CONDA) config --append envs_dirs $(CONDA_ENVS)
+
+conda-env-gpu: environment-gpu.yml
+	$(CONDA) env create $(CONDA_FLAGS) -f $<
+	$(CONDA) run $(CONDA_FLAGS) pip install .[gpu]
+	$(CONDA) config --append envs_dirs $(CONDA_ENVS)
+
+environment-cpu.yml: pyproject.toml
+	poetry2conda $< $@
+
+environment-gpu.yml: pyproject.toml
+	poetry2conda -E gpu $< $@
+
+
 install: Jupyter_Canvas_Widget jupyter-canvas-widget
 
+clean:
+	rm -rf .nox
+	rm -rf .conda
+	-conda config --remove env_dirs $(CONDA_ENVS)
+
+real-clean: clean
+	conda clean -y --all
+
+# Old stuff
 jupyter-canvas-widget:
 	. /data/apps/conda/etc/profile.d/conda.sh                          && \
 	conda activate jupyter                                             && \
@@ -26,8 +57,6 @@ Jupyter_Canvas_Widget:
 	pip install -e _ext/Jupyter_Canvas_Widget                          && \
 	conda deactivate
 
-.PHONY: install uninstall jupyter-canvas-widget Jupyter_Canvas_Widget
-
 uninstall:
 	. /data/apps/conda/etc/profile.d/conda.sh                          && \
 	conda activate jupyter                                             && \
@@ -38,3 +67,7 @@ uninstall:
 	conda activate super_hydro                                         && \
 	pip uninstall fastcanvas jpy_canvas                                && \
 	conda deactivate
+
+
+.PHONY: real-clean clean install uninstall jupyter-canvas-widget Jupyter_Canvas_Widget conda-env
+

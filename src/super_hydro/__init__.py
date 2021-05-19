@@ -1,1 +1,3 @@
-__version__ = "0.1.1.dev"
+from importlib import metadata
+
+__version__ = metadata.version(__name__)

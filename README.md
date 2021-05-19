@@ -26,22 +26,16 @@ recommended installation path is with
    Ensure that the conda base environment is activated before
    continuing.  (The installer will offer to update your
    initialization files.)
-2. Create a `super_hydro` environment:
+2. Create a `super_hydro` environment using one of the following:
 
    ```bash
-   conda env create -f environment.yml
+   make conda-env
+   make conda-env-gpu    # If you have a GPU: this will install cupy
    ```
 
    This will create a conda environment called `super_hydro` with
    everything needed to run both the client and server.
 
-   *Notes: Specialized environments are also available for independent
-   server and client applications if needed: `environment.server.yml`
-   `environment.client.yml`.  If these are updated, developers should
-   use `conda-devenv` which will regenerate `environment.yml` from
-   `environment.devenv.yml`, including both client and server
-   requirements.  Testing should be done with `conda-devenv -f
-   environment.devenv.test.yml`.*
 3. (Optional) To run the pure JavaScript client, install the
    appropriate `Node` packages.  This requires
    [`npm`](https://www.npmjs.com) which should be installed the OS
