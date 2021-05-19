@@ -5,12 +5,12 @@ CONDA_FLAGS=--prefix $(CONDA_ENVS)/super_hydro
 
 conda-env: environment-cpu.yml
 	$(CONDA) env create $(CONDA_FLAGS) -f $<
-	$(CONDA) run $(CONDA_FLAGS) pip install .
+	$(CONDA) run $(CONDA_FLAGS) python3 -m pip install .
 	$(CONDA) config --append envs_dirs $(CONDA_ENVS)
 
 conda-env-gpu: environment-gpu.yml
 	$(CONDA) env create $(CONDA_FLAGS) -f $<
-	$(CONDA) run $(CONDA_FLAGS) pip install .[gpu]
+	$(CONDA) run $(CONDA_FLAGS) python3 -m pip install .[gpu]
 	$(CONDA) config --append envs_dirs $(CONDA_ENVS)
 
 environment-cpu.yml: pyproject.toml
