@@ -1,19 +1,22 @@
 syntax: glob
 
+.ipynb_checkpoints/
+.pytest_cache/
+\.conda/
+.nox/
+\.cache/
+\.git/
+
+Docs/sphinx-source/api/
+*.pyo
+*.pyc
+
 _ext
 __pycache__
 _trash/
-.conda/
-\.nox
-\.git/
-\.cache/
-\.pytest_cache/
 \build
 *.egg-info*
 home.bat
 htmlcov
 \.coverage
 node_modules
-\.ipynb_checkpoints/
-/Docs/\.ipynb_checkpoints/
-/Docs/Demonstrations/\.ipynb_checkpoints/

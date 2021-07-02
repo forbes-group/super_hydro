@@ -1,49 +1,49 @@
-super_hydro
-===========
+super_hydro: Exploring Superfluids
+==================================
 
-Superfluid hydrodynamics explorer.
+Welcome to the **super_hydro** superfluid explorer.  This project provides a way to
+develop intuition about superfluid dynamics through a series of interactive demonstrates
+where you can play with various superfluid demonstrations.  The simplest way to get
+started is to install the explorer, then explore the various example notebooks.
 
-This project provides a client-server interface for exploring
+For better performance, however, the explored can be run as a client-server application
+with the computations being run on a high-performance server (preferably with an Nvidia
+GPU) while you interact with the client on your device.
+
+## Installation
+
+The `super_hydro` application can simply be installed with [Pip] using one of the following:
+
+```bash
+python3 -m pip install super_hydro        # Standard install without GPU support
+python3 -m pip install super_hydro[gpu]   # Use this if you have an Nvidia GPU
+```
+
+Choose the second option if you have an Nvidia GPU.  It is recommended, however, that
+you install it into some sort of virtual environment so that you can easily remove it
+and all of the dependencies.  For details about how to create virtual environments, see
+[Installation Details](install.html#installation).
+
+## Notebook Clients
+
+The simplest way to get started is to launch a [Jupyter notebook] from the [Demo](Demos)
+folder.
+
+## Remote Server
+
+To run a remote computation server:
+
+1.  Install `super_hydro` on the remote server and setup a virtual environment, either
+    using [Conda] or as a virtual environment.
+2.  Launch the remote server using SSH while forwarding the appropriate ports.
+
+
+
+client-server interface for exploring
 superfluid dynamics.  Communication can take place over the network
 (using ZMQ) allowing a local client to connect with a computation
 server running on a high-performance computer with GPU acceleration.
 (The server can also be run locally.)
-
-Installation
-------------
-Currently both the server and preferred clients require python. The
-recommended installation path is with
-[conda](https://conda.io/en/latest/) environments:
-
-1. Download and install one of the following:
-   * [Miniconda](https://conda.io/en/latest/miniconda.html): Minimal
-     conda installation.  If you want the full anaconda stack later,
-     you can `conda install anaconda`.
-   * [Anaconda](https://www.anaconda.com/distribution/): Rather
-     complete conda installation with the full scientific computing
-     stack right from the start.
-
-   Ensure that the conda base environment is activated before
-   continuing.  (The installer will offer to update your
-   initialization files.)
-2. Create a `super_hydro` environment using one of the following:
-
-   ```bash
-   make conda-env
-   make conda-env-gpu    # If you have a GPU: this will install cupy
-   ```
-
-   This will create a conda environment called `super_hydro` with
-   everything needed to run both the client and server.
-
-3. (Optional) To run the pure JavaScript client, install the
-   appropriate `Node` packages.  This requires
-   [`npm`](https://www.npmjs.com) which should be installed the OS
-   level.  Once `nmp` is installed, you can run:
-
-   ```bash
-   make install-js-client
-   ```
 
 
 
@@ -328,3 +328,6 @@ configuration and allow 20 to 30 seconds for the framerate to stabilize.
 NOTE: There is not currently a more time efficient method of checking the
 framerate of varying Nxy or step sizes than starting and stopping the client
 while manually changing the configuration options for each test.
+
+[Pip]: <https://pip.pypa.io/en/stable/> "Package installer for Python"
+[Jupyter notebook]: <https://jupyter.org> "Jupyter Notebook"
