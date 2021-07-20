@@ -1,0 +1,7 @@
+name: super_hydro
+channels:
+  - conda-forge
+dependencies:
+  - fftw
+  - pip:
+    - . 

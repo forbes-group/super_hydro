@@ -1,0 +1,8 @@
+name: super_hydro
+channels:
+  - conda-forge
+dependencies:
+  - fftw
+  - cupy
+  - pip:
+    - .[gpu]
