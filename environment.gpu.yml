@@ -2,7 +2,8 @@ name: super_hydro
 channels:
   - conda-forge
 dependencies:
-  - fftw
+  - pyfftw
   - cupy
+  - pip 
   - pip:
     - .[gpu]

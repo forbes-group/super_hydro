@@ -2,6 +2,7 @@ name: super_hydro
 channels:
   - conda-forge
 dependencies:
-  - fftw
+  - pyfftw
+  - pip
   - pip:
     - . 

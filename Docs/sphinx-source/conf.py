@@ -18,7 +18,7 @@ import super_hydro
 
 # -- Project information -----------------------------------------------------
 
-project = "super_hydro"
+project = "Super_Hydro"
 copyright = "2020, Michael McNeil Forbes"
 author = "Michael McNeil Forbes"
 
@@ -54,7 +54,7 @@ extensions = [
     # "sphinx_thebe",
     # "sphinx_comments",
     # "sphinx_external_toc",
-    # "sphinx_panels",
+    "sphinx_panels",
     "sphinx_book_theme",
     #'recommonmark',
     #'sphinx_rtd_theme',
@@ -62,6 +62,10 @@ extensions = [
     #'IPython.sphinxext.ipython_directive',
     #'IPython.sphinxext.ipython_console_highlighting',
     #'sphinx.ext.inheritance_diagram',
+]
+
+myst_enable_extensions = [
+    "substitution",
 ]
 
 # Add any paths that contain templates here, relative to this directory.
@@ -87,6 +91,7 @@ bibtex_reference_style = "author_year"
 html_theme = "alabaster"
 html_theme = "sphinx_rtd_theme"
 html_theme = "sphinx_book_theme"
+html_logo = "logo.jpg"
 
 html_theme_options = {
     "repository_url": "https://hg.iscimath.org/mforbes/super_hydro",

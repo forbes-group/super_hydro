@@ -14,7 +14,8 @@ To get started, create a virtual environment for use with [Poetry] with the `tes
 ```bash
 poetry env use python3.9
 poetry install
-poetry install -E gpu   # If you have an Nvidia GPU
+poetry install -E fftw   # If you have the FFTW libraries
+poetry install -E gpu    # If you have an NVIDIA GPU
 ```
 
 To get to work, activate the virtual environment:
@@ -103,8 +104,7 @@ Some issues/questions related to the [Conda] `super_hydro` environment:
 
 ## Documentation
 
-The main API documentation is in `Docs/sphinx-source` and can be made
-by running:
+The main API documentation is in `Docs/sphinx-source` and can be made by running:
 
 ```bash
 # If you need to, activate an environment:
@@ -118,11 +118,47 @@ make html
 open _build/html/index.html
 ```
 
-This uses Sphinx, and should be maintained so that it can be published
-at [Read the Docs](https://readthedocs.org).  See [Getting Started
-with
+If you are working on documentation, you can have it auto-build when you save changes by
+running:
+
+```bash
+make auto
+```
+
+then visiting http://127.0.0.1:8000.
+
+### Sphinx/Jupyter Book
+
+The documentation uses [Sphinx], following the approach of [Jupyter Book] without
+explicitly using the Jupyter Book tools as discussed in the section [Jupyter Book is a
+distribution of
+Sphinx](https://jupyterbook.org/explain/sphinx.html#jupyter-book-is-a-distribution-of-sphinx).
+
+
+### Read the Docs
+The documentation nd should be maintained so that it can be published at [Read the
+Docs].  See [Getting Started with
 Sphinx](https://docs.readthedocs.io/en/stable/intro/getting-started-with-sphinx.html)
 for details.
+
+### Structure
+
+The documentation is defined in the [`Docs/sphinx-source`](Docs/sphinx-source) folder
+with the following files:
+
+* [`conf.py`](Docs/sphinx-source/conf.py): Configuration of Sphinx and the documentation
+  in general.
+* [`index.md`](Docs/sphinx-source/index.md): Master file.  This defines the landing page
+  and the overall structure through `{toctree}` statements.  The file is written in the
+  [MyST] format which is an extension of [Markdown] with special syntax to support
+  ReStructure text features used by [Sphinx].
+* [`README.md`](README.md): Symlink to the top-level README file.  This is currently
+   directly included in [`index.md`](Docs/sphinx-source/index.md) and so should be
+   maintained so that it displays properly on GitHub and GitLab repos.  (See [this SO
+   question](https://stackoverflow.com/questions/9331281/how-can-i-test-what-my-readme-md-file-will-look-like-before-committing-to-github)
+   for some suggestions on how to validate your page.)
+* 
+
 
 We use the `nbsphinx` extension so that we can include Jupyter
 notebooks in the documentation.
@@ -359,7 +395,9 @@ Developer Notes
 [MyPI]: <https://alum.mit.edu/www/mforbes/mypi/> "MyPI: My personal package index"
 [Poetry]: <https://python-poetry.org> "Poetry: Python packaging and dependency management made easy"
 [`poetry2conda`]: <https://github.com/dojeda/poetry2conda> "poetry2conda"
-
+[Jupyter Book]: <https://jupyterbook.org> "Jupyter Book"
+[Read the Docs]: <https://readthedocs.org> "Read the Docs"
+[MyST]: <https://myst-parser.readthedocs.io> "MyST - Markedly Structured Text"
 
 Bibliography
 ============
