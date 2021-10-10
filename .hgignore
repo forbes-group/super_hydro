@@ -12,6 +12,8 @@ Docs/sphinx-source/api/
 *.pyc
 
 _ext
+envs/
+.venv/
 __pycache__
 _trash/
 \build

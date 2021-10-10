@@ -125,8 +125,7 @@ class App(object):
     #
     # These methods communicate with the server.
     def quit(self):
-        """Passes 'quit' command to connected server.
-        """
+        """Passes 'quit' command to connected server."""
         self.server.do("quit")
         self._running = False
 
@@ -139,8 +138,7 @@ class App(object):
 
 
 def shutdown_server():
-    """Shuts down the Flask-SocketIO instance.
-    """
+    """Shuts down the Flask-SocketIO instance."""
     print("Shutting down...")
     socketio.stop()
 
@@ -269,14 +267,18 @@ class Demonstration(Namespace):
             self.fsh[f"{model}"] = dict.fromkeys(["server", "users", "d_thread"])
             if opts.network == False:
                 self.fsh[f"{model}"]["server"] = get_app(
-                    run_server=True, network_server=False, steps=opts.steps, model=model,
-                    Nx=opts.Nx, Ny=opts.Ny
+                    run_server=True,
+                    network_server=False,
+                    steps=opts.steps,
+                    model=model,
+                    Nx=opts.Nx,
+                    Ny=opts.Ny,
                 )
             else:
                 self.fsh[f"{model}"]["server"] = get_app(
                     run_server=False, network_server=True, steps=opts.steps, model=model
                 )
-                self.fsh[f'{model}']['server'].run()
+                self.fsh[f"{model}"]["server"].run()
         join_room(model)
         if self.fsh[f"{model}"]["users"] is None:
             self.fsh[f"{model}"]["users"] = 1
@@ -284,7 +286,9 @@ class Demonstration(Namespace):
             self.fsh[f"{model}"]["users"] += 1
         self.fsh["init"] = {}
         for param in data["params"]:
-            self.fsh['init'].update(self.fsh[f'{model}']['server'].server.get([f'{param}']))
+            self.fsh["init"].update(
+                self.fsh[f"{model}"]["server"].server.get([f"{param}"])
+            )
         emit("init", self.fsh["init"], room=model)
         if self.fsh[f"{model}"]["d_thread"] is None:
             self.fsh[f"{model}"]["d_thread"] = socketio.start_background_task(
@@ -382,7 +386,7 @@ class Demonstration(Namespace):
         server = self.fsh[f"{model}"]["server"].server
         for key, value in data["position"].items():
             Nxy = server.get(["Nxy"])["Nxy"]
-            dx = server.get(["dx"])['dx']
+            dx = server.get(["dx"])["dx"]
             pos = (np.asarray(data["position"]["xy0"]) - 0.5) * Nxy * dx
             pos = pos.tolist()
             self.fsh[f"{model}"]["server"].server.set({f"{key}": pos})
@@ -455,13 +459,13 @@ def push_thread(namespace, server, room):
 
     while server._running is True:
         start_time = time.time()
-        #Exchange comments to revert display/performance:
+        # Exchange comments to revert display/performance:
 
-        #fxy = [server.server.get(["finger_x"])['finger_x'],
+        # fxy = [server.server.get(["finger_x"])['finger_x'],
         #        server.server.get(["finger_y"])['finger_y']]
-        #vxy = server.server.get(['Vpos'])['Vpos']
-        
-        fxy = vxy = [0.5,0.5]
+        # vxy = server.server.get(['Vpos'])['Vpos']
+
+        fxy = vxy = [0.5, 0.5]
 
         density = server.server.get_array("density")
 
@@ -494,8 +498,8 @@ def push_thread(namespace, server, room):
 def call_server(
     model, block=True, network_server=True, interrupted=False, args=None, kwargs={}
 ):
-    """Generates a Server object for computation and communication. Loads in a 
-    series of configuration options as well as the specified computational 
+    """Generates a Server object for computation and communication. Loads in a
+    series of configuration options as well as the specified computational
     model to run.
 
     Parameters
@@ -521,7 +525,6 @@ def call_server(
     parser = config.get_server_parser()
     opts, other_args = parser.parse_known_args(args=args)
     opts.__dict__.update(kwargs)
-    
 
     module = importlib.import_module(modpath)
     opts.State = getattr(module, model)

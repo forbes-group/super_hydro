@@ -8,23 +8,50 @@ especially when trying to install GPU dependencies.  For primary development wor
 should try to use [Poetry], falling back to [Conda] if needed for speed or to get binary
 dependencies.
 
-To get started, create a virtual environment for use with [Poetry] with the `test` and
-`doc` extras:
+1. Install a virtual environment.  This can either be pure pure python or with [Conda]:
+    * Pure Python:
 
-```bash
-poetry env use python3.9
-poetry install
-poetry install -E fftw   # If you have the FFTW libraries
-poetry install -E gpu    # If you have an NVIDIA GPU
-```
+        ```bash
+        poetry env use python3.9
+        ```
+   * [Conda]:  If you want to use [Conda], first create an environment and activate it.
+       We have an `anaconda-project.yaml` file which can be used to create appropriate
+       [Conda] environments:
 
-To get to work, activate the virtual environment:
+       ```bash
+       anaconda-project prepare --refresh
+       conda activate envs/super_hydro
+       ```
+      
+       or
 
-```bash
-poetry shell
-```
+       ```bash
+       anaconda-project prepare --env-spec super_hydro_gpu   # If you have an NVIDIA GPU
+       conda activate envs/super_hydro_gpu
+       ```
 
-```{admonition} Jupyter Kernel
+2. Use [Poetry] to install `super_hydro` with the `tests` and `docs` extras and
+    optionally with the `fftw` or `gpu` extras if you have the FFTW libraries and/or
+    NVIDIA Cuda libraries installed: 
+
+    ```bash
+    poetry install -E tests -E docs
+    poetry install -E tests -E docs -E fftw  # If you have the FFTW libraries
+    poetry install -E tests -E docs -E gpu   # If you have an NVIDIA GPU
+    ```
+
+    Note: If you are using [Conda], be sure to first `conda activate` the appropriate
+    environment.  I do not know a way to get `poetry env use` to do this by default.
+
+3. Run a shell and use `super_hydro`:
+
+    ```bash
+    poetry shell                     # If using pure poetry
+    conda activate envs/super_hydro  # If using Conda
+    ```
+
+
+````{admonition} Jupyter Kernel
 If you run [Jupyter] outside of the virtual environment, then you should install the `super_hydro`
 kernel so it is available with your version of [Jupyter].  For example, the following
 will register a kernel named `super_hydro` in your personal Jupyter configuration folder.
@@ -33,7 +60,7 @@ will register a kernel named `super_hydro` in your personal Jupyter configuratio
    jupyter kernelspec install $(poetry env info -p) --user --name=super_hydro
    ```
 
-```
+````
 
 ```
 poetry run python3 -m ipykernel install --sys-prefix
@@ -49,6 +76,8 @@ poetry install
 ```
 
 You can then activate this with `poetry shell` for development work.
+
+
 
 
 
@@ -96,7 +125,75 @@ Some issues/questions related to the [Conda] `super_hydro` environment:
   [env_dirs](https://docs.conda.io/projects/conda/en/latest/user-guide/configuration/use-condarc.html#specify-env-directories)
   path, which is the hard to remove (uninstall).  We should probably just rely on
   setting `CONDA_ENVS_PATH` as part of the environment.
-  
+
+````{admonition} Environment Activation
+In the remainder of the documentation, we shall assume that the appropriate environment
+is first activated with one of the following:
+
+   ```
+   poetry shell                # If using poetry
+   conda activate super_hydro  # If using conda
+   ```
+
+````
+
+## Running the Server
+
+There are several options for running the computation server.
+
+### Notebook Client
+
+With the notebook interface, you can launch a server and view the results from a Jupyter
+notebook.  Start a jupyter notebook server and visit
+[Docs/Demonstrations/Contents%20(Start%20Here).ipynb](Docs/Demonstrations/Contents%20(Start%20Here).ipynb):
+
+```bash
+conda activate super_hydro
+jupyter notebook "Docs/Demonstrations/Contents (Start Here).ipynb"
+```
+
+### Standalone Server
+
+The computation server can also be started independently by running:
+
+```bash
+conda activate super_hydro
+python bin/server
+```
+
+This will start a server listening on the port specified in `super_hydro.conf` (by
+default `27372`).  You can then connect to this port with any of the clients.  By
+default, for security, the server only listens for connection from the same computer
+(`localhost`).  To run a server on another machine, first setup an ssh tunnel to the
+server forwarding the port.  For example:
+
+```bash
+<local > $ ssh <user@remote.machine.edu> -L 27372:27372
+<remote> $ cd super_hydro
+<remote> $ conda activate super_hydro # or poetry shell as needed
+<remote> $ python bin/server
+```
+
+### [Flask] Client
+
+The simplest approach is to just run the [Flask] client:
+
+```bash
+poetry run python bin/client              # If using pure python
+anaconda-project run python bin/client    # If using conda
+```
+
+This will start a [Flask] webserver listening on the specified port.  Connecting a
+browser to this will allow you to select the various demonstrations from a menu, which
+will then launch a server, allowing you to run the simulation.
+
+## Details
+
+These are my attempts to understand the structure of Kyle's [Flask] code.
+
+
+* `templates/`
+
 
 ## Conda Environment
 
@@ -352,6 +449,30 @@ when trying to restart.
     
         python3 -m ipykernel install --sys-prefix --name super_hydro --display-name super_hydro
 
+Sat 9 Oct 2021
+==============
+Working on dependency resolution etc.  We should support the following cases:
+1. Plain install with pip and poetry with `tests`, `docs`, `gpu`, and `fftw` options.
+   These will only install with pip, so the user will be required to install other
+   dependencies like CUDA for using the gpu.
+2. Use [Conda] to install binary backends such as `cupy`, then pip/poetry on this.
+
+   * Poetry can use the Conda environment.  Perhaps this could work, but there must be
+     explicit instructions to first activate the conda environment, then to run poetry.
+     Some questions:
+     
+     * Can we use `poetry env use` somehow to specify the conda environment for
+       development?  I tried linking `.venvs -> envs/super_hydro`, the latter being
+       created with `anaconda-project` but poetry complains:
+       
+       ```bash
+       bash: .../.venv/bin/activate: No such file or directory
+       ```
+       
+3. Anaconda-project is nice.  Can we also support this?
+   * I can't seem to put `.` in the pip section.
+
+
 
 Thu 16 July 2020
 ================
@@ -376,10 +497,21 @@ Remaining issues:
 * sane cooling range and interpretation
 * Running at high latency can result in overspooling computational servers
 
+Lobby Display
+=============
+Iteration 0: Run everything on penguin (or swan).
+* Install SSH.
+* Generate a key, and save in a non-privileged account on penguin.
+* Configure to forward appropriate port.
+* SSH and run server + flask.
+* Open http://localhost:<port> in fullscreen browser.
 
+* Implement a timeout on the server.
+* Single command to start both computation and flask server.
 
-Developer Notes
-===============
+Issues
+======
+ * [Cupy] is not available for Mac OS X from [conda-forge].
 
 <!-- Links -->
 [`Makefile`]: Makefile
@@ -398,6 +530,8 @@ Developer Notes
 [Jupyter Book]: <https://jupyterbook.org> "Jupyter Book"
 [Read the Docs]: <https://readthedocs.org> "Read the Docs"
 [MyST]: <https://myst-parser.readthedocs.io> "MyST - Markedly Structured Text"
+[Cupy]: <https://cupy.dev/> "NumPy/SciPy-compatible Array Library for GPU-accelerated Computing with Python"
+[Flask]: <https://flask.palletsprojects.com>
 
 Bibliography
 ============
