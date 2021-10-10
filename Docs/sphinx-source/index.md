@@ -1,13 +1,3 @@
----
-substitutions:
-  nsf_logo: |
-    ```{image} https://www.nsf.gov/images/logos/NSF_4-Color_bitmap_Logo.png
-    :alt: National Science Foundation (NSF)
-    :width: 10%
-    :target: https://www.nsf.gov/
-    ```
----
-
 <!-- Literally include the README.md file -->
 ```{include} README.md
 ```

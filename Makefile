@@ -32,12 +32,26 @@ environment-gpu.yaml: pyproject.toml
 
 install: Jupyter_Canvas_Widget jupyter-canvas-widget
 
+clean:
+	rm -rf .nox
+	rm -rf .conda
+	-conda config --remove env_dirs $(CONDA_ENVS)
+
+real-clean: clean
+	conda clean -y --all
+
+.PHONY: init real-clean clean install uninstall conda-env conda-env-gpu
+
+######################################################################
+# Documentation
+
 doc-server:
-	$(RUN) sphinx-autobuild --ignore '*/Docs/_build/*' Docs Docs/_build/html
+	$(RUN) sphinx-autobuild --ignore '*/Docs/_build/*' Docs/sphinx-source/ Docs/_build/html
 
+.PHONY: doc-server
+
+######################################################################
 # Jupytext
-.PHONY: pair sync
-
 pair:
 	find . -name ".ipynb_checkpoints" -prune -o \
 	       -name "_ext" -prune -o \
@@ -53,13 +67,7 @@ sync:
 	       -exec jupytext --sync {} + 2> >(grep -v "is not a paired notebook" 1>&2)
 # See https://stackoverflow.com/a/15936384/1088938 for details
 
-clean:
-	rm -rf .nox
-	rm -rf .conda
-	-conda config --remove env_dirs $(CONDA_ENVS)
-
-real-clean: clean
-	conda clean -y --all
+.PHONY: pair sync
 
 # Old stuff
 jupyter-canvas-widget:

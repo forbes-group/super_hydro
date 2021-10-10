@@ -6,3 +6,10 @@
     <a href="{{pathto('genindex.html', 1)}}">Index</a>
     <a href="{{pathto('modindex.html', 1)}}">Module Index</a>
   {% endblock %}
+
+  {% block content %}
+    <!-- begin mathjax_defines -->
+    <div hidden>\[{{ mathjax_defines }}\]</div>
+    <!-- end mathjax_defines -->
+    {{ super() }}
+  {% endblock %}
