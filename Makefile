@@ -35,6 +35,16 @@ install: Jupyter_Canvas_Widget jupyter-canvas-widget
 doc-server:
 	$(RUN) sphinx-autobuild --ignore '*/Docs/_build/*' Docs Docs/_build/html
 
+# Jupytext
+.PHONY: pair sync
+
+pair:
+	find . -name ".ipynb_checkpoints" -prune -o \
+	       -name "_ext" -prune -o \
+	       -name "envs" -prune -o \
+	       -name "*.ipynb" \
+	       -exec jupytext --set-formats ipynb,myst {} + 
+
 sync:
 	find . -name ".ipynb_checkpoints" -prune -o \
 	       -name "_ext" -prune -o \
@@ -147,5 +157,7 @@ Maintenance:
 Documentation:
    make doc-server   Build the html documentation server on http://localhost:8000
                      Uses Sphinx autobuild
+   make pair         Find all notebooks, and pair them with MyST .md files.
+   make sync         Sync all paird notebooks.
 endef
 export HELP_MESSAGE
