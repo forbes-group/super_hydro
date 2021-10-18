@@ -187,7 +187,6 @@ class BEC(GPEBase):
         [w.Checkbox(True, name="cylinder", description="Trap"), GPEBase.layout]
     )
 
-
     def __init__(self, opts):
         super().__init__(opts=opts)
 
@@ -342,7 +341,6 @@ class BECVortices(BEC):
         ]
     )
 
-
     def init(self):
         self.Omega = 0
         super().init()
@@ -387,7 +385,6 @@ class BECFlow(BEC):
         ]
     )
 
-
     def init(self):
         super().init()
         kx, ky = self.kxy
@@ -410,7 +407,6 @@ class BECVortexRing(BECFlow):
     t = 0.0
 
     layout = w.VBox([BECFlow.layout])
-
 
     def init(self):
         super().init()
@@ -457,7 +453,6 @@ class BECSoliton(BECFlow):
             BECFlow.layout,
         ]
     )
-
 
     def set(self, param, value):
         super().set(param, value)
@@ -508,7 +503,6 @@ class BECQuantumFriction(BEC):
         ]
     )
 
-
     def get_Kc(self):
         raise NotImplementedError()
 
@@ -550,7 +544,6 @@ class BECBreather(BEC):
 
     layout = w.VBox([BEC.layout])
 
-
     def get_V_trap(self):
         """Return any static trapping potential."""
         x, y = self.xy
@@ -575,3 +568,68 @@ class BECBreather(BEC):
         theta = (np.angle(z) + np.pi) % (2 * np.pi / self.Nshape) - np.pi / self.Nshape
         n = np.where((r * np.exp(1j * theta)).real <= self.R * Lx / 2, self.n0, 0)
         self.data[...] = np.sqrt(n)
+
+
+@implementer(interfaces.IModel)
+class PersistentCurrents(BEC):
+    """Model of a ring trap to explore dynamical generation of persistent currents.
+
+    Persistent currents are one of the hallmarks of superfluidity.  If you can establish
+    a flow around a ring, that flow will persist for long periods of time due to the
+    lack of viscous dissipation.
+
+    However, for the same reason, establishing a persistent current can be challenging.
+    This demonstration explores various ways of generating currents in a ring trap.
+    """
+
+    params = dict(
+        BEC.params,
+        R1=0.5,  # Fraction of Lx/2
+        R2=0.9,  # Fraction of Lx/2
+        dR=0.1,  # Thickness of barrier in fraction of Lx/2
+        cooling=1e-10,
+        tracer_particles=100,
+        finger_V0_mu=0.0,
+        winding=0,  # Number of windings
+    )
+
+    layout = w.VBox([BEC.layout])
+
+    def set_initial_data(self):
+        """Set the initial state.
+
+        Here we start with particles in the ground state with `winding` of circulation.
+        """
+        V = self.get_V_trap()
+        n0 = np.where(V < self.mu, (self.mu - V) / self.g, 0)
+        self.data = np.ones(self.Nxy, dtype=complex) * np.sqrt(n0)
+        self._N = self.get_density().sum()
+
+        # Cool a bit to remove transients.
+        _phase, self._phase = self._phase, -1 / self.hbar
+        self.t = -10000
+        self.step(self.cooling_steps, tracer_particles=None)
+        self.t = 0
+        self._phase = _phase
+
+        x, y = self.xy
+        self.data *= np.exp(1j * self.winding * np.angle(x + 1j * y))
+
+        if self.random_phase:
+            phase = 2 * np.pi * np.random.random(self.Nxy)
+            self.data *= np.exp(1j * phase)
+
+    def get_V_trap(self):
+        """Return any static trapping potential.
+
+        Here we generate a ring potential.
+        """
+        x, y = self.xy
+        Lx, Ly = self.Lxy
+        r2_ = (2 * x / Lx) ** 2 + (2 * y / Ly) ** 2
+        step = (
+            1
+            - utils.mstep(r2_ - self.R1 ** 2, self.dR ** 2)
+            + utils.mstep(r2_ - self.R2 ** 2, self.dR ** 2)
+        )
+        return 100 * self.mu * step

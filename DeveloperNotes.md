@@ -179,8 +179,8 @@ server forwarding the port.  For example:
 The simplest approach is to just run the [Flask] client:
 
 ```bash
-poetry run python bin/client              # If using pure python
-anaconda-project run python bin/client    # If using conda
+poetry run python bin/client   # If using pure python
+anaconda-project run client    # If using conda
 ```
 
 This will start a [Flask] webserver listening on the specified port.  Connecting a
