@@ -22,7 +22,7 @@ USE_CONDA = true
 init:
 ifeq ($(USE_CONDA), true)
 	anaconda-project run init
-prepare --env-spec $(ENV)
+	anaconda-project prepare --refresh --env-spec $(ENV)
 	$(CONDA_ACTIVATE) $(CONDA_ENVS)/$(ENV) &&           \
         poetry install -E docs -E tests -E fftw
 else

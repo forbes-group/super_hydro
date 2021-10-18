@@ -14,7 +14,7 @@ physics module containing intended simulation models (models). From this,
 it pulls the names of all classes/models contained within and stores them.
 
 It then begins hosting the Client on the designated host IP and Port number,
-using the Flask `render_template()` function with `@app.route()` decorators
+using the Flask `render_template()` function with `@APP.route()` decorators
 to manage HTTP routes to the landing page (index) or model page.
 
 The model page routing is dynamically generated based on the chosen model,
@@ -153,7 +153,7 @@ The Flask client loads in the appropriate model (User defined or default) and
 reads the class names into a list (clsmembers). Once complete, and the Flask
 socketio.run() command is called, Flask creates an HTTP hosting framework on the
 configured host ip address and port where it routes by default to the landing
-page, identified by the decorator `@app.route('/')` over the function index().
+page, identified by the decorator `@APP.route('/')` over the function index().
 
 The index() route use the built-in Flask commands to render `index.html`, which
 builds upon `base.html` which contains the navigation bar and general use APIs
@@ -161,7 +161,7 @@ for CSS and Javascript.
 
 On the rendered HTML page, the drop down navigation bar will list all found
 elements of clsmembers; each is used as an input variable to the dynamic Flask
-HTTP route `@app.route('/<cls>')` to initiate the `modelpage(cls)` function,
+HTTP route `@APP.route('/<cls>')` to initiate the `modelpage(cls)` function,
 which then uses Flask's `render_template` to generate the `model.html` template
 file, using `getattr()` to pull the specified class object for reading the
 docstring (`info`), interactive slider/checkbox formatting (`slider`) and to
@@ -221,7 +221,7 @@ Flask Communication Schema
 * super\_hydro.client.flask\_client load w/ configuration options
   * flask.socketio.run() starts Flask routing framework w/ eventlet socket
     handling (implicit)
-    * HTTP Routes (`@app.route()` decorator):
+    * HTTP Routes (`@APP.route()` decorator):
       * index/landing page
         * reads class list for dynamic model page routing navigation bar
       * model page
