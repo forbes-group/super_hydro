@@ -4,12 +4,8 @@ import time
 import numpy as np
 
 # This is needed to make sure super_hydro is in the import pathing
-import os.path as osp
-
-two_up = osp.abspath(osp.dirname(osp.dirname(osp.dirname(__file__))))
-import sys, inspect
-
-sys.path.insert(0, f"{two_up}")
+# two_up = os.path.abspath(os.path.dirname(os.path.dirname(os.path.dirname(__file__))))
+# sys.path.insert(0, f"{two_up}")
 
 # Additional Package Imports
 from flask import Flask, render_template, request
@@ -594,3 +590,7 @@ def run():
 
     print(f"Running Flask client on http://{opts.host}:{opts.port}")
     socketio.run(app, host=opts.host, port=opts.port, debug=opts.debug)
+
+
+if __name__ == "__main__":
+    run()

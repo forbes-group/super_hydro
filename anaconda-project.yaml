@@ -25,16 +25,21 @@ description: Superfluid Hydrodynamics Explorer
 # Use `anaconda-project add-command` to add commands.
 #
 commands:
+  client:
+    unix: "python -m super_hydro.client.flask_client"
+    env_spec: super_hydro
+    
   shell:
-    unix: |   #bash --init-file /dev/null  # Suppress startup files which might activate another env
-      conda activate
+    unix: bash --init-file .init-file.bash
     env_spec: super_hydro
 
   # Needs to be explicitly called until we can run scripts on prepare
   # https://github.com/Anaconda-Platform/anaconda-project/issues/239
   init:
-    unix: python3 -m ipykernel install --user --name "phys-581-2021" --display-name
-      "Python 3 (phys-581-2021)"
+    unix: |
+      python3 -m ipykernel install --user --name "super_hydro" --display-name "Python 3 (super_hydro)"
+      jupyter nbextensions_configurator enable --user
+      #jupyter nbextension enable 
     env_spec: super_hydro
 
 #

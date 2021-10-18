@@ -1,6 +1,8 @@
 # Need to specify bash in order for conda activate to work.
 SHELL=/bin/bash
 
+PYTHON ?= python3
+
 ENV ?= super_hydro
 CONDA_EXE ?= conda
 #CONDA_EXE = mamba
@@ -8,11 +10,25 @@ CONDA_EXE ?= conda
 # Note that the extra activate is needed to ensure that the activate floats env to the front of PATH
 CONDA_ACTIVATE=source $$(conda info --base)/etc/profile.d/conda.sh ; conda activate base; conda activate
 
-CONDA_ENVS = ./.conda/envs
+CONDA_ENVS = ./envs
 CONDA_FLAGS = --prefix $(CONDA_ENVS)/$(ENV)
 
 RUN = $(CONDA_EXE) run $(CONDA_FLAGS)
 #RUN = $(ANACONDA_PROJECT) run
+
+USE_CONDA = true
+######################################################################
+# Installation
+init:
+ifeq ($(USE_CONDA), true)
+	anaconda-project run init
+prepare --env-spec $(ENV)
+	$(CONDA_ACTIVATE) $(CONDA_ENVS)/$(ENV) &&           \
+        poetry install -E docs -E tests -E fftw
+else
+	$(PYTHON) -m venv .venv
+	poetry install -E docs -E tests -E fftw
+endif
 
 conda-env: environment-cpu.yaml
 	$(CONDA_EXE) env create $(CONDA_FLAGS) -f $<
