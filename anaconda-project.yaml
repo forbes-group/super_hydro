@@ -29,6 +29,10 @@ commands:
     unix: bash --init-file .init-file.bash
     env_spec: super_hydro
 
+  shell_gpu:
+    unix: bash --init-file .init-file.bash
+    env_spec: super_hydro_gpu
+
   deactivate:
     unix: |
       for i in $(seq ${CONDA_SHLVL}); do
@@ -51,6 +55,14 @@ commands:
       #jupyter nbextension enable 
     env_spec: super_hydro
 
+  init_gpu:
+    unix: |
+      pip install --use-feature=in-tree-build .[docs,tests,fftw,gpu]
+      python3 -m ipykernel install --user --name "super_hydro_gpu" --display-name "Python 3 (super_hydro_gpu)"
+      jupyter nbextensions_configurator enable --user
+      #jupyter nbextension enable 
+    env_spec: super_hydro_gpu
+    
 #
 # In the variables section, list any environment variables your code depends on.
 # Use `anaconda-project add-variable` to add variables.
@@ -131,7 +143,7 @@ env_specs:
     channels: []
 
   super_hydro_gpu:
-    description: Performance version with GPU support.
+    description: Performance version with FFT and GPU support.
     dependencies:
     - conda-forge::cupy
     channels: []

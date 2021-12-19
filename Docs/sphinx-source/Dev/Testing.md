@@ -15,6 +15,25 @@ kernelspec:
 Testing
 =======
 
+# Server
+
+The server can be started from the command-line.
+
+As follows:
+
+```bash
+
+```
+
+# Minimal Example
+
+As a minimal example, we launch and start a server, then connect with a minimal client,
+then terminate the server from the client.
+
+```bash
+```
+
+
 This document has some tests that can be run as a notebook.
 
 ```{code-cell} ipython3

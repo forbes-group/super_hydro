@@ -207,19 +207,12 @@ These are my attempts to understand the structure of Kyle's [Flask] code.
 
 * `templates/`
 
-
-## Conda Environment
-
-
-
 ## Documentation
 
 The main API documentation is in `Docs/sphinx-source` and can be made by running:
 
 ```bash
-# If you need to, activate an environment:
-poetry env use 3.8
-poetry shell
+anaconda-project run shell
 
 # Now build the documentation.
 cd Docs
@@ -232,7 +225,7 @@ If you are working on documentation, you can have it auto-build when you save ch
 running:
 
 ```bash
-make auto
+make dev-server
 ```
 
 then visiting http://127.0.0.1:8000.
@@ -495,3 +488,4 @@ Issues
 [MyST]: <https://myst-parser.readthedocs.io> "MyST - Markedly Structured Text"
 [Cupy]: <https://cupy.dev/> "NumPy/SciPy-compatible Array Library for GPU-accelerated Computing with Python"
 [Flask]: <https://flask.palletsprojects.com>
+[Sphinx]: <https://www.sphinx-doc.org/en/master/> "Sphinx"

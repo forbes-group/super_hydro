@@ -1,5 +1,5 @@
-Super_Hydro: Exploring Superfluids
-==================================
+[Super_Hydro]: Exploring Superfluids
+====================================
 
 Welcome to the **super_hydro** superfluid explorer.  This project provides a way to
 develop intuition about superfluid dynamics through a series of interactive demonstrates
@@ -10,37 +10,56 @@ For better performance, however, the explored can be run as a client-server appl
 with the computations being run on a high-performance server (preferably with an Nvidia
 GPU) while you interact with the client on your device.
 
-## Installation
+## Install [Super_Hydro]
 
-The `super_hydro` application can simply be installed with [Pip] using one of the following:
+Although [super_hydro] can be installed directly with [Pip]:
 
 ```bash
-python3 -m pip install super_hydro        # Install without GPU support
-python3 -m pip install super_hydro[fftw]  # Use if you have the FFTW library
-python3 -m pip install super_hydro[gpu]   # Use if you have an NVIDIA GPU
+python3 -m pip install super_hydro
 ```
 
-The `fftw` and `gpu` extras require specific libraries that cannot be installed with [Pip],
-but which will improve performance:
-* `[fftw]`: Install the [pyFFTW] library which requires the [FFTW] libraries to be
-  installed on your system.
-* `[gpu]`: Install the [CuPy] library which requires an [NVIDIA] GPU as well as
-  the corresponding [CUDA] toolkit to be installed on your system.
-  
-Optionally, these can be installed using [Conda]:
+it is recommended that you first create a [Conda] environment with any performance
+libraries such as the [FFTW] libraries or the [NVIDIA] [CUDA] toolkit *(only if you have
+a suitable NVIDIA GPU)*:
 
 ```bash
-conda env create -f environment.cpu.yml  # No GPU support
-conda env create -f environment.gpu.yml  # If you have an NVIDIA GPU
-```
-
-These will create an environment called `super_hydro` with the [FFTW] or [CUDA]
-libraries installed which you can then activate:
-
-```bash
+conda env create -n super_hydro -f anaconda-project.yaml
+conda install -n super_hydro conda-forge::pyfftw # FFTW support
+conda install -n super_hydro conda-forge::cupy   # GPU support
 conda activate super_hydro
+python3 -m pip install super_hydro[fftw,gpu]     # Choose your options
 ```
-  
+
+The reason is that [Pip] cannot install the binary dependencies, and there can be subtle
+version issues that [Conda] resolves.
+
+If you want to use the notebook demonstrations, then you should also install the
+`super_hydro` [Jupyter] kernel:
+
+```bash
+python3 -m ipykernel install --user --name "super_hydro" --display-name "Python 3 (super_hydro)"
+```
+
+**Source**
+
+If you are working from a source distribution, then all of this can be automated with
+[Anaconda Project]:
+
+```bash
+anaconda-project run init      # No GPU support (use for client)
+# OR
+anaconda-project run init_gpu  # If you have an NVIDA GPU
+```
+
+This will create and update the appropriate [Conda] environment in `envs/`.  You can
+then either activate a shell
+
+```bash
+anaconda-project run shell
+# OR
+anaconda-project run shell_gpu
+```
+
 For more details, see {ref}`sec:install` for more details.
 
 ## Getting Started
@@ -68,11 +87,13 @@ opinions, findings, and conclusions or recommendations expressed in this materia
 those of the author(s) and do not necessarily reflect the views of the National Science
 Foundation.
 
-[Pip]: <https://pip.pypa.io/en/stable/> "Package installer for Python"
-[Jupyter notebook]: <https://jupyter.org> "Jupyter Notebook"
-[pyFFTW]: <https://github.com/pyFFTW/pyFFTW> "pyFFTW: A pythonic python wrapper around FFTW"
-[FFTW]: <https://www.fftw.org> "FFTW: The Fastest Fourier Transform in the West"
-[CuPy]: <https://cupy.dev> "CuPy: NumPy/SciPy-compatible Array Library for GPU-accelerated Computing with Python"
-[NVIDIA]: <https://www.nvidia.com/en-us/> "NVIDIA"
+[Anaconda Project]: <https://github.com/Anaconda-Platform/anaconda-project> "Anaconda Project"
 [CUDA]: <https://developer.nvidia.com/cuda-toolkit> "CUDA Toolkit"
 [Conda]: <https://docs.conda.io> "Conda"
+[CuPy]: <https://cupy.dev> "CuPy: NumPy/SciPy-compatible Array Library for GPU-accelerated Computing with Python"
+[FFTW]: <https://www.fftw.org> "FFTW: The Fastest Fourier Transform in the West"
+[Jupyter notebook]: <https://jupyter.org> "Jupyter Notebook"
+[NVIDIA]: <https://www.nvidia.com/en-us/> "NVIDIA"
+[Pip]: <https://pip.pypa.io/en/stable/> "Package installer for Python"
+[pyFFTW]: <https://github.com/pyFFTW/pyFFTW> "pyFFTW: A pythonic python wrapper around FFTW"
+[super_hydro]: <https://alum.mit.edu/www/mforbes/super_hydro> "Super_Hydro homepage"

@@ -30,13 +30,10 @@ The application is divided into three logical components:
   * `super_hydro.communication.NetworkServer`: Provides a network interface through
     which python clients can communicate with a running server vi TCP/IP.
 
-
 **Client**
 : The client provides a front-end for the user, displaying the evolution,
   and providing controls through which the user can interact with the computation
   server.
-
-
 
 # Programming API
 

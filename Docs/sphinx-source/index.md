@@ -8,7 +8,7 @@
 :maxdepth: 3
 :hidden:
 
-install
+Installation
 Overview
 ```
 
@@ -27,8 +27,18 @@ DeveloperNotes
 :caption: Super_Hydro API
 :hidden:
 
-api/modules.rst
+api/index.rst
 flask
+```
+
+```{toctree}
+---
+maxdepth: 0
+caption: "Repeated Includes (for testing with autobuild):"
+titlesonly:
+hidden:
+---
+README
 ```
 
 Indices and Tables

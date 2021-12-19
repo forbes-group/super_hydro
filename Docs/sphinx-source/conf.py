@@ -40,6 +40,7 @@ release = super_hydro.__version__
 extensions = [
     "myst_nb",
     "sphinx.ext.autodoc",
+    "sphinx.ext.autosummary",
     "sphinx.ext.coverage",
     "sphinx.ext.doctest",
     "sphinx.ext.ifconfig",
