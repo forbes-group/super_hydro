@@ -12,9 +12,18 @@ kernelspec:
   name: python3
 ---
 
-```{raw-cell}
-In creating a new application, kivy uses .kv files to simplify management of the widgets of the program. 'Widget' in kivy is any object that recieves input events, visual or not. Creating a Hello World application can be  done by creating a class with an 'App' property, and building it. Apps are started by calling the '.run()' element of your App class.
-```
+Kivi Summary
+============
+For early versions of the application, we used the [Kivi] framework for interactivity.
+Currently this framework is not supported.  These notes are for reference.
+
+# Details
+In creating a new application, kivy uses .kv files to simplify management of the widgets
+of the program. `Widget` in kivy is any object that recieves input events, visual or
+not. Creating a Hello World application can be  done by creating a class with an 'App'
+property, and building it. Apps are started by calling the '.run()' element of your App
+class.
+
 
 ```{code-cell} ipython3
 from kivy.app import App
@@ -28,24 +37,41 @@ if __name__ == "__main__":
     MyTestApp().run()
 ```
 
-```{raw-cell}
-An important thing to note is that when a .kv file is created for this application, its name must mirror the class name where the app is built for kivy to associate the file correctly. For the above example, acceptable .kv file names would be:
-    MyTestApp.kv
-    MyTest.kv
-Convention usually includes 'App' in the class name, but as long as the class has the 'App' property, leaving it out of both the class name and .kv file name still works.
+An important thing to note is that when a .kv file is created for this application, its
+name must mirror the class name where the app is built for kivy to associate the file
+correctly. For the above example, acceptable .kv file names would be:
 
-The widget that is returned by the build becomes the root for a widget tree. All other widgets in the application are children of this root widget. Rather than being a widget directly, the return can also be to a class which has a kivy widget as its base. For example:
-    class graph(BoxLayout)
-
-
-Widgets:
-
-Widgets, not to be confused with the Widget class, are contained in the kivy.uix module. General categories of widgets are: UX widgets, Layouts, Complex UX widgets, Behaviors widgets, and Screen manager. Whether its buttons, scroll bars, images, videos, or file selection, widgets encompass everything the user interacts with. In general, visual widgets all have methods to return information related to size, position, color, and so forth.
-
-Input Handling:
-
-Much of the input of an application is made through touch events. "on_touch_down()","on_touch_move()", and "on_touch_up()" are 3 examples of events which use the 'touch' keyword. Structurally, touches need to be in the same scope as the current loop being run. 
 ```
+MyTestApp.kv
+MyTest.kv
+```
+
+Convention usually includes `App` in the class name, but as long as the class has the `App` property, leaving it out of both the class name and `.kv` file name still works.
+
+The widget that is returned by the build becomes the root for a widget tree. All other
+widgets in the application are children of this root widget. Rather than being a widget
+directly, the return can also be to a class which has a kivy widget as its base. For
+example:
+
+```
+class graph(BoxLayout)
+```
+
+## Widgets
+
+Widgets, not to be confused with the Widget class, are contained in the kivy.uix
+module. General categories of widgets are: UX widgets, Layouts, Complex UX widgets,
+Behaviors widgets, and Screen manager. Whether its buttons, scroll bars, images, videos,
+or file selection, widgets encompass everything the user interacts with. In general,
+visual widgets all have methods to return information related to size, position, color,
+and so forth.
+
+## Input Handling
+
+Much of the input of an application is made through touch
+events. "on_touch_down()","on_touch_move()", and "on_touch_up()" are 3 examples of
+events which use the 'touch' keyword. Structurally, touches need to be in the same scope
+as the current loop being run.  
 
 ```{code-cell} ipython3
 from kivy.app import App

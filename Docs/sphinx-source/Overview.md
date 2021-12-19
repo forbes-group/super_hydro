@@ -1,20 +1,8 @@
-Developer Notes
-===============
+Overview
+========
 
-## Name: "super_hydro"
+## Components
 
-As of 9 September 2018, there are only 69 matches on Google for the search term
-["super_hydro"](https://www.google.com/search?q=%22super_hydro%22) (with quotes) and
-most are squirreled away (email addresses, etc.)  This seems like a safe choice for a
-project name.  For comparison
-["SuperHydro"](https://www.google.com/search?q=%22SuperHydro%22) returned about 21k
-matches. 
-
-* Environment variables will be prefixed with `SUPER_HYDRO_` to minimize conflicts.
-* The main module is `super_hydro`.
-* Config files will use `super_hydro`.
-
-## Developer Install
 
 We use [Poetry] to manage environments and dependencies, however, [Conda] can be useful,
 especially when trying to install GPU dependencies.  For primary development work you
@@ -267,6 +255,7 @@ with the following files:
    maintained so that it displays properly on GitHub and GitLab repos.  (See [this SO
    question](https://stackoverflow.com/questions/9331281/how-can-i-test-what-my-readme-md-file-will-look-like-before-committing-to-github)
    for some suggestions on how to validate your page.)
+* 
 
 
 We use the `nbsphinx` extension so that we can include Jupyter
@@ -275,10 +264,11 @@ notebooks in the documentation.
 ### Citations
 
 Citations to academic references can be included in
-[`local.bib`](Docs/sphinx-source/local.bib) and included as described in the [Jupyter{book}
+[`master.bib`](sphinx-source/master.bib) and included as described in the [Jupyter{book}
 documentation](https://jupyterbook.org/content/citations.html): 
 
-``{cite}`Saint-Jalm:2019` ``: results in {cite}`Saint-Jalm:2019`.
+``{cite}`Saint-Jalm:2019` ``: results in {cite}`Saint-Jalm:2019`
+
 
 ### References
 
@@ -460,6 +450,54 @@ when trying to restart.
     
         python3 -m ipykernel install --sys-prefix --name super_hydro --display-name super_hydro
 
+Sat 9 Oct 2021
+==============
+Working on dependency resolution etc.  We should support the following cases:
+1. Plain install with pip and poetry with `tests`, `docs`, `gpu`, and `fftw` options.
+   These will only install with pip, so the user will be required to install other
+   dependencies like CUDA for using the gpu.
+2. Use [Conda] to install binary backends such as `cupy`, then pip/poetry on this.
+
+   * Poetry can use the Conda environment.  Perhaps this could work, but there must be
+     explicit instructions to first activate the conda environment, then to run poetry.
+     Some questions:
+     
+     * Can we use `poetry env use` somehow to specify the conda environment for
+       development?  I tried linking `.venvs -> envs/super_hydro`, the latter being
+       created with `anaconda-project` but poetry complains:
+       
+       ```bash
+       bash: .../.venv/bin/activate: No such file or directory
+       ```
+       
+3. Anaconda-project is nice.  Can we also support this?
+   * I can't seem to put `.` in the pip section.
+
+
+
+Thu 16 July 2020
+================
+* Need to complete the IModel interface.
+* Check the init() chain for Models
+* Ignore "physics" in model name if provided.
+
+Fri 25 Sept 2020
+================
+Made into an installable python package.
+
+Tue 08 Dec 2020
+===============
+Flask Client loads class models for user-entered scripts via config file.
+Finger Potential Click interaction implemented, "Pause"/"Start"/"Reset" work.
+Shutdown issues appear to be corrected.
+Beginning Flask Client documentation.
+
+Remaining issues:
+* preserve aspect ratio
+* drag finger potential interaction
+* sane cooling range and interpretation
+* Running at high latency can result in overspooling computational servers
+
 Lobby Display
 =============
 Iteration 0: Run everything on penguin (or swan).
@@ -477,7 +515,7 @@ Issues
  * [Cupy] is not available for Mac OS X from [conda-forge].
 
 <!-- Links -->
-[`Makefile`]: <Makefile>
+[`Makefile`]: Makefile
 [Nox]: <https://nox.thea.codes> "Nox: Flexible test automation"
 [Hypermodern Python]: <https://cjolowicz.github.io/posts/hypermodern-python-01-setup/> "Hypermodern Python"
 [`pyenv`]: <https://github.com/pyenv/pyenv> "Simple Python Version Management: pyenv"
@@ -495,3 +533,9 @@ Issues
 [MyST]: <https://myst-parser.readthedocs.io> "MyST - Markedly Structured Text"
 [Cupy]: <https://cupy.dev/> "NumPy/SciPy-compatible Array Library for GPU-accelerated Computing with Python"
 [Flask]: <https://flask.palletsprojects.com>
+
+Bibliography
+============
+
+```{bibliography}
+```

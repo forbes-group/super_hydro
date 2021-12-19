@@ -18,16 +18,15 @@ import subprocess
 import super_hydro
 
 
+# This is True if we are building on Read the Docs in case we need to customize.
+on_rtd = os.environ.get("READTHEDOCS") == "True"
+
 # -- Project information -----------------------------------------------------
 
 project = "Super_Hydro"
 copyright = "2020, Michael McNeil Forbes"
 author = "Michael McNeil Forbes"
 
-# The version info for the project you're documenting, acts as replacement for
-# |version| and |release|, also used in various other places throughout the
-# built documents.
-#
 # The short X.Y version.
 version = super_hydro.__version__
 # The full version, including alpha/beta/rc tags.
@@ -41,36 +40,37 @@ release = super_hydro.__version__
 extensions = [
     "myst_nb",
     "sphinx.ext.autodoc",
-    "sphinx.ext.doctest",
-    "sphinx.ext.intersphinx",
     "sphinx.ext.coverage",
-    "sphinx.ext.mathjax",
+    "sphinx.ext.doctest",
     "sphinx.ext.ifconfig",
-    "sphinx.ext.viewcode",
+    "sphinx.ext.intersphinx",
+    "sphinx.ext.mathjax",
     "sphinx.ext.napoleon",
     "sphinx.ext.todo",
-    "sphinxcontrib.zopeext.autointerface",
+    "sphinx.ext.viewcode",
     "sphinxcontrib.bibtex",
+    "sphinxcontrib.zopeext.autointerface",
+    "matplotlib.sphinxext.plot_directive",
     # From jupyterbook
     # "jupyter_book",
     # "sphinx_thebe",
-    # "sphinx_comments",
     # "sphinx_external_toc",
+    # "sphinx_comments",  # Hypothes.is comments and annotations
     "sphinx_panels",
     "sphinx_book_theme",
     #'recommonmark',
-    #'sphinx_rtd_theme',
-    "matplotlib.sphinxext.plot_directive",
     #'IPython.sphinxext.ipython_directive',
     #'IPython.sphinxext.ipython_console_highlighting',
     #'sphinx.ext.inheritance_diagram',
 ]
 
-source_suffix = {
-    # '.ipynb': 'myst-nb',  # Ignore notebooks.
+# Make sure that .rst comes first or autosummary will fail.  See
+# https://github.com/sphinx-doc/sphinx/issues/9891
+source_suffix = {  # As of 3.7, dicts are ordered.
+    ".rst": "restructuredtext",  # Make sure this is first!
     ".myst": "myst-nb",
     ".md": "myst-nb",
-    ".rst": "restructuredtext",
+    # '.ipynb': 'myst-nb',  # Ignore notebooks.  Does not work.  See below.
 }
 
 # https://myst-parser.readthedocs.io/en/latest/using/syntax-optional.html
@@ -89,7 +89,6 @@ myst_enable_extensions = [
     # "tasklist",
 ]
 
-# -- Options for references and citations through sphinxext-bibtex -----------
 # https://github.com/mcmtroffaes/sphinxcontrib-bibtex
 # BibTeX files
 bibtex_bibfiles = [
@@ -97,11 +96,17 @@ bibtex_bibfiles = [
     # https://github.com/mcmtroffaes/sphinxcontrib-bibtex/issues/261
     # Separate files can now be used for sphinxcontrib-bibtex>=2.4.0a0 but we will wait
     # for release before doing this here.
-    # "macros.bib",
-    "master.bib",
+    "macros.bib",
+    "local.bib",
 ]
 bibtex_default_style = "plain"
 bibtex_reference_style = "author_year"
+
+# autosummary settings
+autosummary_generate = True
+autosummary_generate_overwrite = False
+autosummary_imported_members = False
+add_module_names = False
 
 # Add any paths that contain templates here, relative to this directory.
 templates_path = ["_templates"]
@@ -116,16 +121,18 @@ exclude_patterns = ["_build", "Thumbs.db", ".DS_Store"]
 jupyter_execute_notebooks = "cache"
 jupyter_execute_notebooks = "off"
 execution_allow_errors = True
+execution_timeout = 300
+nbsphinx_timeout = 300  # Time in seconds; use -1 for no timeout
 
 # -- Options for HTML output -------------------------------------------------
 
 # The theme to use for HTML and HTML Help pages.  See the documentation for
 # a list of builtin themes.
 #
-html_theme = "alabaster"
-html_theme = "sphinx_rtd_theme"
-html_theme = "sphinx_book_theme"
-html_logo = "logo.jpg"
+html_theme = "alabaster"  # Default Sphinx theme
+html_theme = "sphinx_rtd_theme"  # Default Read The Docs theme.
+html_theme = "sphinx_book_theme"  # Theme for JupyterBook
+html_logo = "logo.jpg"  # Needed for sidebars
 
 html_theme_options = {
     "repository_url": "https://hg.iscimath.org/mforbes/super_hydro",
@@ -133,9 +140,9 @@ html_theme_options = {
 }
 
 # Override version number in title... not relevant for docs.
-# html_title = project
-# html_sidebars = {}
+html_title = project
 
+# html_sidebars = {}
 
 # Add any paths that contain custom static files (such as style sheets) here,
 # relative to this directory. They are copied after the builtin static files,
@@ -147,7 +154,8 @@ intersphinx_mapping = {
     "Python 3": ("https://docs.python.org/3", None),
     "matplotlib [stable]": ("https://matplotlib.org/stable/", None),
     "numpy [stable]": ("https://numpy.org/doc/stable/", None),
-    "scipy [latest]": ("https://docs.scipy.org/doc/scipy/", None),
+    "scipy": ("https://docs.scipy.org/doc/scipy/", None),
+    "sphinx": ("https://www.sphinx-doc.org/", None),
 }
 
 # Napoleon settings
@@ -171,12 +179,19 @@ myst_substitutions = {
 ```""",
 }
 
-
 math_defs_filename = "_static/math_defs.tex"
 
 html_context = {
     "mathjax_defines": "",
 }
+
+mathjax3_config = {
+    "loader": {"load": ["[tex]/mathtools"]},
+    "tex": {"packages": {"[+]": ["mathtools"]}},
+}
+
+# Hypothes.is comments and annotations
+comments_config = {"hypothesis": True}
 
 
 def config_inited_handler(app, config):
@@ -198,8 +213,39 @@ def config_inited_handler(app, config):
 
 # Allows us to perform initialization before building the docs.  We use this to install
 # the named kernel so we can keep the name in the notebooks.
+def my_init():
+    """Run `anaconda-project run init`, or the equivalent if on RtD.
+
+    We must customize this for RtD because we trick RTD into installing everything from
+    `anaconda-project.yaml` as a conda environment.  If we then run `anaconda-project
+    run init` as normal, this will create a **whole new conda environment** and install
+    the kernel from there.
+    """
+    if on_rtd:
+        subprocess.check_call(
+            ["pip", "install", "--upgrade", "--use-feature=in-tree-build", ".[docs]"]
+        )
+        subprocess.check_call(
+            [
+                "python3",
+                "-m",
+                "ipykernel",
+                "install",
+                "--user",
+                "--name",
+                "phys-581-2021",
+                "--display-name",
+                "Python 3 (phys-581-2021)",
+            ]
+        )
+    else:
+        print("Not On RTD!  Assuming you have run make init.")
+        # Don't reinstall everything each time or this can get really slow.
+        # subprocess.check_call(["anaconda-project", "run", "init"])
+
+
 def setup(app):
     app.connect("config-inited", config_inited_handler)
-    # subprocess.check_call(["anaconda-project", "run", "init"])
     # Ignore .ipynb files
     app.registry.source_suffix.pop(".ipynb", None)
+    my_init()

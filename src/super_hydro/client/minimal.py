@@ -1,10 +1,10 @@
-"""Dumb client.
+"""Minimal clients for benchmarking.
 
-This client is for debugging and testing.  It is minimal, intended to
-be run in a terminal, and does not actually display anything, but can
-be used to interact with a server.
+These are minimal clients for testing and benchmarking.  They are minimal, intended to
+be run in a terminal, and do not actually display anything, but can be used to interact
+with a server.
 """
-from .. import config, communication, utils, widgets
+from .. import config, communication, utils
 
 _LOGGER = utils.Logger(__name__)
 log = _LOGGER.log

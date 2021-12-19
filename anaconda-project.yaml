@@ -25,18 +25,27 @@ description: Superfluid Hydrodynamics Explorer
 # Use `anaconda-project add-command` to add commands.
 #
 commands:
-  client:
-    unix: "python -m super_hydro.client.flask_client"
-    env_spec: super_hydro
-    
   shell:
     unix: bash --init-file .init-file.bash
     env_spec: super_hydro
 
+  deactivate:
+    unix: |
+      for i in $(seq ${CONDA_SHLVL}); do
+        conda deactivate
+      done
+    env_spec: super_hydro
+
+  client:
+    unix: "python -m super_hydro.client.flask_client"
+    env_spec: super_hydro
+    
   # Needs to be explicitly called until we can run scripts on prepare
   # https://github.com/Anaconda-Platform/anaconda-project/issues/239
+  # 
   init:
     unix: |
+      pip install --use-feature=in-tree-build .[docs,tests,fftw]
       python3 -m ipykernel install --user --name "super_hydro" --display-name "Python 3 (super_hydro)"
       jupyter nbextensions_configurator enable --user
       #jupyter nbextension enable 
@@ -90,10 +99,13 @@ dependencies:
 
   # Pip-only dependencies
 - pip
-#- pip:
+- pip:
+  # Needed to resolve a pip issue.  Pip sees anaconda-project which appears to depend
+  # on the following.  It is installed as ruamel-yaml-conda, but pip expects it in this
+  # form.  We install both for now.
+  - ruamel-yaml                
 #  - .
-
-# - hg+file:///Users/mforbes/current/research/super_hydro/super_hydro_hg#super_hydro
+#  - hg+file:///Users/mforbes/current/research/super_hydro/super_hydro_hg#super_hydro
   
 channels:
 - defaults

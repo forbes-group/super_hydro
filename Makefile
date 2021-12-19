@@ -13,10 +13,15 @@ CONDA_ACTIVATE=source $$(conda info --base)/etc/profile.d/conda.sh ; conda activ
 CONDA_ENVS = ./envs
 CONDA_FLAGS = --prefix $(CONDA_ENVS)/$(ENV)
 
-RUN = $(CONDA_EXE) run $(CONDA_FLAGS)
-#RUN = $(ANACONDA_PROJECT) run
+ANACONDA_PROJECT = anaconda-project
+#RUN = $(CONDA_EXE) run $(CONDA_FLAGS)
+RUN = $(ANACONDA_PROJECT) run
 
 USE_CONDA = true
+######################################################################
+# Default target runs init and then echos commands to activate
+go: init
+	echo "conda deactivate 
 ######################################################################
 # Installation
 init:
@@ -50,11 +55,12 @@ install: Jupyter_Canvas_Widget jupyter-canvas-widget
 
 clean:
 	rm -rf .nox
-	rm -rf .conda
-	-conda config --remove env_dirs $(CONDA_ENVS)
+	conda clean -y --all
 
 real-clean: clean
-	conda clean -y --all
+	cd Docs && make clean 
+	rm -rf .conda
+	-conda config --remove env_dirs $(CONDA_ENVS)
 
 .PHONY: init real-clean clean install uninstall conda-env conda-env-gpu
 

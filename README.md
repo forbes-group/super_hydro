@@ -45,8 +45,8 @@ For more details, see {ref}`sec:install` for more details.
 
 ## Getting Started
 
-The simplest way to get started is to launch a [Jupyter notebook] from the [Demo](Demos)
-folder:
+The simplest way to get started is to launch a [Jupyter notebook] from the
+[Demo](Docs/Demonstrations) folder:
 
 ```bash
 jupyter notebook "Docs/Demonstrations/Contents (Start Here).ipynb"

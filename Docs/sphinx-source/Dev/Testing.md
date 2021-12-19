@@ -12,6 +12,11 @@ kernelspec:
   name: python3
 ---
 
+Testing
+=======
+
+This document has some tests that can be run as a notebook.
+
 ```{code-cell} ipython3
 :init_cell: true
 

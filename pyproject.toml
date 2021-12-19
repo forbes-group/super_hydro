@@ -54,6 +54,7 @@ sphinx-autobuild = {version = "^2021.3.14", optional = true}
 sphinx-book-theme = {version = "^0.1.5", optional = true}
 sphinxcontrib-zopeext = {version = "^0.2.4", optional = true}
 sphinxcontrib-bibtex = {version = "^2.4.1", optional = true}
+sphobjinv = {version = "^2.1", optional = true}
 
 # Tests
 pytest-cov = {version = "^3.0.0", optional = true}
@@ -80,6 +81,7 @@ docs = [
      "sphinx-book-theme",
      "sphinxcontrib-zopeext",
      "sphinxcontrib-bibtex",
+     "sphobjinv",
 ]
 tests = [
       "pytest-cov",
