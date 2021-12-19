@@ -101,7 +101,8 @@ These are roughly equivalent to, but more convenient than, the following [Conda]
 ```bash
 conda env create -p envs/super_hydro -f anaconda-project.yaml
 conda activate envs/super_hydro
-pip install --use-feature=in-tree-build .[docs,tests,fftw]
+poetry install -E docs -E tests -E fftw
+#pip install --use-feature=in-tree-build -e .[docs,tests,fftw]
 python3 -m ipykernel install --user --name "super_hydro" --display-name "Python 3 (super_hydro)"
 jupyter nbextensions_configurator enable --user
 ```
@@ -112,7 +113,8 @@ or, if you have an NVIDIA GPU and want to use it:
 conda env create -p envs/super_hydro_gpu -f anaconda-project.yaml
 conda activate envs/super_hydro_gpu
 conda install conda-forge::cupy
-pip install --use-feature=in-tree-build .[docs,tests,fftw,gpu]
+poetry install -E docs -E tests -E fftw -E gpu
+#pip install --use-feature=in-tree-build -e .[docs,tests,fftw,gpu]
 python3 -m ipykernel install --user --name "super_hydro_gpu" --display-name "Python 3 (super_hydro_gpu)"
 jupyter nbextensions_configurator enable --user
 ```
