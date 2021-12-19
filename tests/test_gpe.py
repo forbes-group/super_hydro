@@ -1,11 +1,14 @@
-import numpy as np
+# import numpy as np
+# import pytest
 
-import pytest
 
-from ..gpe import State
+# from super_hydro.physics.gpe import State
 
 
 def test_gpe():
-    s = State(Nxy=(32, 64))
-    assert s.data.shape == (32, 64)
-    # assert np.allclose(s.data, np.sqrt(s.n0))
+    pass
+
+
+#    s = State(Nxy=(32, 64))
+#    assert s.data.shape == (32, 64)
+#    # assert np.allclose(s.data, np.sqrt(s.n0))

@@ -2,6 +2,7 @@ __doc__ = """SuperHydro Server."""
 
 from collections import deque
 from contextlib import contextmanager
+import datetime
 import functools
 import importlib
 import inspect
@@ -62,13 +63,57 @@ log_task = _LOGGER.log_task
 class ThreadMixin(object):
     """Couple of useful methods for threads."""
 
+    shutdown = False  # Flag to manually trigger shutdown
+    shutdown_time = None  # Time to shut server down.
+    name = None
+
     def heartbeat(self, msg="", timeout=1):
         """Log a heartbeat to show if the server is running."""
+        if not self.name:
+            raise AttributeError(
+                f"{self.__class__.__name__}(ThreadMixin).init(name=) not called."
+            )
         tic = getattr(self, "_heartbeat_tic", 0)
         toc = time.time()
         if toc - tic > timeout:
-            _LOGGER.debug(f"Alive: {msg}")
+            _LOGGER.debug(f"Alive ({self.name}): {msg}")
             self._heartbeat_tic = time.time()
+
+    @property
+    def finished(self):
+        """Return `True` if the thread should be stopped.
+
+        True if the `shutdown_time` has been exceeded or the `shutdown` flag has been
+        set.
+        """
+        finished = self.shutdown or (
+            self.shutdown_time and time.time() > self.shutdown_time
+        )
+        if finished:
+            if self.shutdown:
+                _LOGGER.debug("Shutdown: Explicit shutdown")
+            else:
+                _LOGGER.debug("Shutdown: shutdown_time exceed")
+        return finished
+
+    def init(self, name, shutdown_min=60):
+        """Initialize thread object.
+
+        Arguments
+        ---------
+        name : str
+           Name of object displayed in log messages.  Must be provided or else
+           `heartbeat` will raise an `AttributeError`.
+        shutdown_min : int, None
+           Time after which to shutdown the server.  Default is 1 hour.
+        """
+        self.shutdown = False
+        self.shutdown_time = time.time() + shutdown_min * 60
+        self.name = name
+        _LOGGER.debug(
+            f"Init: {self.name} will shutdown in "
+            + f"{datetime.timedelta(minutes=shutdown_min)} (H:MM:SS)"
+        )
 
 
 class Computation(ThreadMixin):
@@ -91,7 +136,6 @@ class Computation(ThreadMixin):
         self.fps = opts.fps
         self.steps = opts.steps
         self.paused = True
-        self.running = True
 
         self._times = deque(maxlen=100)
 
@@ -120,9 +164,10 @@ class Computation(ThreadMixin):
     @profile("prof.dat")
     def run(self):
         """Start the computation."""
-        while self.running:
+        self.init(name="Computation", shutdown_min=self.opts.shutdown)
+        while not self.finished:
             with self.sync():
-                self.heartbeat("Computation")
+                self.heartbeat()
                 if self.paused:
                     time.sleep(self.pause_timeout)
                 else:
@@ -161,7 +206,7 @@ class Computation(ThreadMixin):
 
     def do_quit(self):
         log("Quitting!")
-        self.running = False
+        self.shutdown = True
 
     def do_pause(self):
         print("pausing")
@@ -255,7 +300,7 @@ class Server(ThreadMixin):
         self.interrupted = interrupted
         kwargs = dict(interrupted=interrupted)
         if block:
-            return self.run_server(**kwargs)
+            return self._run_server(**kwargs)
         else:
             self.server_thread = threading.Thread(
                 target=self._run_server, kwargs=kwargs
@@ -263,13 +308,12 @@ class Server(ThreadMixin):
             self.server_thread.start()
 
     def _run_server(self, interrupted=None):
-        finished = False
+        self.init(name="Server", shutdown_min=self.opts.shutdown)
         self.computation_thread.start()
         self.message_queue.put(("start",))
-        self.finished = False
         try:
             while not self.finished and not interrupted:
-                self.heartbeat("Server")
+                self.heartbeat()
                 time.sleep(min(self._poll_interval, 1 / self.opts.fps))
             print("Done")
         finally:
@@ -303,7 +347,7 @@ class Server(ThreadMixin):
         self.message_queue.put(("pause",))
 
     def _do_quit(self, client=None):
-        self.finished = True
+        self.shutdown = True
 
     def _get_Vpos(self, client=None):
         """Return the position of the external potential."""
@@ -311,7 +355,7 @@ class Server(ThreadMixin):
         pot_z = self.pot_queue.get()
         xy = self._xy_to_pos((pot_z.real, pot_z.imag))
         return tuple(xy.tolist())
-        #return xy
+        # return xy
 
     def _get_layout(self, client=None):
         """Return the widget layout."""
@@ -512,10 +556,11 @@ class NetworkServer(Server):
     def run_server(self, interrupted=None):
         self.computation_thread.start()
         self.message_queue.put(("start",))
-        self.finished = False
+        self.shutdown = False
         try:
+            self.init(name="NetworkServer", shutdown_min=self.opts.shutdown)
             while not self.finished and not interrupted:
-                self.heartbeat("Server")
+                self.heartbeat()
                 try:
                     # Do this so we can receive interrupted messages
                     # if the user interrupts.

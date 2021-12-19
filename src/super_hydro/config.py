@@ -100,6 +100,9 @@ def get_server_parser():
         type=int,
         help="Number of integration steps between display updates",
     )
+    PARSER.add(
+        "-s", "--shutdown", default=60, type=float, help="Server timeout (minutes)"
+    )
     return PARSER
 
 
