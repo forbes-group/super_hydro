@@ -47,12 +47,12 @@ import mmf_setup;mmf_setup.nbinit()
 %autoreload
 import pprint
 import super_hydro.server.server
-import super_hydro.client.dumb
+import super_hydro.clients.minimal
 ```
 
 ```{code-cell} ipython3
 # Start a local server
-app = super_hydro.client.dumb.run(run_server=True, network_server=False)
+app = super_hydro.clients.minimal.run(run_server=True, network_server=False)
 try:
     pprint.pprint(app.server.get_available_commands())
 finally:
@@ -61,7 +61,7 @@ finally:
 
 ```{code-cell} ipython3
 # Start a local server
-app = super_hydro.client.dumb.run(run_server=True, network_server=False)
+app = super_hydro.clients.minimal.run(run_server=True, network_server=False)
 cmds = app.server.get_available_commands()
 try:
     for param in cmds["get"]:
@@ -74,8 +74,8 @@ finally:
 
 ```{code-cell} ipython3
 # Connect to a running network server
-app = super_hydro.client.dumb.run(run_server=False, network_server=True,
-                                  opts=dict(port=27372))
+app = super_hydro.clients.minimal.run(run_server=False, network_server=True,
+                                      opts=dict(port=27372))
 ```
 
 ```{code-cell} ipython3
@@ -119,7 +119,7 @@ IPython.OutputArea.prototype._should_scroll = function(lines) { return false; }
 from mmf_setup.set_path import hgroot
 from importlib import reload
 from super_hydro.physics import gpe;reload(gpe)
-from super_hydro.client import notebook;reload(notebook)
+from super_hydro.clients import notebook;reload(notebook)
 ```
 
 ```{code-cell} ipython3

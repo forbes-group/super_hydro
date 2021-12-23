@@ -5,7 +5,7 @@ jupytext:
     extension: .md
     format_name: myst
     format_version: 0.13
-    jupytext_version: 1.10.3
+    jupytext_version: 1.11.5
 kernelspec:
   display_name: Python 3
   language: python
@@ -14,20 +14,20 @@ kernelspec:
 
 # Vortex "Ring"
 
-```{code-cell} ipython3
+```{code-cell}
 %%javascript
 IPython.OutputArea.prototype._should_scroll = function(lines) { return false; }
 ```
 
-```{code-cell} ipython3
+```{code-cell}
 # Does not work on CoLab yet
 from mmf_setup.set_path import hgroot
-from super_hydro.client import notebook
+from super_hydro.clients import notebook
 notebook.run(model='gpe.BECVortexRing', Nx=64, Ny=64, 
              tracer_particles=100, finger_V0_mu=0,
              random_phase=False)
 ```
 
-```{code-cell} ipython3
+```{code-cell}
 
 ```

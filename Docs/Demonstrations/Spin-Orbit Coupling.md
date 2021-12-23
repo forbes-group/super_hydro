@@ -5,7 +5,7 @@ jupytext:
     extension: .md
     format_name: myst
     format_version: 0.13
-    jupytext_version: 1.10.3
+    jupytext_version: 1.11.5
 kernelspec:
   display_name: Python [conda env:super_hydro]
   language: python
@@ -245,15 +245,15 @@ where $p_x$ is the local quasi-momentum of the state in the $x$ direction.
 
 # Demonstrations
 
-```{code-cell} ipython3
+```{code-cell}
 %pylab inline
 import time
 from mmf_setup.set_path import hgroot
 from importlib import reload
 from super_hydro.physics import gpe;reload(gpe)
 from super_hydro.physics import soc;reload(soc)
-from super_hydro.client import canvas_widget;reload(canvas_widget)
-from super_hydro.client import notebook;reload(notebook)
+from super_hydro.clients import canvas_widget;reload(canvas_widget)
+from super_hydro.clients import notebook;reload(notebook)
 
 notebook.run(#run_server=False,
              dt_t_scale=0.4,
@@ -267,25 +267,25 @@ notebook.run(#run_server=False,
 #app = notebook.get_app()
 ```
 
-```{code-cell} ipython3
+```{code-cell}
 print(app._running)
 app._running = False
 app._msgs
 ```
 
-```{code-cell} ipython3
+```{code-cell}
 import IPython
 ip = IPython.get_ipython()
 res = ip.kernel.do_one_iteration()
 res.done()
 ```
 
-```{code-cell} ipython3
+```{code-cell}
 import signal
 signal.__file__
 ```
 
-```{code-cell} ipython3
+```{code-cell}
 import time
 from mmf_setup.set_path import hgroot
 from super_hydro.contexts import NoInterrupt
@@ -295,7 +295,7 @@ with NoInterrupt() as interrupted:
         time.sleep(1)
 ```
 
-```{code-cell} ipython3
+```{code-cell}
 import time
 print(signal.getsignal(2))
 while True:
@@ -303,11 +303,11 @@ while True:
     time.sleep(1)
 ```
 
-```{code-cell} ipython3
+```{code-cell}
 from mmf_setup.set_path import hgroot
 from importlib import reload
-from super_hydro.client import notebook;reload(notebook)
-from super_hydro.server import server;reload(server)
+from super_hydro.clients import notebook;reload(notebook)
+from super_hydro.servers import server;reload(server)
 from mmfutils.contexts import NoInterrupt
 NoInterrupt.register()
 interrupted = NoInterrupt()
@@ -315,35 +315,35 @@ NoInterrupt.is_registered()
 #s = server.run(args='', block=False, interrupted=interrupted)
 ```
 
-```{code-cell} ipython3
+```{code-cell}
 #### Danger Will!  Jupyter mucks with the signals.
 import signal
 signal.getsignal(2)
 #NoInterrupt.is_registered()
 ```
 
-```{code-cell} ipython3
+```{code-cell}
 import time
 while True:
     print(interrupted._signal_count)
     time.sleep(1)
 ```
 
-```{code-cell} ipython3
+```{code-cell}
 import signal
 signal.getsignal(2)
 import pdb
 pdb.run('NoInterrupt.register()')
 ```
 
-```{code-cell} ipython3
+```{code-cell}
 import signal
 h = signal.getsignal(signal.SIGTERM)
 h = interrupted._original_handlers[signal.SIGTERM]
 interrupted.unregister()
 ```
 
-```{code-cell} ipython3
+```{code-cell}
 import os, signal
 try:
     os.kill(os.getpid(), signal.SIGTERM)
@@ -351,11 +351,11 @@ except:
     pass
 ```
 
-```{code-cell} ipython3
+```{code-cell}
 app._density.rgba = app.get_rgba_from_density(app.density)
 ```
 
-```{code-cell} ipython3
+```{code-cell}
 interrupted.unregister()
 h = signal.getsignal(signal.SIGTERM)
 signal.signal?
@@ -363,14 +363,14 @@ signal.signal?
 
 ## Super-Solid
 
-```{code-cell} ipython3
+```{code-cell}
 %pylab inline
 from mmf_setup.set_path import hgroot
 from importlib import reload
 from super_hydro.physics import gpe;reload(gpe)
 from super_hydro.physics import gpe2;reload(gpe2)
 from super_hydro.contexts import NoInterrupt
-from super_hydro.client import notebook
+from super_hydro.clients import notebook
 
 notebook.run(model='gpe2.SuperSolid2', Nx=64, Ny=16)
 ```

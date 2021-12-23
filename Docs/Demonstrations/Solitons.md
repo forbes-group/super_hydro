@@ -5,7 +5,7 @@ jupytext:
     extension: .md
     format_name: myst
     format_version: 0.13
-    jupytext_version: 1.10.3
+    jupytext_version: 1.11.5
 kernelspec:
   display_name: Python 3
   language: python
@@ -44,7 +44,6 @@ Hence, stationary solutions have zero density (so-called dark solitons) which ha
 
 [Tsuzuki:1971]: http://dx.doi.org/10.1007/BF00628744 'Toshio Tsuzuki, "Nonlinear waves in the Pitaevskii-Gross equation", J. Low Temp. Phys. 4(4), 441-457 (1971) '
 
-
 +++
 
 ## Implementation Note
@@ -73,14 +72,14 @@ Here we run a demonstration where we start with a soliton in the presence of a v
 
 *Note: rather than implement twisted boundary conditions, we simply multiply the wavefunction by an appropriate factor $e^{\I \theta x/L}$.  This is equivalent to boosting to a moving frame so the apparent velocity will be slightly different than chosen speed $v/c$ with the difference getting smaller as the box gets longer.*
 
-```{code-cell} ipython3
+```{code-cell}
 %pylab inline
 from mmf_setup.set_path import hgroot
 from importlib import reload
 from super_hydro.physics import gpe;reload(gpe)
 from super_hydro.contexts import NoInterrupt
 from super_hydro.server import server; reload(server)
-from super_hydro.client import notebook; reload(notebook); reload(notebook.widgets)
+from super_hydro.clients import notebook; reload(notebook); reload(notebook.widgets)
 
 f = 2  # Increase scale factor to increase resolution.
 d = 4  # Increase d to increase box width. d>=2 will snake.
@@ -89,14 +88,14 @@ notebook.run(model='gpe.BECSoliton', v_c=0.0, V0_mu=0.1, dx=1.0/f, Nx=32*f, Ny=8
 #notebook.run(run_server=False)
 ```
 
-```{code-cell} ipython3
+```{code-cell}
 %pylab inline
 from mmf_setup.set_path import hgroot
 from importlib import reload
 from super_hydro.physics import gpe;reload(gpe)
 from super_hydro.contexts import NoInterrupt
 from super_hydro.server import server; reload(server)
-from super_hydro.client import notebook; reload(notebook); reload(notebook.widgets)
+from super_hydro.clients import notebook; reload(notebook); reload(notebook.widgets)
 
 f = 2  # Increase scale factor to increase resolution.
 d = 2  # Increase d to increase box width. d>=2 will snake.
@@ -105,6 +104,6 @@ notebook.run(model='gpe.BECSoliton', tracer_particles=0, v_c=0.0, V0_mu=0.1, dx=
 #notebook.run(run_server=False)
 ```
 
-```{code-cell} ipython3
+```{code-cell}
 
 ```

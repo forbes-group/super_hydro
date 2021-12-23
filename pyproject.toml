@@ -97,7 +97,7 @@ poetry2conda = "^0.3.0"
 black = "^21.6b0"
 
 [tool.poetry.scripts]
-super_hydro_client = "super_hydro.client.flask_client:run"
+super_hydro_client = "super_hydro.clients.flask:run"
 
 [build-system]
 requires = ["poetry-core>=1.0.0"]

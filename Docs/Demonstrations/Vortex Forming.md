@@ -5,7 +5,7 @@ jupytext:
     extension: .md
     format_name: myst
     format_version: 0.13
-    jupytext_version: 1.10.3
+    jupytext_version: 1.11.5
 kernelspec:
   display_name: Python 3
   language: python
@@ -18,17 +18,17 @@ kernelspec:
 
 ## Introduction
 
-```{code-cell} ipython3
+```{code-cell}
 %%javascript
 IPython.OutputArea.prototype._should_scroll = function(lines) { return false; }
 ```
 
-```{code-cell} ipython3
+```{code-cell}
 # Does not work on CoLab yet
 from mmf_setup.set_path import hgroot
 from importlib import reload
 from super_hydro.physics import gpe;reload(gpe)
-from super_hydro.client import notebook;reload(notebook)
+from super_hydro.clients import notebook;reload(notebook)
 notebook.run(model='gpe.BECVortices',
              Nx=32*4, Ny=32*4, dt_t_scale=1,
              cooling=1,
@@ -73,6 +73,6 @@ $$
   V_x(x) = \braket{x|[\op{H}, \ket{\psi}\bra{\psi}]|x}
 $$
 
-```{code-cell} ipython3
+```{code-cell}
 
 ```

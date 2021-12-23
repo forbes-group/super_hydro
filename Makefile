@@ -54,8 +54,9 @@ environment-gpu.yaml: pyproject.toml
 install: Jupyter_Canvas_Widget jupyter-canvas-widget
 
 clean:
-	rm -rf .nox
-	conda clean -y --all
+	-find . -name "__pycache__" -exec $(RM) -r {} +
+	-rm -rf .nox
+	-conda clean -y --all
 
 real-clean: clean
 	cd Docs && make clean 

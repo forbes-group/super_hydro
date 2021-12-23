@@ -129,7 +129,7 @@ import mmf_setup.set_path.hgroot
 import ipywidgets as widgets
 from ipywidgets import Label, VBox, IntSlider
 from importlib import reload
-from super_hydro.client import canvas_widget;reload(canvas_widget)
+from super_hydro.clients import canvas_widget;reload(canvas_widget)
 from super_hydro.contexts import NoInterrupt
 canvas_widget.display_js()   # Load javascript
 canvas = canvas_widget.Canvas()
@@ -167,7 +167,7 @@ with NoInterrupt() as interrupted:
 ```
 
 ```{code-cell} ipython3
-from super_hydro.client import canvas_widget;reload(canvas_widget)
+from super_hydro.clients import canvas_widget;reload(canvas_widget)
 canvas_widget.display_js()   # Load javascript
 canvas = canvas_widget.Canvas()
 canvas.rgba = data_to_rgba(get_data())

@@ -51,7 +51,7 @@ Interfaces are defined in {mod}`super_hydro.interfaces`.
   server should generally be run on a fairly high-performance computer – ideally
   equipped with an NVIDIA GPU.
 
-{mod}`super_hydro.client`
+{mod}`super_hydro.clients`
 : This is the client.  Clients are generally designed to be lightweight in both their
   dependencies and performance characteristics so that clients can be installed and run
   on as many platforms as possible, including mobile devices.  A more heavyweight client

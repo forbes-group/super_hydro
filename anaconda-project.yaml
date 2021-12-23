@@ -41,7 +41,7 @@ commands:
     env_spec: super_hydro
 
   client:
-    unix: "python -m super_hydro.client.flask_client"
+    unix: "python -m super_hydro.clients.flask"
     env_spec: super_hydro
     
   # Needs to be explicitly called until we can run scripts on prepare

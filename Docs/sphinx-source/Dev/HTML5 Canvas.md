@@ -96,7 +96,7 @@ Here is our widget.  This is not installed - we load and execute all of the java
 ```{code-cell} ipython3
 import mmf_setup.set_path.hgroot
 from importlib import reload
-from super_hydro.client import canvas_widget
+from super_hydro.clients import canvas_widget
 ```
 
 ```{code-cell} ipython3

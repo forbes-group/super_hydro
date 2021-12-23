@@ -114,12 +114,12 @@ Where the options are:
 
 Code Structure
 --------------
-* `flask_client.py`: Python-based backend and routing control of User client.
-* `base.html`      : Foundation HTML for page navigation formatting.
-* `index.html`     : Landing page for User interface.
-* `model.html`     : Model templating HTML file.
-* `app_func.js`    : javascript processing functions for User Interface.
-* `style.css`      : HTML/CSS formatting and styling file.
+* `flask.py`:  Python-based backend and routing control of User client.
+* `base.html`: Foundation HTML for page navigation formatting.
+* `index.html`: Landing page for User interface.
+* `model.html`: Model templating HTML file.
+* `app_func.js`: javascript processing functions for User Interface.
+* `style.css`: HTML/CSS formatting and styling file.
 
 User-Defined Models
 -------------------
@@ -178,7 +178,7 @@ stated above in User Defined Models.
 On render of the model page, it uses Javscript socket.io Websocket communication
 to attempt connection with the Flask-SocketIO Namespace. The Namespace directs
 send/receive websocket method calls within either the rendered page or
-flask\_client.py `on_<event>` and `emit('event')` communication structure.
+`flask.py` `on_<event>` and `emit('event')` communication structure.
 Inside this static Websocket Namespace each uniquely rendered page (e.g. a page
 rendered for differing models), it is joined to a Room within the Namespace to
 prevent cross communication between models.
@@ -218,7 +218,7 @@ Javascript socket.io for display updating.
 
 Flask Communication Schema
 --------------------------
-* super\_hydro.client.flask\_client load w/ configuration options
+* :mod:`super_hydro.clients.flask` load w/ configuration options
   * flask.socketio.run() starts Flask routing framework w/ eventlet socket
     handling (implicit)
     * HTTP Routes (`@APP.route()` decorator):

@@ -5,7 +5,7 @@ jupytext:
     extension: .md
     format_name: myst
     format_version: 0.13
-    jupytext_version: 1.13.4
+    jupytext_version: 1.11.5
 kernelspec:
   display_name: Python 3
   language: python
@@ -33,7 +33,7 @@ IPython.OutputArea.prototype._should_scroll = function(lines) { return false; }
 from mmf_setup.set_path import hgroot
 from importlib import reload
 from super_hydro.physics import gpe
-from super_hydro.client import notebook
+from super_hydro.clients import notebook
 
 notebook.run(
     model="gpe.BECBreather",

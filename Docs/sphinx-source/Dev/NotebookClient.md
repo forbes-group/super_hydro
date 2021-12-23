@@ -30,14 +30,14 @@ IPython.OutputArea.prototype._should_scroll = function(lines) { return false; }
 ```{code-cell} ipython3
 %pylab inline
 from mmf_setup.set_path import hgroot
-from super_hydro.client import notebook
+from super_hydro.clients import notebook
 notebook.run(network_server=True, run_server=False, tracer_particles=0)
 ```
 
 ```{code-cell} ipython3
 %pylab inline
 from mmf_setup.set_path import hgroot
-from super_hydro.client import notebook
+from super_hydro.clients import notebook
 notebook.run(model='gpe.BEC',
              network_server=False, tracer_particles=0,
              Nx=256//4, Ny=256//4, cylinder=True)
@@ -46,7 +46,7 @@ notebook.run(model='gpe.BEC',
 ```{code-cell} ipython3
 %pylab inline
 from mmf_setup.set_path import hgroot
-from super_hydro.client import notebook
+from super_hydro.clients import notebook
 notebook.run(model='gpe.BEC',
              network_server=True,
              Nx=256//4, Ny=256//4, cylinder=True)
@@ -58,7 +58,7 @@ notebook.run(model='gpe.BEC',
 import numpy as np
 import time
 from matplotlib import cm
-from super_hydro.client import canvas_widget
+from super_hydro.clients import canvas_widget
 canvas_widget.display_js()
 canvas = canvas_widget.Canvas(width=521, height=100)
 display(canvas)
@@ -82,7 +82,7 @@ from super_hydro.physics import gpe;reload(gpe)
 from super_hydro.physics import gpe2;reload(gpe2)
 from super_hydro.contexts import NoInterrupt
 from super_hydro.server import server; reload(server)
-from super_hydro.client import notebook; reload(notebook); reload(notebook.widgets)
+from super_hydro.clients import notebook; reload(notebook); reload(notebook.widgets)
 
 #notebook.run(model='gpe.BEC', Nx=256//4, Ny=256//4, cylinder=True)
 #notebook.run(model='gpe2.SOC2', Nx=256//4, Ny=256//4)
@@ -130,7 +130,9 @@ app.run()
 
 +++
 
-We base the notebook client on the [`IPyWidget`](https://ipywidgets.readthedocs.io/en/stable/) library.  This now has support on [Google's CoLaboratory]()
+We base the notebook client on the
+[`IPyWidget`](https://ipywidgets.readthedocs.io/en/stable/) library.  This now has
+support on [Google's CoLaboratory]()
 
 +++
 
@@ -140,7 +142,7 @@ This notebook provides a web-based client using matplotlib.
 %pylab inline
 from mmf_setup.set_path import hgroot
 from importlib import reload
-from super_hydro.client import notebook; reload(notebook);
+from super_hydro.clients import notebook; reload(notebook);
 from super_hydro import widgets as w;reload(w)
 ```
 

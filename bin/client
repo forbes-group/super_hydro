@@ -1,5 +1,5 @@
 #!/usr/bin/env python
 
-import super_hydro.client.flask_client
+import super_hydro.clients.flask
 
-super_hydro.client.flask_client.run()
+super_hydro.clients.flask.run()

@@ -21,7 +21,7 @@ IPython.OutputArea.prototype._should_scroll = function(lines) { return false; }
 # Does not work on CoLab yet
 from mmf_setup.set_path import hgroot
 from importlib import reload
-from super_hydro.client import notebook;reload(notebook)
+from super_hydro.clients import notebook;reload(notebook)
 #notebook.run(model='gpe.BEC', Nx=64, Ny=64, random_phase=False)
 notebook.run(run_server=False)
 ```
