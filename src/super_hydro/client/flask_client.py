@@ -1,3 +1,11 @@
+"""Flask Client.
+
+The flask client runs a webserver on the client machine, and allows users to run a
+selection of models.
+
+For more details see :ref:`flask-client`.
+"""
+
 # Standard Library Imports
 from collections import OrderedDict
 import importlib

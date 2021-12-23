@@ -1,3 +1,8 @@
+22 Dec 2021
+===========
+* Autosummary generates summaries, but not the actual documentation for classes or
+  functions... still need to figure out how to do this.
+  
 18 Dec 2021
 ===========
 Tasks:

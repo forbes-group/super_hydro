@@ -58,7 +58,6 @@ extensions = [
     # "sphinx_external_toc",
     # "sphinx_comments",  # Hypothes.is comments and annotations
     "sphinx_panels",
-    "sphinx_book_theme",
     #'recommonmark',
     #'IPython.sphinxext.ipython_directive',
     #'IPython.sphinxext.ipython_console_highlighting',
@@ -109,6 +108,8 @@ autosummary_generate_overwrite = False
 autosummary_imported_members = False
 add_module_names = False
 
+autoclass_content = "both"
+
 # Add any paths that contain templates here, relative to this directory.
 templates_path = ["_templates"]
 
@@ -149,6 +150,8 @@ html_title = project
 # relative to this directory. They are copied after the builtin static files,
 # so a file named "default.css" will overwrite the builtin "default.css".
 html_static_path = ["_static"]
+html_js_files = ["js/custom.js"]
+
 
 # Example configuration for intersphinx: refer to the Python standard library.
 intersphinx_mapping = {

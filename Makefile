@@ -68,7 +68,10 @@ real-clean: clean
 # Documentation
 
 doc-server:
-	$(RUN) sphinx-autobuild --ignore '*/Docs/_build/*' Docs/sphinx-source/ Docs/_build/html
+	$(RUN) sphinx-autobuild --open-browser \
+      --ignore '*/Docs/_build/*'         \
+      --watch src                        \
+      Docs/sphinx-source/ Docs/_build/html 
 
 .PHONY: doc-server
 

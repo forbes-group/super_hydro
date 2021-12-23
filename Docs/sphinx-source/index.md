@@ -10,6 +10,8 @@
 
 Installation
 Overview
+Models
+Clients
 ```
 
 ```{toctree}
@@ -28,7 +30,6 @@ DeveloperNotes
 :hidden:
 
 api/index.rst
-flask
 ```
 
 ```{toctree}

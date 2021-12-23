@@ -43,10 +43,10 @@ class IModel(Interface):
     def __init__(Nxy, opts):
         """Constructor.
 
-        Should initialize the state.
-
         Parameters
         ----------
+        Nxy : (int, int)
+            Size of the grid.
         opts : Options
            Options object with attributes defined through the
            configuration mechanism.

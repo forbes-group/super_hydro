@@ -1,6 +1,41 @@
 Overview
 ========
 
+:::{important}
+Before executing any of the commands shown here, you should make sure that you activate
+the environment into which you installed [super_hydro] (see {ref}`installing).  For
+example, you might need to do one of the following:
+
+* [Conda]:
+   ```bash
+   conda activate super_hydro  # or super_hydro_gpu
+   ```
+* [Anaconda Project]:
+   ```bash
+   anaconda-project run shell  # or shell_gpu
+   ```
+:::
+
+## Quick Start
+
+Once the appropriate environment is activated, the fastest way to see what is here is to
+run the Flask client, then open your browse:
+
+```bash
+python3 bin/client
+```
+
+This will spawn a web-server at [http://localhost:27372](http://localhost:27372) (or a
+similar port, depending on your configuration).  This will open the Flask client, which
+will display a list of models for you to explore.
+
+Alternatively, you can run demons in a [Jupyter notebook] from the
+[Demo](Docs/Demonstrations) folder:
+
+```bash
+jupyter notebook "Docs/Demonstrations/Contents (Start Here).md"
+```
+
 ## Components
 
 
@@ -515,27 +550,29 @@ Issues
  * [Cupy] is not available for Mac OS X from [conda-forge].
 
 <!-- Links -->
-[`Makefile`]: Makefile
-[Nox]: <https://nox.thea.codes> "Nox: Flexible test automation"
-[Hypermodern Python]: <https://cjolowicz.github.io/posts/hypermodern-python-01-setup/> "Hypermodern Python"
-[`pyenv`]: <https://github.com/pyenv/pyenv> "Simple Python Version Management: pyenv"
+[Anaconda Project]: <https://github.com/Anaconda-Platform/anaconda-project> "Anaconda Project"
+[CUDA]: <https://developer.nvidia.com/cuda-toolkit> "CUDA Toolkit"
 [Conda]: <https://docs.conda.io> "Conda"
-[Miniconda]: <https://docs.conda.io/en/latest/miniconda.html> "Miniconda"
-[Jupyter]: <https://jupyter.org> "Jupyter"
-[Heptapod]: <https://heptapod.net> "Heptapod website"
-[pytest]: <https://docs.pytest.org> "pytest"
-[PyPI]: <https://pypi.org> "PyPI: The Python Package Index"
-[MyPI]: <https://alum.mit.edu/www/mforbes/mypi/> "MyPI: My personal package index"
-[Poetry]: <https://python-poetry.org> "Poetry: Python packaging and dependency management made easy"
-[`poetry2conda`]: <https://github.com/dojeda/poetry2conda> "poetry2conda"
-[Jupyter Book]: <https://jupyterbook.org> "Jupyter Book"
-[Read the Docs]: <https://readthedocs.org> "Read the Docs"
-[MyST]: <https://myst-parser.readthedocs.io> "MyST - Markedly Structured Text"
-[Cupy]: <https://cupy.dev/> "NumPy/SciPy-compatible Array Library for GPU-accelerated Computing with Python"
+[CuPy]: <https://cupy.dev> "CuPy: NumPy/SciPy-compatible Array Library for GPU-accelerated Computing with Python"
+[FFTW]: <https://www.fftw.org> "FFTW: The Fastest Fourier Transform in the West"
 [Flask]: <https://flask.palletsprojects.com>
-
-Bibliography
-============
-
-```{bibliography}
-```
+[Heptapod]: <https://heptapod.net> "Heptapod website"
+[Hypermodern Python]: <https://cjolowicz.github.io/posts/hypermodern-python-01-setup/> "Hypermodern Python"
+[Jupyter Book]: <https://jupyterbook.org> "Jupyter Book"
+[Jupyter notebook]: <https://jupyter.org> "Jupyter Notebook"
+[Jupyter]: <https://jupyter.org> "Jupyter"
+[Miniconda]: <https://docs.conda.io/en/latest/miniconda.html> "Miniconda"
+[MyPI]: <https://alum.mit.edu/www/mforbes/mypi/> "MyPI: My personal package index"
+[MyST]: <https://myst-parser.readthedocs.io> "MyST - Markedly Structured Text"
+[NVIDIA]: <https://www.nvidia.com/en-us/> "NVIDIA"
+[Nox]: <https://nox.thea.codes> "Nox: Flexible test automation"
+[Pip]: <https://pip.pypa.io/en/stable/> "Package installer for Python"
+[Poetry]: <https://python-poetry.org> "Poetry: Python packaging and dependency management made easy"
+[PyPI]: <https://pypi.org> "PyPI: The Python Package Index"
+[Read the Docs]: <https://readthedocs.org> "Read the Docs"
+[`Makefile`]: Makefile
+[`poetry2conda`]: <https://github.com/dojeda/poetry2conda> "poetry2conda"
+[`pyenv`]: <https://github.com/pyenv/pyenv> "Simple Python Version Management: pyenv"
+[pyFFTW]: <https://github.com/pyFFTW/pyFFTW> "pyFFTW: A pythonic python wrapper around FFTW"
+[pytest]: <https://docs.pytest.org> "pytest"
+[super_hydro]: <https://alum.mit.edu/www/mforbes/super_hydro> "Super_Hydro homepage"

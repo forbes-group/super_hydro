@@ -64,11 +64,33 @@ For more details, see {ref}`sec:install` for more details.
 
 ## Getting Started
 
-The simplest way to get started is to launch a [Jupyter notebook] from the
+If needed, first activate your environment with one of the following, depending on how you
+installed [Super_Hydro]:
+
+```bash
+conda activate super_hydro
+# OR
+conda activate super_hydro_gpu
+# OR
+anaconda-project run shell
+# OR
+anaconda-project run shell_gpu
+```
+
+The simplest way to get started is to launch the Flask client:
+
+```bash
+python bin/client
+```
+
+This will start a webserver at [http://localhost:27372](http://localhost:27372) (or on a
+similar port depending on your configuration) which you can connect with using your browser.
+
+Alternatively, you can run demons in a [Jupyter notebook] from the
 [Demo](Docs/Demonstrations) folder:
 
 ```bash
-jupyter notebook "Docs/Demonstrations/Contents (Start Here).ipynb"
+jupyter notebook "Docs/Demonstrations/Contents (Start Here).md"
 ```
 
 ## Remote Server
