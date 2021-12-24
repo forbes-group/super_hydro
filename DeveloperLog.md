@@ -1,3 +1,22 @@
+24 Dec 2021
+===========
+* The `templates` and `static` directories used are currently in the top level of the
+  project.  Would like to change this, but for now it works.  I put the favicon there
+  and modified the template.
+  
+23 Dec 2021
+===========
+* Running the flask client, I get an error `KeyError: 'favicon.ico'` from the code
+  `Model = APP._models[cls]`.  This happens because browsers [often request
+  `favicon.ico`](https://en.wikipedia.org/wiki/Favicon) to display.
+  
+  The default routing falls back to the model, which is why this error is happening
+  here.  We should have a better fallback, and [provide a
+  favicon](https://flask.palletsprojects.com/en/2.0.x/patterns/favicon/).
+  
+  I used [https://favicon.io/favicon-converter/](https://favicon.io/favicon-converter/)
+  with our main vortex image.
+
 22 Dec 2021
 ===========
 * Autosummary generates summaries, but not the actual documentation for classes or

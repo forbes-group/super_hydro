@@ -10,6 +10,7 @@
   </head>
   <body>
     <link rel="stylesheet" type="text/css" href="{{ url_for('static', filename='css/style.css')}}">
+    <link rel="shortcut icon" href="{{ url_for('static', filename='favicon.ico') }}">
     <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/3.0.4/socket.io.js"></script>
     <div class="containers"><ul>
       <li><a href="{{ url_for('quit') }}">Quit</a></li>

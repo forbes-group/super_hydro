@@ -75,7 +75,8 @@ server process via [ZMQ](https://pyzmq.readthedocs.io/en/latest/).
 ### HTML/JS User Interface
 
 The User interface is displayed as HTML static pages generated from templates
-using Jinja2.
+using Jinja2.  These are located in the `templates/` directory in the top level of the
+project.
 
 Interaction sliders/toggles are created based on a nested list `sliders` that 
 is required in each class method representing a physics model.

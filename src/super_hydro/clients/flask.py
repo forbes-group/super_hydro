@@ -10,6 +10,7 @@ For more details see :ref:`flask-client`.
 from collections import OrderedDict
 import importlib
 import inspect
+import logging
 import sys
 import time
 
@@ -31,11 +32,14 @@ from super_hydro.server import server
 
 # This establishes the communication with the server.
 _LOGGER = utils.Logger(__name__)
+
 log = _LOGGER.log
 log_task = _LOGGER.log_task
 
+# APP = Flask(__name__)
 APP = Flask("flask_client")
-# APP.config['EXPLAIN_TEMPLATE_LOADING'] = True
+# APP.config["EXPLAIN_TEMPLATE_LOADING"] = True
+
 
 ###############################################################################
 # Network Server Communication clases.
@@ -148,7 +152,7 @@ def index():
     return render_template("index.html", models=APP._models)
 
 
-@APP.route("/<cls>")
+@APP.route("/models/<cls>")
 def modelpage(cls):
     """Model display function.
 
@@ -632,6 +636,7 @@ def run(args=None, kwargs=None):
 
     print(f"Running Flask client on http://{opts.host}:{opts.port}")
     socketio.run(APP, host=opts.host, port=opts.port, debug=opts.debug)
+    APP.logger.setLevel(logging.DEBUG)
 
 
 if __name__ == "__main__":
