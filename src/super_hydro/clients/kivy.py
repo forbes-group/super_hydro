@@ -1,3 +1,8 @@
+"""Kivy Client.
+
+The Kivy Client has be deprecated.  This module only exists for historical reasons.
+"""
+'''
 import os
 import sys
 
@@ -317,3 +322,4 @@ class SuperHydroApp(App):
 
 def run():
     SuperHydroApp(opts=_OPTS).run()
+'''

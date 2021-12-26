@@ -17,28 +17,20 @@ import time
 import numpy as np
 
 # Additional Package Imports
-from flask import Flask, render_template
-from flask_socketio import (
-    SocketIO,
-    emit,
-    Namespace,
-    join_room,
-    leave_room,
-)
+import flask
+import flask_socketio
 
 # Project-defined Modules
 from super_hydro import config, utils, communication
 from super_hydro.server import server
+
+__all__ = ["FlaskClient", "Demonstration", "run"]
 
 # This establishes the communication with the server.
 _LOGGER = utils.Logger(__name__)
 
 log = _LOGGER.log
 log_task = _LOGGER.log_task
-
-# APP = Flask(__name__)
-APP = Flask("flask_client")
-# APP.config["EXPLAIN_TEMPLATE_LOADING"] = True
 
 
 ###############################################################################
@@ -117,81 +109,162 @@ class ServerProxy:
         self._running = False
 
 
+def route(*v, **kw):
+    """Use in class methods where @app.route would be used.
+
+    Allows the constructor to route these.
+    """
+
+    def wrapper(f):
+        f._routed = True
+        f._route_v = v
+        f._route_kw = kw
+        return f
+
+    return wrapper
+
+
 #############################################################################
 # Flask HTML Routes.
 #
 # These determine which URL-endpoint will be linked to which HTML page.
 #############################################################################
+class FlaskClient:
+    """Encapsulates the Flask app.
 
-
-def shutdown_server():
-    """Shuts down the Flask-SocketIO instance."""
-    global APP
-    print("Shutting down...")
-    APP._socketio.stop()
-
-
-@APP.route("/")
-def index():
-    """Landing page function.
-
-    Used by Flask HTTP routing for navigation index/landing page for served
-    web interface. Transfers model class list as Jinja2 templating variable.
-
-    Parameters
+    Attributes
     ----------
-    cls : :obj:'list'
-        global list of all classes within loaded module.
-
-    Returns
-    -------
-    render_template('index.html')
-        Generated HTML index/landing page for Flask web framework.
+    app : flask.Flask
+        Flask application object.
+    opts : argparse.Namespace
+        Options object.
+    models : list of Models
+        These should implement the :interface:`super_hydro.interfaces.IModel` interface.
     """
-    global APP
-    return render_template("index.html", models=APP._models)
 
+    app = None
+    opts = None
+    other_args = None
+    models = []
 
-@APP.route("/models/<cls>")
-def modelpage(cls):
-    """Model display function.
+    def __init__(self, *args, **kwargs):
+        self.app = flask.Flask(__name__)
+        # self.app.config["EXPLAIN_TEMPLATE_LOADING"] = True
 
-    Used by Flask HTTP routing for navigation to model simulatioin pages by
-    dynamically generating pages from the 'model.html' template useing Jinja2
-    inputs.
+        for method in inspect.getmembers(self):
+            # Run through all routed methods and route them with self.app.
+            if getattr(method, "_routed", False):
+                self.app.route(method, *method._routed_v, **method._routed_kw)
 
-    Parameters
-    ----------
-    cls : str
-        Name of the class for the intended physics model to display
+        # Parser to get user loaded file/models, else defaults to included gpe.py models
+        parser = config.get_client_parser()
+        self.opts, self.other_args = parser.parse_known_args(args=args)
+        self.opts.__dict__.update(kwargs)
 
-    Returns
-    -------
-    render_template('model.html')
-        Generates interactive HTML physics model page for Flask web framework.
-    """
-    global APP
-    Model = APP._models[cls]
-    return render_template(
-        "model.html",
-        model=cls,
-        Title=f"{cls}",
-        info=Model.__doc__,
-        sliders=Model.get_sliders(),
-        models=APP._models,
-    )
+        self.models = self.get_models()
+        self.demonstration = Demonstration(flask_client=self, root="/modelpage")
 
+        self.socketio = flask_socketio.SocketIO(self.app, async_mode="eventlet")
+        self.socketio.on_namespace(self.demonstration)
 
-@APP.route("/quit")
-def quit():
-    """HTTP Route to shutdown the Flask client and running computational
-    servers.
-    """
-    for model in Demonstration.fsh:
-        if model != "init":
-            if Demonstration.fsh[model]["server"] is not None:
-                Demonstration.fsh[model]["server"].quit()
-    shutdown_server()
+        print(f"Running Flask client on http://{self.opts.host}:{self.opts.port}")
+        self.socketio.run(
+            self.app, host=self.opts.host, port=self.opts.port, debug=self.opts.debug
+        )
+        self.app.logger.setLevel(logging.DEBUG)
+
+    def shutdown_server(self):
+        """Shuts down the Flask-SocketIO instance."""
+        print("Shutting down...")
+        self.socketio.stop()
+
+    @route("/")
+    def index(self):
+        """Landing page function.
+
+        Used by Flask HTTP routing for navigation index/landing page for served
+        web interface. Transfers model class list as Jinja2 templating variable.
+
+        Parameters
+        ----------
+        cls : :obj:'list'
+            global list of all classes within loaded module.
+
+        Returns
+        -------
+        flask.render_template('index.html')
+            Generated HTML index/landing page for Flask web framework.
+        """
+        return flask.render_template("index.html", models=self.models)
+
+    @route("/models/<cls>")
+    def modelpage(self, cls):
+        """Model display function.
+
+        Used by Flask HTTP routing for navigation to model simulatioin pages by
+        dynamically generating pages from the 'model.html' template useing Jinja2
+        inputs.
+
+        Parameters
+        ----------
+        cls : str
+            Name of the class for the intended physics model to display
+
+        Returns
+        -------
+        flask.render_template('model.html')
+            Generates interactive HTML physics model page for Flask web framework.
+        """
+        Model = self.app._models[cls]
+        return flask.render_template(
+            "model.html",
+            model=cls,
+            Title=f"{cls}",
+            info=Model.__doc__,
+            sliders=Model.get_sliders(),
+            models=self.models,
+        )
+
+    @route("/quit")
+    def quit(self):
+        """HTTP Route to shutdown the Flask client and running computational
+        servers.
+        """
+        for model in Demonstration.fsh:
+            if model != "init":
+                if Demonstration.fsh[model]["server"] is not None:
+                    Demonstration.fsh[model]["server"].quit()
+        self.shutdown_server()
+        return flask.render_template("goodbye.html")
+
+    def get_models(self):
+        """Return a dictionary of models."""
+        # File Pathing for custom model
+        if self.opts.file is not None:
+            userpath = self.opts.file.split(".")[0]
+            tmp = userpath.split("/")
+            udfp = tmp[:-1]
+            newpath = "/".join(udfp)
+            sys.path.insert(0, f"{newpath}")
+            modpath = tmp[-1]
+            module = importlib.import_module(modpath)
+        else:
+            modpath = "super_hydro.physics.gpe"
+            module = importlib.import_module(modpath)
+
+        clsmembers = inspect.getmembers(module, inspect.isclass)
+        # _modname = modpath.split(".")[-1]
+
+        model_names = []
+        models = []
+        for _x in range(len(clsmembers)):
+            model_name = clsmembers[_x][0]
+            model_class = model_name.split(".")[-1]
+            Model = getattr(module, model_class)
+
+            model_names.append(model_name)
+            models.append(Model)
+        return OrderedDict(zip(model_names, models))
 
 
 #############################################################################
@@ -202,13 +275,13 @@ def quit():
 #############################################################################
 
 
-class Demonstration(Namespace):
-    """Flask-SocketIO Socket container for models.
+class Demonstration(flask_socketio.Namespace):
+    """Flask-SocketIO Socket container for a model.
 
     Contains all Python-side web socket communications for operating and
     interacting with a running physics model. Communicates with Javascript
-    socket.io API through a static Namespace and uses Flask-SocketIO's Room
-    structuring to separate models.
+    socket.io API through a static flask_socketio.Namespace and uses Flask-SocketIO's
+    Room structuring to separate models.
 
     (https://flask-socketio.readthedocs.io/en/latest)
 
@@ -218,9 +291,9 @@ class Demonstration(Namespace):
         internal container for storing individual model information/computations
     """
 
-    def __init__(self, *v, opts, **kw):
-        self.opts = opts
-        super().__init__(*v, **kw)
+    def __init__(self, flask_client, root, **kw):
+        self.flask_client = flask_client
+        super().__init__(root, **kw)
 
     fsh = {}
 
@@ -250,17 +323,17 @@ class Demonstration(Namespace):
 
         Returns
         -------
-        emit('init')
+        flask_socketio.emit('init')
             Initial model parameters
         """
-        global APP
-        opts = self.opts
+        opts = self.flask_client.opts
 
         model = data["name"]
         if model not in self.fsh or self.fsh[model]["server"] is None:
             self.fsh[model] = dict.fromkeys(["server", "users", "d_thread"])
             if opts.network == False:
                 self.fsh[model]["server"] = get_server_proxy(
+                    flask_client=self.flask_client,
                     run_server=True,
                     network_server=False,
                     steps=opts.steps,
@@ -270,13 +343,14 @@ class Demonstration(Namespace):
                 )
             else:
                 self.fsh[model]["server"] = get_server_proxy(
+                    flask_client=self.flask_client,
                     run_server=False,
                     network_server=True,
                     steps=opts.steps,
                     model=model,
                 )
                 self.fsh[model]["server"].run()
-        join_room(model)
+        flask_socketio.join_room(model)
         if self.fsh[model]["users"] is None:
             self.fsh[model]["users"] = 1
         else:
@@ -284,10 +358,12 @@ class Demonstration(Namespace):
         self.fsh["init"] = {}
         for param in data["params"]:
             self.fsh["init"].update(self.fsh[model]["server"].server.get([f"{param}"]))
-        emit("init", self.fsh["init"], room=model)
+        flask_socketio.emit("init", self.fsh["init"], room=model)
         if self.fsh[model]["d_thread"] is None:
-            self.fsh[model]["d_thread"] = APP._socketio.start_background_task(
-                target=push_thread,
+            self.fsh[model][
+                "d_thread"
+            ] = self.flask_client.socketio.start_background_task(
+                target=self.push_thread,
                 namespace="/modelpage",
                 server=self.fsh[model]["server"],
                 room=model,
@@ -307,7 +383,7 @@ class Demonstration(Namespace):
 
         Returns
         -------
-        emit('param_up')
+        flask_socketio.emit('param_up')
             Sends new parameter value to all Users connected to model's Room.
         """
 
@@ -315,7 +391,7 @@ class Demonstration(Namespace):
         for key, value in data["param"].items():
             self.fsh[model]["server"].server.set({f"{key}": float(value)})
             data = {"name": key, "param": value}
-        emit("param_up", data, room=model)
+        flask_socketio.emit("param_up", data, room=model)
 
     def on_set_log_param(self, data):
         """Transfers logarithmic parameter change to computational server.
@@ -332,7 +408,7 @@ class Demonstration(Namespace):
 
         Returns
         -------
-        emit('log_param_up')
+        flask_socketio.emit('log_param_up')
             Sends new paramter value to all Users connected to model's Room.
         """
 
@@ -340,7 +416,7 @@ class Demonstration(Namespace):
         for key, value in data["param"].items():
             self.fsh[model]["server"].server.set({f"{key}": float(value)})
             data = {"name": key, "param": value}
-        emit("log_param_up", data, room=model)
+        flask_socketio.emit("log_param_up", data, room=model)
 
     def on_do_action(self, data):
         """Transfers Server action request to computational server.
@@ -359,7 +435,7 @@ class Demonstration(Namespace):
             params = self.fsh[model]["server"].server.reset()
             restart = {"name": model}
             restart.update({"params": params})
-            leave_room(model)
+            flask_socketio.leave_room(model)
             self.fsh[model]["users"] -= 1
             self.on_start_srv(restart)
         else:
@@ -400,7 +476,7 @@ class Demonstration(Namespace):
         """
 
         model = data["data"]
-        leave_room(model)
+        flask_socketio.leave_room(model)
         self.fsh[model]["users"] -= 1
         if self.fsh[model]["users"] == 0:
             self.fsh[model]["users"] = 0
@@ -418,71 +494,67 @@ class Demonstration(Namespace):
 
         print("Client Disconnected.")
 
+    ###############################################################################
 
-###############################################################################
+    ###############################################################################
+    # End socket connection section.
+    ###############################################################################
 
-###############################################################################
-# End socket connection section.
-###############################################################################
+    def push_thread(self, namespace, server, room):
+        """Continuously updates display information to model page.
 
+        Background thread that continuously queries computational server for
+        density array, finger potential position and potential strength. Transmits
+        to appropriate model page for display animation.
 
-def push_thread(namespace, server, room):
-    """Continuously updates display information to model page.
+        Parameters
+        ----------
+        namespace : str
+            Static namespace for the web socket communication.
+        server : obj
+            Model computational server object.
+        room : str
+            Model room name destination for display information
 
-    Background thread that continuously queries computational server for
-    density array, finger potential position and potential strength. Transmits
-    to appropriate model page for display animation.
+        Returns
+        -------
+        socketio.emit('ret_array')
+            Transmits display information to Javascript via web socket connection.
+        socketio.emit('ret_trace')
+            Transmits tracer particle position data to Javascript via web socket.
+        """
+        while server._running is True:
+            start_time = time.time()
+            # Exchange comments to revert display/performance:
 
-    Parameters
-    ----------
-    namespace : str
-        Static namespace for the web socket communication.
-    server : obj
-        Model computational server object.
-    room : str
-        Model room name destination for display information
+            # fxy = [server.server.get(["finger_x"])['finger_x'],
+            #        server.server.get(["finger_y"])['finger_y']]
+            # vxy = server.server.get(['Vpos'])['Vpos']
 
-    Returns
-    -------
-    socketio.emit('ret_array')
-        Transmits display information to Javascript via web socket connection.
-    socketio.emit('ret_trace')
-        Transmits tracer particle position data to Javascript via web socket.
-    """
-    global APP
+            fxy = vxy = [0.5, 0.5]
 
-    while server._running is True:
-        start_time = time.time()
-        # Exchange comments to revert display/performance:
+            density = server.server.get_array("density")
 
-        # fxy = [server.server.get(["finger_x"])['finger_x'],
-        #        server.server.get(["finger_y"])['finger_y']]
-        # vxy = server.server.get(['Vpos'])['Vpos']
+            from matplotlib import cm
 
-        fxy = vxy = [0.5, 0.5]
+            array = cm.viridis(density / density.max())
+            array *= int(255 / array.max())  # normalize values
+            rgba = "".join(map(chr, array.astype(dtype="uint8").tobytes()))
 
-        density = server.server.get_array("density")
-
-        from matplotlib import cm
-
-        array = cm.viridis(density / density.max())
-        array *= int(255 / array.max())  # normalize values
-        rgba = "".join(map(chr, array.astype(dtype="uint8").tobytes()))
-
-        APP._socketio.emit(
-            "ret_array",
-            {"rgba": rgba, "vxy": vxy, "fxy": fxy},
-            namespace=namespace,
-            room=room,
-        )
-        if APP.opts.tracers == True:
-            trace = server.server.get_array("tracers").tolist()
-
-            APP._socketio.emit(
-                "ret_trace", {"trace": trace}, namespace=namespace, room=room
+            self.flask_client.socketio.emit(
+                "ret_array",
+                {"rgba": rgba, "vxy": vxy, "fxy": fxy},
+                namespace=namespace,
+                room=room,
             )
-        print("Framerate currently is: ", int(1.0 / (time.time() - start_time)))
-        APP._socketio.sleep(0)
+            if self.flask_client.opts.tracers == True:
+                trace = server.server.get_array("tracers").tolist()
+
+                self.flask_client.socketio.emit(
+                    "ret_trace", {"trace": trace}, namespace=namespace, room=room
+                )
+            print("Framerate currently is: ", int(1.0 / (time.time() - start_time)))
+            self.flask_client.socketio.sleep(0)
 
 
 ###############################################################################
@@ -491,7 +563,13 @@ def push_thread(namespace, server, room):
 
 
 def get_server(
-    model, block=True, network_server=True, interrupted=False, args=None, kwargs={}
+    flask_client,
+    model,
+    block=True,
+    network_server=True,
+    interrupted=False,
+    args=None,
+    kwargs={},
 ):
     """Generates a Server object for computation and communication. Loads in a
     series of configuration options as well as the specified computational
@@ -499,6 +577,8 @@ def get_server(
 
     Parameters
     ----------
+    flask_client : FlaskClient
+        Initialized FlaskClient.
     model : str
         Name of the class representing a physical model
     block : bool
@@ -517,14 +597,13 @@ def get_server(
     _server : :obj:
         The running server object with loaded configuration options.
     """
-    global APP
     parser = config.get_server_parser()
     opts, other_args = parser.parse_known_args(args=args)
     opts.__dict__.update(kwargs)
 
     # module = importlib.import_module(modpath)
     # Model = getattr(module, model)
-    Model = APP._models[model]
+    Model = flask_client.models[model]
     opts.State = Model
     if network_server:
         _server = server.NetworkServer(opts=opts)
@@ -537,15 +616,16 @@ def get_server(
 ###############################################################################
 # Function to establish server communication
 ###############################################################################
-_OPTS = None
-
-
-def get_server_proxy(model, run_server=False, network_server=True, **kwargs):
+def get_server_proxy(
+    flask_client, model, run_server=False, network_server=True, **kwargs
+):
     """Returns a ServerProxy object with appropriate local server or network
     server communication property.
 
     Parameters
     ----------
+    flask_client : FlaskClient
+        Initialized FlaskClient.
     model : str
         Name of the model class to load into server object property.
     run_server : bool
@@ -560,19 +640,23 @@ def get_server_proxy(model, run_server=False, network_server=True, **kwargs):
     server_proxy : :obj:
         ServerProxy object with either local or network server communication.
     """
-    global _OPTS
-    if _OPTS is None:
+    if flask_client.opts is None:
         with log_task("Reading Configuration"):
             parser = config.get_client_parser()
-            _OPTS, _other_opts = parser.parse_known_args(args="")
+            opts, other_opts = parser.parse_known_args(args="")
+    else:
+        opts = flask_client.opts
 
-    server_proxy = ServerProxy(opts=_OPTS)
+    server_proxy = ServerProxy(opts=opts)
 
     if run_server:
+        # Delay import becuase clients may not have all of the dependencies needed
+        # to run the server.
         from super_hydro.server import server
 
         server_proxy.server = get_server(
-            model,
+            flask_client=flask_client,
+            model=model,
             args="",
             interrupted=server_proxy.interrupted,
             block=False,
@@ -582,61 +666,14 @@ def get_server_proxy(model, run_server=False, network_server=True, **kwargs):
     return server_proxy
 
 
-def get_models(opts):
-    """Return a dictionary of models."""
-    # File Pathing for custom model
-    if opts.file is not None:
-        userpath = opts.file.split(".")[0]
-        tmp = userpath.split("/")
-        udfp = tmp[:-1]
-        newpath = "/".join(udfp)
-        sys.path.insert(0, f"{newpath}")
-        modpath = tmp[-1]
-        module = importlib.import_module(modpath)
-    else:
-        modpath = "super_hydro.physics.gpe"
-        module = importlib.import_module(modpath)
-
-    clsmembers = inspect.getmembers(module, inspect.isclass)
-    _modname = modpath.split(".")[-1]
-
-    model_names = []
-    models = []
-    for _x in range(len(clsmembers)):
-        model_name = clsmembers[_x][0]
-        model_class = model_name.split(".")[-1]
-        Model = getattr(module, model_class)
-
-        model_names.append(model_name)
-        models.append(Model)
-    return OrderedDict(zip(model_names, models))
-
-
-def run(args=None, kwargs=None):
+def run(*args, **kwargs):
     """Run the Flask web framework.
 
-    Starts the Flask/Flask-SocketIO web framework APP, which provides HTML and
+    Starts the Flask/Flask-SocketIO web framework self.app, which provides HTML and
     Javascript page rendering/routing and web socket mediation between User
     Javascript requests to a model Computational Server.
     """
-    global APP
-
-    # Parser to get user loaded file/models, else defaults to included gpe.py models
-    if kwargs is None:
-        kwargs = {}
-    parser = config.get_client_parser()
-    opts, other_args = parser.parse_known_args(args=args)
-    opts.__dict__.update(kwargs)
-
-    APP._models = get_models(opts)
-    APP.opts = opts
-
-    APP._socketio = socketio = SocketIO(APP, async_mode="eventlet")
-    socketio.on_namespace(Demonstration("/modelpage", opts=opts))
-
-    print(f"Running Flask client on http://{opts.host}:{opts.port}")
-    socketio.run(APP, host=opts.host, port=opts.port, debug=opts.debug)
-    APP.logger.setLevel(logging.DEBUG)
+    flask_client = FlaskClient(*args, **kwargs)
 
 
 if __name__ == "__main__":

@@ -1,10 +1,15 @@
 25 Dec 2021
 ===========
-Trying to get a simple `.. autosummary::` entry working for `Dev/Flask.md` but since I
-don't want to generate a toctree here (this is done in the `api` section), I can't find
-a way to customize the output.  Not sure if this is a bug.  For now, we will need to
-manually update the documentation if we add new classes/functions, or just refer to the
-API docs.
+* Trying to get a simple `.. autosummary::` entry working for `Dev/Flask.md` but since I
+  don't want to generate a toctree here (this is done in the `api` section), I can't
+  find a way to customize the output.  Not sure if this is a bug.  For now, we will need
+  to manually update the documentation if we add new classes/functions, or just refer to
+  the API docs.
+  
+  After some exploration, it seems this is not possible.  There is an
+  [autodocsumm](https://autodocsumm.readthedocs.io) module that helps, but it includes
+  too much.  Maybe some combination of this and custom templates would work.
+
 
 
 24 Dec 2021
