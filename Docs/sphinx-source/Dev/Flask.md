@@ -1,11 +1,30 @@
-# super\_hydro Flask-based Web Client
+# Flask Client
+
+The [Flask]-based web-client can either connect to a running server, or can be used to
+launch servers with the various simulations.
+
+
+## Structure
+
+The Flask client is provided in the {py:mod}`super_hydro.clients.flask` module which
+exports the following classes:
+
+```{eval-rst}
+
+.. automodule:: super_hydro.clients.flask
+    :noindex:
+    :no-members:
+    :autosummary:
+    :autosummary-members:
+    
+```
 
 ## Flask Framework
 
-The [Flask](https://flask.palletsprojects.com/en/1.1.x/) client framework 
-(Flask) provides two primary functions: establish routing/rendering between
-the User Frontend Web Client (Web Client) and Computational server (Server),
- and mediating interaction and display data between the two.
+The [Flask] client framework (Flask) provides two primary functions: establish
+routing/rendering between the User Frontend Web Client (Web Client) and Computational
+server (Server),  and mediating interaction and display data between the two.
+
 
 ### Startup
 
@@ -343,3 +362,5 @@ configuration and allow 20 to 30 seconds for the framerate to stabilize.
 NOTE: There is not currently a more time efficient method of checking the
 framerate of varying Nxy or step sizes than starting and stopping the client
 while manually changing the configuration options for each test.
+
+[Flask]: <https://flask.palletsprojects.com>

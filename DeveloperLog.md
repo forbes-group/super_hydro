@@ -1,3 +1,12 @@
+25 Dec 2021
+===========
+Trying to get a simple `.. autosummary::` entry working for `Dev/Flask.md` but since I
+don't want to generate a toctree here (this is done in the `api` section), I can't find
+a way to customize the output.  Not sure if this is a bug.  For now, we will need to
+manually update the documentation if we add new classes/functions, or just refer to the
+API docs.
+
+
 24 Dec 2021
 ===========
 * The `templates` and `static` directories used are currently in the top level of the

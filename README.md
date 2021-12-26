@@ -10,7 +10,7 @@ For better performance, however, the explored can be run as a client-server appl
 with the computations being run on a high-performance server (preferably with an Nvidia
 GPU) while you interact with the client on your device.
 
-## Install [Super_Hydro]
+## Installing [Super_Hydro]
 
 Although [super_hydro] can be installed directly with [Pip]:
 
