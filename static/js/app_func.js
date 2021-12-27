@@ -1,33 +1,33 @@
 // setParam() ties with 'param_up' socket event to update changes in user
 // controllable parameter values.
 function setParam(name, value) {
- sh.Param = {};
- sh.Param[name] = value;
- socket.emit('set_param', {data: sh.model, param: sh.Param});
+ model.Param = {};
+ model.Param[name] = value;
+ socket.emit('set_param', {data: model.name, param: model.Param});
 };
 
 // setLogParam() ties with 'log_param_up' socket event to update changes in
 // user controllable logarithmic scale parameter values.
 function setLogParam(name, value) {
-  sh.Param = {};
-  sh.Param[name] = Math.pow(10, value);
-  socket.emit('set_log_param', {data: sh.model, param: sh.Param})
+  model.Param = {};
+  model.Param[name] = Math.pow(10, value);
+  socket.emit('set_log_param', {data: model.name, param: model.Param})
 }
 
 // doAction() passes action calls to the server.
 function doAction(name) {
- socket.emit('do_action', {data: sh.model, name: name});
+ socket.emit('do_action', {data: model.name, name: name});
 };
 
 // This section provides mouseclick/touchscreen interaction for finger
 // potential.
 function getCursorPosition(canvas, event) {
  const rect = canvas.getBoundingClientRect()
- sh.fy = (event.clientY - rect.top);
- sh.fx = (event.clientX - rect.left);
- const fPos = {'xy0' : [sh.fy/(rect.bottom-rect.top),
-                        sh.fx/(rect.right-rect.left)]}
- socket.emit('finger', {data: sh.model, position: fPos})
+ model.fy = (event.clientY - rect.top);
+ model.fx = (event.clientX - rect.left);
+ const fPos = {'xy0' : [model.fy/(rect.bottom-rect.top),
+                        model.fx/(rect.right-rect.left)]}
+ socket.emit('finger', {data: model.name, position: fPos})
 };
 
 // Animation framework function.

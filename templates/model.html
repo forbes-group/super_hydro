@@ -70,9 +70,9 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/mathjs/3.3.0/math.min.js" charset="utf-8"></script>
 
 <script>
-  // Establish namespace (sh), websocket, and page width/height values
-  var sh = {};
-  sh.model = '{{ model }}';
+  // Establish namespace (model), websocket, and page width/height values
+  var model = {};
+  model.name = '{{ model_name }}';
   var socket = io('/modelpage');
 
   // FPS tracker:
@@ -108,13 +108,13 @@
 
   // When the User socket connection is made, start a server if not running
   socket.on('connect', function() {
-    sh.params = ['Nx', 'Ny', 'finger_x', 'finger_y'];
-    //sh.params = ['Nxy', 'finger_x', 'finger_y'];
+    model.params = ['Nx', 'Ny', 'finger_x', 'finger_y'];
+    //model.params = ['Nxy', 'finger_x', 'finger_y'];
     inputs = document.getElementsByTagName('input');
     for (index = 0; index < inputs.length; ++index) {
-      sh.params.push(inputs[index].id)
+      model.params.push(inputs[index].id)
     };
-    socket.emit('start_srv', {name: sh.model, params: sh.params})
+    socket.emit('start_srv', {name: model.name, params: model.params})
   });
 
   // Gets current values (server side) of all relevant parameters.
@@ -135,10 +135,10 @@
     }
     });
     // Set sizing and finger positions.
-    sh.nx = data.Nx;
-    sh.ny = data.Ny;
-    sh.fx = chartFinger.width - data.finger_x*chartFinger.width;
-    sh.fy = data.finger_y*chartFinger.height;
+    model.nx = data.Nx;
+    model.ny = data.Ny;
+    model.fx = chartFinger.width - data.finger_x*chartFinger.width;
+    model.fy = data.finger_y*chartFinger.height;
  
   });
 
@@ -146,34 +146,34 @@
   // Also calculates framerate.
   socket.on('ret_array', function(data){
    rgba = Uint8ClampedArray.from(data.rgba, c => c.charCodeAt(0));
-   drawCustom(rgba, sh.nx, sh.ny);
+   drawCustom(rgba, model.nx, model.ny);
    //vbytes = Uint8Array.from(data.vxy, c => c.charCodeAt(0));
    //vfloats = new Float64Array(vbytes.buffer);
    vfloats = data.vxy;
-   sh.fx = chartFinger.width - data.fxy[1]*chartFinger.width;
-   sh.fy = data.fxy[0]*chartFinger.height;
+   model.fx = chartFinger.width - data.fxy[1]*chartFinger.width;
+   model.fy = data.fxy[0]*chartFinger.height;
 
    // FPS Counter tracking:
-   sh.timeEnd = (new Date).getTime();
-   latency = sh.timeEnd - timeStart;
+   model.timeEnd = (new Date).getTime();
+   latency = model.timeEnd - timeStart;
    pingTimes.push(latency);
    pingTimes = pingTimes.slice(-30); //keep last 30 samples
    var sum = 0;
    for (var i = 0; i < pingTimes.length; i++)
     sum += pingTimes[i];
-   sh.fps = Math.floor(10000/ Math.round(10 * sum / pingTimes.length));
-   document.getElementById('ping-pong').innerHTML = sh.fps;
-   timeStart = sh.timeEnd;
+   model.fps = Math.floor(10000/ Math.round(10 * sum / pingTimes.length));
+   document.getElementById('ping-pong').innerHTML = model.fps;
+   timeStart = model.timeEnd;
 
    //Draw the Finger Potential (placed last to allow consistent FPS tracking)
-   drawFinger(sh.fx, sh.fy, vfloats[1], vfloats[0]);
+   drawFinger(model.fx, model.fy, vfloats[1], vfloats[0]);
 
   });
 
   // Receives tracer particle data and draws to Canvas element.
   socket.on('ret_trace', function(data){
 	  console.log(data.trace);
-	  drawTracer(data.trace, sh.nx, sh.ny)})
+	  drawTracer(data.trace, model.nx, model.ny)})
 
   //Socket data reception to update user display for slider interactions,
   //regardless of which connected user interacted.
@@ -203,7 +203,7 @@
   //count. This may result in computational server being shut down if room is
   //empty.
   window.onbeforeunload = function () {
-    socket.emit('user_exit', {'data': sh.model});
+    socket.emit('user_exit', {'data': model.name});
  }
 </script>
 

@@ -8,6 +8,7 @@ For more details see :ref:`flask-client`.
 
 # Standard Library Imports
 from collections import OrderedDict
+import functools
 import importlib
 import inspect
 import logging
@@ -24,7 +25,7 @@ import flask_socketio
 from super_hydro import config, utils, communication
 from super_hydro.server import server
 
-__all__ = ["FlaskClient", "Demonstration", "run"]
+__all__ = ["FlaskClient", "ModelNamespace", "run"]
 
 # This establishes the communication with the server.
 _LOGGER = utils.Logger(__name__)
@@ -116,9 +117,7 @@ def route(*v, **kw):
     """
 
     def wrapper(f):
-        f._routed = True
-        f._route_v = v
-        f._route_kw = kw
+        f._routing = (v, kw)
         return f
 
     return wrapper
@@ -138,31 +137,37 @@ class FlaskClient:
         Flask application object.
     opts : argparse.Namespace
         Options object.
-    models : list of Models
-        These should implement the :interface:`super_hydro.interfaces.IModel` interface.
+    models : dict of Models
+        The keys are the model names, and the values should be instances that implement
+        the :interface:`super_hydro.interfaces.IModel` interface.    fsh : dict
+        Dictionary of information about the running models.  Note: this is a class
+        attribute - all instances use the same dictionary.
     """
 
     app = None
     opts = None
     other_args = None
     models = []
+    fsh = {}
 
     def __init__(self, *args, **kwargs):
-        self.app = flask.Flask(__name__)
+        self.app = flask.Flask("flask_client")
         # self.app.config["EXPLAIN_TEMPLATE_LOADING"] = True
 
-        for method in inspect.getmembers(self):
+        for name, method in inspect.getmembers(self):
             # Run through all routed methods and route them with self.app.
-            if getattr(method, "_routed", False):
-                self.app.route(method, *method._routed_v, **method._routed_kw)
+            if hasattr(method, "_routing"):
+                v, kw = method._routing
+                self.app.route(*v, **kw)(method)
 
         # Parser to get user loaded file/models, else defaults to included gpe.py models
         parser = config.get_client_parser()
         self.opts, self.other_args = parser.parse_known_args(args=args)
         self.opts.__dict__.update(kwargs)
+        print(self.opts)
 
         self.models = self.get_models()
-        self.demonstration = Demonstration(flask_client=self, root="/modelpage")
+        self.demonstration = ModelNamespace(flask_client=self, root="/modelpage")
 
         self.socketio = flask_socketio.SocketIO(self.app, async_mode="eventlet")
         self.socketio.on_namespace(self.demonstration)
@@ -215,14 +220,18 @@ class FlaskClient:
         flask.render_template('model.html')
             Generates interactive HTML physics model page for Flask web framework.
         """
-        Model = self.app._models[cls]
+        Model = self.models[cls]
+        template_vars = {
+            "model_name": cls,
+            "Title": f"{cls}",
+            "info": Model.__doc__,
+            "slider": Model.get_sliders(),
+            "models": list(self.models),
+        }
+
         return flask.render_template(
             "model.html",
-            model=cls,
-            Title=f"{cls}",
-            info=Model.__doc__,
-            sliders=Model.get_sliders(),
-            models=self.models,
+            **template_vars,
         )
 
     @route("/quit")
@@ -230,10 +239,10 @@ class FlaskClient:
         """HTTP Route to shutdown the Flask client and running computational
         servers.
         """
-        for model in Demonstration.fsh:
+        for model in self.fsh:
             if model != "init":
-                if Demonstration.fsh[model]["server"] is not None:
-                    Demonstration.fsh[model]["server"].quit()
+                if self.fsh[model]["server"] is not None:
+                    self.fsh[model]["server"].quit()
         self.shutdown_server()
         return flask.render_template("goodbye.html")
 
@@ -275,8 +284,11 @@ class FlaskClient:
 #############################################################################
 
 
-class Demonstration(flask_socketio.Namespace):
+class ModelNamespace(flask_socketio.Namespace):
     """Flask-SocketIO Socket container for a model.
+
+    This is a :class:`flask_socketio.Namespace` subclass, which allows one to eschew
+    the use of the `@socketio.on` decorator to make the events.
 
     Contains all Python-side web socket communications for operating and
     interacting with a running physics model. Communicates with Javascript
@@ -284,18 +296,15 @@ class Demonstration(flask_socketio.Namespace):
     Room structuring to separate models.
 
     (https://flask-socketio.readthedocs.io/en/latest)
-
-    Attributes
-    ----------
-    fsh : dict
-        internal container for storing individual model information/computations
     """
+
+    @property
+    def fsh(self):
+        return self.flask_client.fsh
 
     def __init__(self, flask_client, root, **kw):
         self.flask_client = flask_client
         super().__init__(root, **kw)
-
-    fsh = {}
 
     def on_connect(self):
         """Verifies Client connection.
@@ -386,7 +395,6 @@ class Demonstration(flask_socketio.Namespace):
         flask_socketio.emit('param_up')
             Sends new parameter value to all Users connected to model's Room.
         """
-
         model = data["data"]
         for key, value in data["param"].items():
             self.fsh[model]["server"].server.set({f"{key}": float(value)})
