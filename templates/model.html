@@ -15,23 +15,23 @@
 <div class="slidecontainer" style="float: left;">
   {% for slider in sliders %}
     <div style="float: left; padding-left: 2px; width: 49%;">
-      {{ slider[0] }}: <span id="{{'val_' + slider[0]}}"></span><br>
-      {% if slider[3]=='checkbox'%}
-      <input id="{{ slider[0] }}"
-             class="{{ slider[1] }}"
-             type="{{ slider[3] }}"
+      {{ slider.id }}: <span id="{{'val_' + slider.id}}"></span><br>
+      {% if slider.name == 'checkbox'%}
+      <input id="{{ slider.id }}"
+             class="{{ slider.class }}"
+             type="{{ slider.type }}"
              onchange="setParam(this.id, this.checked)">
     </div>
       {% else %}
-      <input id="{{ slider[0] }}"
-             class="{{ slider[1] }}"
-             name="{{ slider[2] }}"
-             type="{{ slider[3] }}"
-             min="{{ slider[4] }}"
-             max="{{ slider[5] }}"
-             step="{{ slider[6] }}"
+      <input id="{{ slider.id }}"
+             class="{{ slider.class }}"
+             name="{{ slider.name }}"
+             type="{{ slider.type }}"
+             min="{{ slider.min }}"
+             max="{{ slider.max }}"
+             step="{{ slider.step }}"
              value="0"
-             onchange="{{ 'setLogParam(this.id, this.value)' if slider[2]=='logarithmic' else 'setParam(this.id, this.value)' }}">
+             onchange="setParam(this.id, this.value, this.name=='logarithmic')">
     </div>
       {% endif %}
   {% endfor %}
@@ -182,15 +182,14 @@
       document.getElementById(data.name).checked = data.param;
       document.getElementById('val_' + data.name).innerHTML = data.param;
     } else{
-    document.getElementById('val_' + data.name).innerHTML = data.param;
-    document.getElementById(data.name).value = data.param;
+     document.getElementById('val_' + data.name).innerHTML = data.param;
+     if (document.getElementById(data.name).name == 'logarithmic') {
+      document.getElementById(data.name).value = Math.log10(data.param);
+     } else {
+      document.getElementById(data.name).value = data.param;
+     }
   }
  });
-
-  socket.on('log_param_up', function(data) {
-    document.getElementById('val_' + data.name).innerHTML = data.param;
-    document.getElementById(data.name).value = Math.log10(data.param);
-  });
 
   //Event listener for User mouse-click interaction/placement of potential
   //finger on Canvas display element.

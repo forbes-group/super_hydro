@@ -225,7 +225,7 @@ class FlaskClient:
             "model_name": cls,
             "Title": f"{cls}",
             "info": Model.__doc__,
-            "slider": Model.get_sliders(),
+            "sliders": Model.get_sliders(),
             "models": list(self.models),
         }
 
@@ -400,31 +400,6 @@ class ModelNamespace(flask_socketio.Namespace):
             self.fsh[model]["server"].server.set({f"{key}": float(value)})
             data = {"name": key, "param": value}
         flask_socketio.emit("param_up", data, room=model)
-
-    def on_set_log_param(self, data):
-        """Transfers logarithmic parameter change to computational server.
-
-        Receives logarithmic parameter change from User-side Javascript and
-        passes it into model computational server before updating all
-        connected User pages.
-
-        Parameters
-        ----------
-        data : dict
-            dict containing model room name, parameter being modified and new
-            value.
-
-        Returns
-        -------
-        flask_socketio.emit('log_param_up')
-            Sends new paramter value to all Users connected to model's Room.
-        """
-
-        model = data["data"]
-        for key, value in data["param"].items():
-            self.fsh[model]["server"].server.set({f"{key}": float(value)})
-            data = {"name": key, "param": value}
-        flask_socketio.emit("log_param_up", data, room=model)
 
     def on_do_action(self, data):
         """Transfers Server action request to computational server.

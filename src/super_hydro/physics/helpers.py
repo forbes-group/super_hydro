@@ -57,11 +57,12 @@ class ModelBase(object):
         This is a convenience function for the flask client.  Ultimately, that client
         should parse the layout itself so that the models can customize the display.
         """
+
         def get_widgets(tree):
             """Return a list of all widgets."""
             widgets = []
             for widget in tree:
-                if hasattr(widget, 'children'):
+                if hasattr(widget, "children"):
                     widgets.extend(get_widgets(widget.children))
                 else:
                     widgets.append(widget)
@@ -69,14 +70,38 @@ class ModelBase(object):
 
         sliders = []
         for widget in get_widgets([cls.layout]):
-            if isinstance(widget, w.FloatLogSlider):
-                sliders.append([widget.name, "slider", "logarithmic", "range",
-                                widget.min, widget.max, widget.step])
-            elif isinstance(widget, w.FloatSlider):
-                sliders.append([widget.name, "slider", "linear", "range",
-                                widget.min, widget.max, widget.step])
+            slider = {
+                "id": widget.name,
+                "min": None,
+                "max": None,
+                "step": None,
+            }
+            if isinstance(widget, w.FloatLogSlider) or isinstance(
+                widget, w.FloatSlider
+            ):
+                slider.update(
+                    {
+                        "class": "slider",
+                        "type": "range",
+                        "name": "linear",
+                        "min": widget.min,
+                        "max": widget.max,
+                        "step": widget.step,
+                    }
+                )
+                if isinstance(widget, w.FloatLogSlider):
+                    slider["name"] = "logarithmic"
             elif isinstance(widget, w.Checkbox):
-                sliders.append([widget.name, "toggle", None, "checkbox", None, None, None])
+                slider.update(
+                    {
+                        "class": "toggle",
+                        "name": None,
+                        "type": "checkbox",
+                    }
+                )
+            else:
+                continue
+            sliders.append(slider)
         return sliders
 
 

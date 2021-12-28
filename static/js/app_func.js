@@ -1,8 +1,12 @@
 // setParam() ties with 'param_up' socket event to update changes in user
 // controllable parameter values.
-function setParam(name, value) {
+function setParam(name, value, logarithmic) {
  model.Param = {};
- model.Param[name] = value;
+ if (logarithmic) {
+  model.Param[name] = Math.pow(10, value);
+ } else {
+  model.Param[name] = value;
+ }
  socket.emit('set_param', {data: model.name, param: model.Param});
 };
 
