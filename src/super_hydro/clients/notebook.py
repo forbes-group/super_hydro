@@ -27,6 +27,8 @@ from ..contexts import nointerrupt, NoInterrupt
 
 from .. import config, communication, utils, widgets
 
+from .mixins import DensityMixin
+
 
 _LOGGER = utils.Logger(__name__)
 log = _LOGGER.log
@@ -77,7 +79,7 @@ class _Interrupted(object):
         return not self.app._running
 
 
-class NotebookApp(App):
+class NotebookApp(DensityMixin, App):
     fmt = "PNG"
     browser_control = True
     server = None
@@ -240,16 +242,6 @@ class NotebookApp(App):
                 self._msg.value = "{:.2f}fps".format(self._frame / (toc - tic0))
         if self._running:
             self.quit()
-
-    def get_rgba_from_density(self, density):
-        """Convert the density array into an rgba array for display."""
-        density = density.T
-        # array = cm.viridis((n_-n_.min())/(n_.max()-n_.min()))
-        array = cm.viridis(density / density.max())
-        # array = self._update_frame_with_tracer_particles(array)
-        array *= int(255 / array.max())  # normalize values
-        rgba = array.astype(dtype="uint8")
-        return rgba
 
     def _update_frame_with_tracer_particles(self, array):
         tracers = self.get_tracer_particles()

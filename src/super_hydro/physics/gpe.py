@@ -261,7 +261,9 @@ class BEC(GPEBase):
             x, y = self.xy
             Lx, Ly = self.Lxy
             r2_ = (2 * x / Lx) ** 2 + (2 * y / Ly) ** 2
-            return 100 * self.mu * utils.mstep(r2_ - 0.8, 0.2)
+            V_ = utils.mstep(r2_ - 0.8, 0.2)
+            # V_ += -x / Lx - 0.2 * y / Ly
+            return 100 * self.mu * V_
         else:
             return 0
 

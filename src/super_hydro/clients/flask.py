@@ -22,8 +22,9 @@ import flask
 import flask_socketio
 
 # Project-defined Modules
-from super_hydro import config, utils, communication
-from super_hydro.server import server
+from .. import config, utils, communication
+from ..server import server
+from .mixins import DensityMixin
 
 __all__ = ["FlaskClient", "ModelNamespace", "run"]
 
@@ -128,7 +129,7 @@ def route(*v, **kw):
 #
 # These determine which URL-endpoint will be linked to which HTML page.
 #############################################################################
-class FlaskClient:
+class FlaskClient(DensityMixin):
     """Encapsulates the Flask app.
 
     Attributes
@@ -142,7 +143,20 @@ class FlaskClient:
         the :interface:`super_hydro.interfaces.IModel` interface.
     running_models : dict
         Dictionary of information about the running models.  Note: this is a class
-        attribute - all instances use the same dictionary.
+        attribute - all instances use the same dictionary.  The key is the model name,
+        and the values are a dict with the following keys:
+
+        'server' : ServerProxy
+            :class:`ServerProxy` object representing the computation server.
+        'users' : int
+            Number of connected users.  In this context, a user is a different
+            window/tab or browser.
+        'd_thread' : Thread
+            Thread object returned by
+            :func:`flask_socketio.SocketIO.start_background_task` that is running the
+            computational server.
+
+
     """
 
     app = None
@@ -240,11 +254,11 @@ class FlaskClient:
         """HTTP Route to shutdown the Flask client and running computational
         servers.
         """
-        for model_name in self.running_models:
+        for model_name in list(self.running_models):
+            # Should we not pop?
             model = self.running_models[model_name]
             if model_name != "init" and model["server"] is not None:
                 model["server"].quit()
-            del self.running_models[model]
         self.shutdown_server()
         return flask.render_template("goodbye.html")
 
@@ -349,7 +363,7 @@ class ModelNamespace(flask_socketio.Namespace):
                 run_server=run_server,
                 network_server=opts.network,
                 steps=opts.steps,
-                model=model_name,
+                model_name=model_name,
                 Nx=opts.Nx,
                 Ny=opts.Ny,
             )
@@ -520,12 +534,10 @@ class ModelNamespace(flask_socketio.Namespace):
             fxy = vxy = [0.5, 0.5]
 
             density = server.server.get_array("density")
+            rgba = self.flask_client.get_rgba_from_density(density)
 
-            from matplotlib import cm
-
-            array = cm.viridis(density / density.max())
-            array *= int(255 / array.max())  # normalize values
-            rgba = "".join(map(chr, array.astype(dtype="uint8").tobytes()))
+            ### Can we avoid this?
+            rgba = "".join(map(chr, rgba.tobytes()))
 
             self.flask_client.socketio.emit(
                 "ret_array",
@@ -550,7 +562,7 @@ class ModelNamespace(flask_socketio.Namespace):
 
 def get_server(
     flask_client,
-    model,
+    model_name,
     block=True,
     network_server=True,
     interrupted=False,
@@ -565,7 +577,7 @@ def get_server(
     ----------
     flask_client : FlaskClient
         Initialized FlaskClient.
-    model : str
+    model_name : str
         Name of the class representing a physical model
     block : bool
         Boolean for Asynchronous/Synchronous thread running.
@@ -589,7 +601,7 @@ def get_server(
 
     # module = importlib.import_module(modpath)
     # Model = getattr(module, model)
-    Model = flask_client.models[model]
+    Model = flask_client.models[model_name]
     opts.State = Model
     if network_server:
         _server = server.NetworkServer(opts=opts)
@@ -603,7 +615,7 @@ def get_server(
 # Function to establish server communication
 ###############################################################################
 def get_server_proxy(
-    flask_client, model, run_server=False, network_server=True, **kwargs
+    flask_client, model_name, run_server=False, network_server=True, **kwargs
 ):
     """Returns a ServerProxy object with appropriate local server or network
     server communication property.
@@ -612,7 +624,7 @@ def get_server_proxy(
     ----------
     flask_client : FlaskClient
         Initialized FlaskClient.
-    model : str
+    model_name : str
         Name of the model class to load into server object property.
     run_server : bool
         Boolean determining whether to create a local running server object
@@ -623,7 +635,7 @@ def get_server_proxy(
 
     Returns
     -------
-    server_proxy : :obj:
+    server_proxy : obj
         ServerProxy object with either local or network server communication.
     """
     if flask_client.opts is None:
@@ -642,7 +654,7 @@ def get_server_proxy(
 
         server_proxy.server = get_server(
             flask_client=flask_client,
-            model=model,
+            model_name=model_name,
             args="",
             interrupted=server_proxy.interrupted,
             block=False,
