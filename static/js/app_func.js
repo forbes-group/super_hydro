@@ -10,14 +10,6 @@ function setParam(name, value, logarithmic) {
  socket.emit('set_param', {data: model.name, param: model.Param});
 };
 
-// setLogParam() ties with 'log_param_up' socket event to update changes in
-// user controllable logarithmic scale parameter values.
-function setLogParam(name, value) {
-  model.Param = {};
-  model.Param[name] = Math.pow(10, value);
-  socket.emit('set_log_param', {data: model.name, param: model.Param})
-}
-
 // doAction() passes action calls to the server.
 function doAction(name) {
  socket.emit('do_action', {data: model.name, name: name});

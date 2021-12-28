@@ -139,7 +139,8 @@ class FlaskClient:
         Options object.
     models : dict of Models
         The keys are the model names, and the values should be instances that implement
-        the :interface:`super_hydro.interfaces.IModel` interface.    fsh : dict
+        the :interface:`super_hydro.interfaces.IModel` interface.
+    running_models : dict
         Dictionary of information about the running models.  Note: this is a class
         attribute - all instances use the same dictionary.
     """
@@ -148,7 +149,7 @@ class FlaskClient:
     opts = None
     other_args = None
     models = []
-    fsh = {}
+    running_models = {}
 
     def __init__(self, *args, **kwargs):
         self.app = flask.Flask("flask_client")
@@ -239,10 +240,11 @@ class FlaskClient:
         """HTTP Route to shutdown the Flask client and running computational
         servers.
         """
-        for model in self.fsh:
-            if model != "init":
-                if self.fsh[model]["server"] is not None:
-                    self.fsh[model]["server"].quit()
+        for model_name in self.running_models:
+            model = self.running_models[model_name]
+            if model_name != "init" and model["server"] is not None:
+                model["server"].quit()
+            del self.running_models[model]
         self.shutdown_server()
         return flask.render_template("goodbye.html")
 
@@ -298,10 +300,6 @@ class ModelNamespace(flask_socketio.Namespace):
     (https://flask-socketio.readthedocs.io/en/latest)
     """
 
-    @property
-    def fsh(self):
-        return self.flask_client.fsh
-
     def __init__(self, flask_client, root, **kw):
         self.flask_client = flask_client
         super().__init__(root, **kw)
@@ -337,45 +335,46 @@ class ModelNamespace(flask_socketio.Namespace):
         """
         opts = self.flask_client.opts
 
-        model = data["name"]
-        if model not in self.fsh or self.fsh[model]["server"] is None:
-            self.fsh[model] = dict.fromkeys(["server", "users", "d_thread"])
-            if opts.network == False:
-                self.fsh[model]["server"] = get_server_proxy(
-                    flask_client=self.flask_client,
-                    run_server=True,
-                    network_server=False,
-                    steps=opts.steps,
-                    model=model,
-                    Nx=opts.Nx,
-                    Ny=opts.Ny,
-                )
-            else:
-                self.fsh[model]["server"] = get_server_proxy(
-                    flask_client=self.flask_client,
-                    run_server=False,
-                    network_server=True,
-                    steps=opts.steps,
-                    model=model,
-                )
-                self.fsh[model]["server"].run()
-        flask_socketio.join_room(model)
-        if self.fsh[model]["users"] is None:
-            self.fsh[model]["users"] = 1
+        model_name = data["name"]
+        running_models = self.flask_client.running_models
+        if (
+            model_name not in running_models
+            or running_models[model_name]["server"] is None
+        ):
+            model = dict(server=None, users=0, d_thread=None)
+            running_models[model_name] = model
+            run_server = not opts.network
+            server_args = dict(
+                flask_client=self.flask_client,
+                run_server=run_server,
+                network_server=opts.network,
+                steps=opts.steps,
+                model=model_name,
+                Nx=opts.Nx,
+                Ny=opts.Ny,
+            )
+            model["server"] = get_server_proxy(**server_args)
+            if run_server:
+                model["server"].run()
         else:
-            self.fsh[model]["users"] += 1
-        self.fsh["init"] = {}
+            model = running_models[model_name]
+
+        flask_socketio.join_room(model_name)
+        model["users"] += 1
+
+        ### Not sure what the purpose of "init" is
+        running_models["init"] = init = {}
         for param in data["params"]:
-            self.fsh["init"].update(self.fsh[model]["server"].server.get([f"{param}"]))
-        flask_socketio.emit("init", self.fsh["init"], room=model)
-        if self.fsh[model]["d_thread"] is None:
-            self.fsh[model][
-                "d_thread"
-            ] = self.flask_client.socketio.start_background_task(
+            init.update(model["server"].server.get([f"{param}"]))
+
+        flask_socketio.emit("init", init, room=model_name)
+
+        if model["d_thread"] is None:
+            model["d_thread"] = self.flask_client.socketio.start_background_task(
                 target=self.push_thread,
                 namespace="/modelpage",
-                server=self.fsh[model]["server"],
-                room=model,
+                server=model["server"],
+                room=model_name,
             )
 
     def on_set_param(self, data):
@@ -395,11 +394,12 @@ class ModelNamespace(flask_socketio.Namespace):
         flask_socketio.emit('param_up')
             Sends new parameter value to all Users connected to model's Room.
         """
-        model = data["data"]
+        model_name = data["data"]
+        model = self.flask_client.running_models[model_name]
         for key, value in data["param"].items():
-            self.fsh[model]["server"].server.set({f"{key}": float(value)})
+            model["server"].server.set({f"{key}": float(value)})
             data = {"name": key, "param": value}
-        flask_socketio.emit("param_up", data, room=model)
+        flask_socketio.emit("param_up", data, room=model_name)
 
     def on_do_action(self, data):
         """Transfers Server action request to computational server.
@@ -413,16 +413,17 @@ class ModelNamespace(flask_socketio.Namespace):
             server
         """
 
-        model = data["data"]
+        model_name = data["data"]
+        model = self.flask_client.running_models[model_name]
         if data["name"] == "reset":
-            params = self.fsh[model]["server"].server.reset()
-            restart = {"name": model}
+            params = model["server"].server.reset()
+            restart = {"name": model_name}
             restart.update({"params": params})
-            flask_socketio.leave_room(model)
-            self.fsh[model]["users"] -= 1
+            flask_socketio.leave_room(model_name)
+            model["users"] -= 1
             self.on_start_srv(restart)
         else:
-            self.fsh[model]["server"].server.do(data["name"])
+            model["server"].server.do(data["name"])
 
     def on_finger(self, data):
         """Transfers new finger potential position to computational server.
@@ -436,14 +437,15 @@ class ModelNamespace(flask_socketio.Namespace):
             coordinates.
         """
 
-        model = data["data"]
-        server = self.fsh[model]["server"].server
+        model_name = data["data"]
+        model = self.flask_client.running_models[model_name]
+        server = model["server"].server
         for key, value in data["position"].items():
             Nxy = server.get(["Nxy"])["Nxy"]
             dx = server.get(["dx"])["dx"]
             pos = (np.asarray(data["position"]["xy0"]) - 0.5) * Nxy * dx
             pos = pos.tolist()
-            self.fsh[model]["server"].server.set({f"{key}": pos})
+            model["server"].server.set({f"{key}": pos})
 
     def on_user_exit(self, data):
         """Model Room updating on User exit from page.
@@ -458,15 +460,16 @@ class ModelNamespace(flask_socketio.Namespace):
             dict containing model name
         """
 
-        model = data["data"]
-        flask_socketio.leave_room(model)
-        self.fsh[model]["users"] -= 1
-        if self.fsh[model]["users"] == 0:
-            self.fsh[model]["users"] = 0
-            self.fsh[model]["server"].quit()
-            self.fsh[model]["server"] = None
-            self.fsh[model]["d_thread"].join()
-            self.fsh[model]["d_thread"] = None
+        model_name = data["data"]
+        model = self.flask_client.running_models[model_name]
+        flask_socketio.leave_room(model_name)
+        model["users"] -= 1
+        if model["users"] == 0:
+            model["users"] = 0
+            model["server"].quit()
+            model["server"] = None
+            model["d_thread"].join()
+            model["d_thread"] = None
 
     def on_disconnect(self):
         """Verifies disconnection from websocket.

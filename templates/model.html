@@ -166,7 +166,7 @@
    timeStart = model.timeEnd;
 
    //Draw the Finger Potential (placed last to allow consistent FPS tracking)
-   drawFinger(model.fx, model.fy, vfloats[1], vfloats[0]);
+   //drawFinger(model.fx, model.fy, vfloats[1], vfloats[0]);
 
   });
 
@@ -178,19 +178,19 @@
   //Socket data reception to update user display for slider interactions,
   //regardless of which connected user interacted.
   socket.on('param_up', function(data) {
-    if (document.getElementById(data.name).type == 'checkbox'){
-      document.getElementById(data.name).checked = data.param;
-      document.getElementById('val_' + data.name).innerHTML = data.param;
-    } else{
-     document.getElementById('val_' + data.name).innerHTML = data.param;
-     if (document.getElementById(data.name).name == 'logarithmic') {
-      document.getElementById(data.name).value = Math.log10(data.param);
-     } else {
-      document.getElementById(data.name).value = data.param;
-     }
-  }
- });
-
+   let widget = document.getElementById(data.name);
+   let value_label = document.getElementById('val_' + data.name);
+   
+   value_label.innerHTML = data.param;
+   if (widget.type == 'checkbox') {
+    widget.checked = data.param;
+   } else if (widget.name == 'logarithmic') {
+    widget.value = Math.log10(data.param);
+   } else {
+    widget.value = data.param;
+   }
+  });
+  
   //Event listener for User mouse-click interaction/placement of potential
   //finger on Canvas display element.
   const getCanvas = document.querySelector('canvas#finger')
