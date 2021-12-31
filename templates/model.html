@@ -143,7 +143,7 @@
 
   // Receives rgba, external potential data and generates animation frames.
   // Also calculates framerate.
-  socket.on('ret_array', function(data){
+  socket.on('ret_array', function(data) {
    rgba = Uint8ClampedArray.from(data.rgba, c => c.charCodeAt(0));
    drawCustom(rgba, model.nx, model.ny);
    //vbytes = Uint8Array.from(data.vxy, c => c.charCodeAt(0));
