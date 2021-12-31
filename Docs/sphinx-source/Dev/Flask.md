@@ -1,12 +1,13 @@
 # Flask Client
 
 The [Flask]-based web-client can either connect to a running server, or can be used to
-launch servers with the various simulations.
-
+launch servers with the various simulations.  It uses [Flask-SocketIO] to communicate
+with the user via JavaScript callbacks.  The front-end is defined through the templates
+`templates/*.html` which are coded in [Jinja].
 
 ## Structure
 
-The Flask client is provided in the {py:mod}`super_hydro.clients.flask` module which
+The Flask client is provided in the {mod}`super_hydro.clients.flask` module which
 exports the following classes:
 
 ```{eval-rst}
@@ -16,15 +17,26 @@ exports the following classes:
     :no-members:
     :autosummary:
     :autosummary-members:
-    
 ```
+
+The {class}`super_hydro.clients.flask.FlaskClient` provides the web framework, serving up
+pages with different URLs.  The browser interacts with this class using HTTP requests.
+These are dispatched by applying the `@route` decorator to the appropriate class
+methods.  E.g. requesting `/quit` terminates the application by calling
+{meth}`super_hydro.clients.flask.FlaskClient.quit`.
+
+By following the appropriate URL, the browser can request for the framework to launch
+and interact with the appropriate server.  These servers are managed by the
+{class}`super_hydro.clients.flask.ModelNamespace` subclass of
+{class}`flask_socketio.Namespace`.  This provides a bunch of [Flask-SocketIO] event
+handlers that handle user interactions with the model, which are tightly coupled with
+the JavaScript in the `templates/model.html` page.
 
 ## Flask Framework
 
 The [Flask] client framework (Flask) provides two primary functions: establish
 routing/rendering between the User Frontend Web Client (Web Client) and Computational
 server (Server),  and mediating interaction and display data between the two.
-
 
 ### Startup
 
@@ -63,11 +75,11 @@ implicitly through calls and methods from
 [Flask-SocketIO](https://flask-socketio.readthedocs.io/en/latest/).
 
 All communication between the Client and Server is handled through Flask
-using the Flask-SocketIO Namespace Class `Demonstration`. The internal 
+using the Flask-SocketIO Namespace Class `ModelNamespace`. The internal 
 methods receive Client data keyed to Client `emit` events with names 
 matching the appropriate `on_` method name.
 
-The Flask-SocketIO namespace (Demonstration) separates the models into 
+The Flask-SocketIO namespace (ModelNamespace) separates the models into 
 internal `dict` keys, which contain all relevant information for the 
 routing of a particular model: Model Name, User Count, Server.
 
@@ -78,10 +90,21 @@ the Room creation.
 
 ### Communication
 
-User interactions are read as inputs into Javscript and passed to Flask via 
-the Javascript [socket.io](socket.io/docs/v3/index.html) API. This uses a 
-static namespace and uses `emit()` to pass the Room name (model), the 
-parameter/action being modified, and the new parameter value.
+User interactions are read as inputs into Javscript and passed to Flask via the
+Javascript [socket.io] API, as provided by the [Flask-SocketIO] library. 
+We used the [Eventlet] option for asynchronous communication.
+
+```{admonition} Example
+Consider the example of the user adjusting a regular linear slider such as the finger
+position. The slider is initialized with `<input ... onchange="setParam(...)">` tag in
+the [`model.html`] template.  This class the `setParam()` function in the
+[`app_func.js`] file, which them uses `socket.emit('set_param', ...)` to call
+{meth}`super_hydro.clients.flask.ModelNamespace.on_set_param` which decodes the
+parameter value and sends it to the computational server.
+```
+
+This uses a static namespace and uses `emit()` to pass the
+Room name (model), the parameter/action being modified, and the new parameter value.
 
 Flask recieves this information and passes it into appropriate Server calls,
 emitting Server return information (as appropriate).
@@ -97,8 +120,10 @@ The User interface is displayed as HTML static pages generated from templates
 using Jinja2.  These are located in the `templates/` directory in the top level of the
 project.
 
-Interaction sliders/toggles are created based on a nested list `sliders` that 
-is required in each class method representing a physics model.
+Widgets are identified by their `id` which is usually the name of the corresponding
+parameter in the python code, with an optional `val_{id}` element corresponding to the
+displayed value.  Interaction sliders/toggles are created based on a nested list
+`sliders` that is required in each class method representing a physics model.
 
 The remaining display area is filled by multiple HTML Canvas elements laid over
 each other. The lowest layer displays the color map conversion of the model
@@ -255,7 +280,7 @@ Flask Communication Schema
           * static Namespace `/modelpage`
     * Flask-SocketIO:
       * Client backend communication handler for socket Namespace `/modelpage`
-        * Namespace interacts with `Demonstration()` class methods
+        * Namespace interacts with `ModelNamespace()` class methods
           * All methods are tied to Flask-SocketIO Rooms:
             * Rooms are enclosed subsets of the Socket Namespace
         * `connect()` and `disconnect()` uses socket pinging to track users
@@ -364,3 +389,9 @@ framerate of varying Nxy or step sizes than starting and stopping the client
 while manually changing the configuration options for each test.
 
 [Flask]: <https://flask.palletsprojects.com>
+[Flask-SocketIO]: <https://flask-socketio.readthedocs.io>
+[socket.io]: <https://socket.io/docs/v3/index.html>
+[Eventlet]: http://eventlet.net/
+[Jinja]: https://jinja.palletsprojects.com/en/3.0.x/
+[`model.html`]: <file://../templates/model.html>
+[`app_func.js`]: <file://../static/js/app_func.js>
