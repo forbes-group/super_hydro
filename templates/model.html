@@ -1,0 +1,208 @@
+{% extends "base.html" %}
+
+{% block about %}
+<li class="about-dropdown">
+  <a href="javascript:void(0)" class="about-dropbtn">About</a>
+  <div class="about-content">
+    <span>{{ info }}</span>
+  </div>
+</li>
+{% endblock %}
+
+{% block content %}
+<div class="containers">
+<br>
+<div class="slidecontainer" style="float: left;">
+  {% for slider in sliders %}
+    <div style="float: left; padding-left: 2px; width: 49%;">
+      {{ slider.id }}: <span id="{{'val_' + slider.id}}"></span><br>
+      {% if slider.name == 'checkbox'%}
+      <input id="{{ slider.id }}"
+             class="{{ slider.class }}"
+             type="{{ slider.type }}"
+             onchange="setParam(this.id, this.checked)">
+    </div>
+      {% else %}
+      <input id="{{ slider.id }}"
+             class="{{ slider.class }}"
+             name="{{ slider.name }}"
+             type="{{ slider.type }}"
+             min="{{ slider.min }}"
+             max="{{ slider.max }}"
+             step="{{ slider.step }}"
+             value="0"
+             onchange="setParam(this.id, this.value, this.name=='logarithmic')">
+    </div>
+      {% endif %}
+  {% endfor %}
+</div>
+<br>
+
+
+<button type="button" class="toggle" name="start" onclick="doAction(this.name)">Start</button>
+<button type="button" class="toggle" name="pause" onclick="doAction(this.name)">Pause</button>
+<button type="button" class="toggle" name="reset" onclick="doAction(this.name)">Reset</button>
+<div style="float: right; padding-right: 5px;">
+  <span id="ping-pong"></span>fps
+</div>
+</div>
+<div id="data_display" style="position:relative;
+                              width: 100%;
+                              height: 100%;">
+  <canvas id="density" style="z-index:1;
+                              position:absolute;
+                              left:0px;
+                              top:0px;">
+  </canvas>
+  <canvas id="tracers" style="position:absolute;
+	      		      z-index:2;
+			      left:0px;
+			      top:0px;">
+  </canvas>
+  <canvas id="finger" style="position:absolute;
+                             z-index:3;
+                             left:0px;
+                             top:0px;">
+  </canvas>
+</div>
+
+<script type="text/javascript" src="{{ url_for('static', filename = '/js/app_func.js') }}"></script>
+
+<script>
+  // Establish namespace (model), websocket, and page width/height values
+  var model = {};
+  model.name = '{{ model_name }}';
+  var socket = io('/modelpage');
+
+  // FPS tracker:
+  var pingTimes = [];
+  var timeStart = (new Date).getTime();
+
+  // Create the canvas Density display element
+  var chartDensity = document.getElementById("density");
+  var ctxDensity = chartDensity.getContext("2d");
+  // Create the canvas Tracers display element
+  var chartTracer = document.getElementById("tracers");
+  var ctxTracer = chartTracer.getContext("2d");
+  // Create the canvas Finger display element
+  var chartFinger = document.getElementById("finger");
+  var ctxFinger = chartFinger.getContext("2d");
+
+  // Auto-scale Model Animation to available window whitespace area.
+  window.onload = window.onresize = function() {
+    containers = document.getElementsByClassName('containers');
+    heightDiff = 0;
+    for (c = 0; c < containers.length; ++c) {
+      heightDiff += containers[c].offsetHeight;
+    }
+    if (chartDensity.width > (window.innerHeight - heightDiff)) {
+	    chartDensity.width = chartFinger.width = chartTracer.width = window.innerHeight - heightDiff;
+    } else if (chartDensity.height > chartDensity.width) {
+	    chartDensity.height = chartFinger.height = chartTracer.height = chartDensity.width;
+    } else {
+	    chartDensity.width = chartFinger.width = chartTracer.width= window.innerWidth;
+	    chartDensity.height = chartFinger.height = chartTracer.height = window.innerHeight - heightDiff;
+    }
+  }
+
+  // When the User socket connection is made, start a server if not running
+  socket.on('connect', function() {
+    model.params = ['Nx', 'Ny', 'finger_x', 'finger_y'];
+    //model.params = ['Nxy', 'finger_x', 'finger_y'];
+    inputs = document.getElementsByTagName('input');
+    for (index = 0; index < inputs.length; ++index) {
+      model.params.push(inputs[index].id)
+    };
+    socket.emit('start_srv', {name: model.name, params: model.params})
+  });
+
+  // Gets current values (server side) of all relevant parameters.
+  socket.on('init', function(data){
+    Object.keys(data).forEach(key => {
+      if (document.getElementById(key)) { // Make sure input exists first.
+        if (document.getElementById(key).type == 'checkbox') {
+          document.getElementById(key).checked = data[key];
+          document.getElementById('val_' + key).innerHTML = data[key];
+        }
+        else if (document.getElementById(key).name == 'logarithmic'){
+          document.getElementById(key).value = Math.log10(data[key]);
+          document.getElementById('val_' + key).innerHTML = data[key];
+        } else{
+          document.getElementById(key).value = data[key];
+          document.getElementById('val_' + key).innerHTML = data[key];
+        }
+    }
+    });
+    // Set sizing and finger positions.
+    model.nx = data.Nx;
+    model.ny = data.Ny;
+    model.fx = chartFinger.width - data.finger_x*chartFinger.width;
+    model.fy = data.finger_y*chartFinger.height;
+ 
+  });
+
+  // Receives rgba, external potential data and generates animation frames.
+  // Also calculates framerate.
+  socket.on('ret_array', function(data) {
+   rgba = Uint8ClampedArray.from(data.rgba, c => c.charCodeAt(0));
+   drawCustom(rgba, model.nx, model.ny);
+   //vbytes = Uint8Array.from(data.vxy, c => c.charCodeAt(0));
+   //vfloats = new Float64Array(vbytes.buffer);
+   vfloats = data.vxy;
+   model.fx = chartFinger.width - data.fxy[1]*chartFinger.width;
+   model.fy = data.fxy[0]*chartFinger.height;
+
+   // FPS Counter tracking:
+   model.timeEnd = (new Date).getTime();
+   latency = model.timeEnd - timeStart;
+   pingTimes.push(latency);
+   pingTimes = pingTimes.slice(-30); //keep last 30 samples
+   var sum = 0;
+   for (var i = 0; i < pingTimes.length; i++)
+    sum += pingTimes[i];
+   model.fps = Math.floor(10000/ Math.round(10 * sum / pingTimes.length));
+   document.getElementById('ping-pong').innerHTML = model.fps;
+   timeStart = model.timeEnd;
+
+   //Draw the Finger Potential (placed last to allow consistent FPS tracking)
+   //drawFinger(model.fx, model.fy, vfloats[1], vfloats[0]);
+
+  });
+
+  // Receives tracer particle data and draws to Canvas element.
+  socket.on('ret_trace', function(data){
+	  console.log(data.trace);
+	  drawTracer(data.trace, model.nx, model.ny)})
+
+  //Socket data reception to update user display for slider interactions,
+  //regardless of which connected user interacted.
+  socket.on('param_up', function(data) {
+   let widget = document.getElementById(data.name);
+   let value_label = document.getElementById('val_' + data.name);
+   
+   value_label.innerHTML = data.param;
+   if (widget.type == 'checkbox') {
+    widget.checked = data.param;
+   } else if (widget.name == 'logarithmic') {
+    widget.value = Math.log10(data.param);
+   } else {
+    widget.value = data.param;
+   }
+  });
+  
+  //Event listener for User mouse-click interaction/placement of potential
+  //finger on Canvas display element.
+  const getCanvas = document.querySelector('canvas#finger')
+  chartFinger.addEventListener('mousedown', function(e) {
+   getCursorPosition(chartFinger, e)
+ });
+
+  //When User navigates away from page, informs Flask framework to update user
+  //count. This may result in computational server being shut down if room is
+  //empty.
+  window.onbeforeunload = function () {
+    socket.emit('user_exit', {'data': model.name});
+ }
+</script>
+
+{% endblock %}

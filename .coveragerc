@@ -1,0 +1,6 @@
+[run]
+# Plots are not yet a part of this package
+omit=
+   */tests/*
+[html]
+directory = build/_coverage

@@ -1,0 +1,15 @@
+{# https://stackoverflow.com/a/37843854/1088938 #}
+{% extends "!layout.html" %}
+
+  {% block menu %}
+    {{ super() }}
+    <a href="{{pathto('genindex.html', 1)}}">Index</a>
+    <a href="{{pathto('modindex.html', 1)}}">Module Index</a>
+  {% endblock %}
+
+  {% block content %}
+    <!-- begin mathjax_defines -->
+    <div hidden>\[{{ mathjax_defines }}\]</div>
+    <!-- end mathjax_defines -->
+    {{ super() }}
+  {% endblock %}

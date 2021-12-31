@@ -1,10 +1,5 @@
 #!/usr/bin/env python
 
-import os.path
-import sys
+import super_hydro.clients.flask
 
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
-
-import super_hydro.client.kivy
-
-super_hydro.client.kivy.run()
+super_hydro.clients.flask.run()

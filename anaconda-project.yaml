@@ -1,0 +1,155 @@
+# This is an Anaconda project file.
+#
+# Here you can describe your project and how to run it.
+# Use `anaconda-project run` to run the project.
+# The file is in YAML format, please see http://www.yaml.org/start.html for more.
+#
+
+#
+# Set the 'name' key to name your project
+#
+name: super_hydro
+
+#
+# Set the 'icon' key to give your project an icon
+#
+icon:
+
+#
+# Set a one-sentence-or-so 'description' key with project details
+#
+description: Superfluid Hydrodynamics Explorer
+
+#
+# In the commands section, list your runnable scripts, notebooks, and other code.
+# Use `anaconda-project add-command` to add commands.
+#
+commands:
+  shell:
+    unix: bash --init-file .init-file.bash
+    env_spec: super_hydro
+
+  shell_gpu:
+    unix: bash --init-file .init-file.bash
+    env_spec: super_hydro_gpu
+
+  deactivate:
+    unix: |
+      for i in $(seq ${CONDA_SHLVL}); do
+        conda deactivate
+      done
+    env_spec: super_hydro
+
+  client:
+    unix: "python -m super_hydro.clients.flask"
+    env_spec: super_hydro
+    
+  # Needs to be explicitly called until we can run scripts on prepare
+  # https://github.com/Anaconda-Platform/anaconda-project/issues/239
+  # 
+  init:
+    unix: |
+      poetry install -E docs -E tests -E fftw
+      python3 -m ipykernel install --user --name "super_hydro" --display-name "Python 3 (super_hydro)"
+      jupyter nbextensions_configurator enable --user
+      #jupyter nbextension enable 
+    env_spec: super_hydro
+
+  init_gpu:
+    unix: |
+      poetry install -E docs -E tests -E fftw -E gpu
+      #pip install --use-feature=in-tree-build -e .[docs,tests,fftw,gpu]
+      python3 -m ipykernel install --user --name "super_hydro_gpu" --display-name "Python 3 (super_hydro_gpu)"
+      jupyter nbextensions_configurator enable --user
+      #jupyter nbextension enable 
+    env_spec: super_hydro_gpu
+    
+#
+# In the variables section, list any environment variables your code depends on.
+# Use `anaconda-project add-variable` to add variables.
+#
+variables:
+  CONDA_EXE: conda
+
+#
+# In the services section, list any services that should be
+# available before your code runs.
+# Use `anaconda-project add-service` to add services.
+#
+services: {}
+
+#
+# In the downloads section, list any URLs to download to local files
+# before your code runs.
+# Use `anaconda-project add-download` to add downloads.
+#
+downloads: {}
+
+#
+# In the packages section, list any packages that must be installed
+# before your code runs.
+# Use `anaconda-project add-packages` to add packages.
+#
+# Trick: Call this "dependencies:" so this file can be used as an environment.yaml file:
+#
+#     conda env --file anaconda-project.yaml
+#
+# Requires anaconda-project >= 0.8.4
+#
+# See https://github.com/Anaconda-Platform/anaconda-project/issues/265
+
+# packages:
+dependencies:
+- python=3.9
+- anaconda-project>=0.10.1
+- poetry
+- conda-forge::pyfftw
+
+  # To deal with error in XXXX setup command: use_2to3 is invalid when false
+  # https://github.com/pypa/setuptools/issues/2775
+  # See ClassLog.md
+  # - setuptools<58.0.2|>59
+
+  # Pip-only dependencies
+- pip
+- pip:
+  # Needed to resolve a pip issue.  Pip sees anaconda-project which appears to depend
+  # on the following.  It is installed as ruamel-yaml-conda, but pip expects it in this
+  # form.  We install both for now.
+  - ruamel-yaml                
+#  - .
+#  - hg+file:///Users/mforbes/current/research/super_hydro/super_hydro_hg#super_hydro
+  
+channels:
+- defaults
+#
+# In the platforms section, list platforms the project should work on
+# Examples: "linux-64", "osx-64", "win-64"
+# Use `anaconda-project add-platforms` to add platforms.
+#
+platforms:
+- linux-64
+- osx-64
+- win-64
+
+#
+# You can define multiple, named environment specs.
+# Each inherits any global packages or channels,
+# but can have its own unique ones also.
+# Use `anaconda-project add-env-spec` to add environment specs.
+#
+env_specs:
+  super_hydro:
+    description: Default environment
+    channels: []
+
+  super_hydro_gpu:
+    description: Performance version with FFT and GPU support.
+    dependencies:
+    - conda-forge::cupy
+    channels: []
+
+# Silence warnings about about notebooks without run commands
+# See https://github.com/Anaconda-Platform/anaconda-project/issues/263#issuecomment-870004641
+skip_imports:
+  notebooks: true
