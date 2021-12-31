@@ -329,7 +329,7 @@ python-versions = ">=2.7"
 
 [[package]]
 name = "eventlet"
-version = "0.30.3"
+version = "0.31.1"
 description = "Highly concurrent networking library"
 category = "main"
 optional = false
@@ -1541,7 +1541,7 @@ python-versions = ">=2.7, !=3.0.*, !=3.1.*, !=3.2.*, !=3.3.*"
 
 [[package]]
 name = "pygments"
-version = "2.11.0"
+version = "2.11.1"
 description = "Pygments is a syntax highlighting package written in Python."
 category = "main"
 optional = false
@@ -2275,7 +2275,7 @@ tests = ["pytest-cov", "pytest-flake8", "pytest-xdist", "pytest-html"]
 [metadata]
 lock-version = "1.1"
 python-versions = "^3.8"
-content-hash = "5850395a4d47ed4d985af2c933cca578f14bfa064318576ec167bb05176d2ebc"
+content-hash = "5ef916e954aab296e293e6b75ca5c7dc388c8b7935225a3516836eb461e1de5a"
 
 [metadata.files]
 alabaster = [
@@ -2549,8 +2549,8 @@ entrypoints = [
     {file = "entrypoints-0.3.tar.gz", hash = "sha256:c70dd71abe5a8c85e55e12c19bd91ccfeec11a6e99044204511f9ed547d48451"},
 ]
 eventlet = [
-    {file = "eventlet-0.30.3-py2.py3-none-any.whl", hash = "sha256:c4e2c5452e54a267f5ce56092eeeed3d52d5c9319e545a796ab5ebbb5b2528ef"},
-    {file = "eventlet-0.30.3.tar.gz", hash = "sha256:a802caa725d6eb2d45a763c33f6bb5206e8d0566d5abc03638225379cf32476d"},
+    {file = "eventlet-0.31.1-py2.py3-none-any.whl", hash = "sha256:1524405edc7dddd3bad2600350ec10a241769a6855175f355e532d88e3f981e5"},
+    {file = "eventlet-0.31.1.tar.gz", hash = "sha256:b9e9126304fae3cdf203f1f17660bba79ab7c488e05d60331277cae4247f8d76"},
 ]
 execnet = [
     {file = "execnet-1.9.0-py2.py3-none-any.whl", hash = "sha256:a295f7cc774947aac58dde7fdc85f4aa00c42adf5d8f5468fc630c1acf30a142"},
@@ -3351,8 +3351,8 @@ pyflakes = [
     {file = "pyflakes-2.4.0.tar.gz", hash = "sha256:05a85c2872edf37a4ed30b0cce2f6093e1d0581f8c19d7393122da7e25b2b24c"},
 ]
 pygments = [
-    {file = "Pygments-2.11.0-py3-none-any.whl", hash = "sha256:ac8098bfc40b8e1091ad7c13490c7f4797e401d0972e8fcfadde90ffb3ed4ea9"},
-    {file = "Pygments-2.11.0.tar.gz", hash = "sha256:51130f778a028f2d19c143fce00ced6f8b10f726e17599d7e91b290f6cbcda0c"},
+    {file = "Pygments-2.11.1-py3-none-any.whl", hash = "sha256:9135c1af61eec0f650cd1ea1ed8ce298e54d56bcd8cc2ef46edd7702c171337c"},
+    {file = "Pygments-2.11.1.tar.gz", hash = "sha256:59b895e326f0fb0d733fd28c6839bd18ad0687ba20efc26d4277fd1d30b971f4"},
 ]
 pyparsing = [
     {file = "pyparsing-3.0.6-py3-none-any.whl", hash = "sha256:04ff808a5b90911829c55c4e26f75fa5ca8a2f5f36aa3a51f68e27033341d3e4"},
