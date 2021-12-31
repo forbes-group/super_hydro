@@ -24,7 +24,7 @@ go: init
 	echo "conda deactivate 
 ######################################################################
 # Installation
-init:
+init: Docs/sphinx-source/_static/mathjax
 ifeq ($(USE_CONDA), true)
 	anaconda-project run init
 	anaconda-project prepare --refresh --env-spec $(ENV)
@@ -50,6 +50,11 @@ environment-cpu.yaml: pyproject.toml
 
 environment-gpu.yaml: pyproject.toml
 	poetry2conda -E gpu -E docs -E tests $< $@
+
+Docs/sphinx-source/_static/mathjax:
+	git clone https://github.com/mathjax/MathJax.git mj-tmp
+	mv mj-tmp/es5 $@
+	rm -rf mj-tmp
 
 install: Jupyter_Canvas_Widget jupyter-canvas-widget
 

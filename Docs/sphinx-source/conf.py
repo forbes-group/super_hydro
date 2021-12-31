@@ -184,6 +184,10 @@ myst_substitutions = {
 ```""",
 }
 
+if not on_rtd:
+    # Use local MathJaX so we can work offline
+    mathjax_path = "mathjax/tex-mml-chtml.js"
+
 math_defs_filename = "_static/math_defs.tex"
 
 html_context = {

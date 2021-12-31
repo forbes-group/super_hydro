@@ -6,6 +6,7 @@ syntax: glob
 .nox/
 \.cache/
 \.git/
+Docs/sphinx-source/_static/mathjax/
 
 Docs/sphinx-source/api/
 *.pyo

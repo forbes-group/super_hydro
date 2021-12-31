@@ -1,3 +1,12 @@
+26 Dec 2021
+===========
+Need to include local versions of
+* [socket.io.js](https://cdnjs.cloudflare.com/ajax/libs/socket.io/3.0.4/socket.io.js)
+* [math.min.js](https://cdnjs.cloudflare.com/ajax/libs/mathjs/3.3.0/math.min.js)
+8 [MathJax]
+
+so that we can work offline!
+
 25 Dec 2021
 ===========
 * Trying to get a simple `.. autosummary::` entry working for `Dev/Flask.md` but since I
