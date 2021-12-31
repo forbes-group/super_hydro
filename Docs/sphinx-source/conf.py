@@ -231,9 +231,10 @@ def my_init():
     the kernel from there.
     """
     if on_rtd:
-        subprocess.check_call(
-            ["pip", "install", "--upgrade", "--use-feature=in-tree-build", ".[docs]"]
-        )
+        print(f"On RTD in directory {os.getcwd()}!")
+        # subprocess.check_call(
+        #    ["pip", "install", "--upgrade", "--use-feature=in-tree-build", ".[docs]"]
+        # )
         subprocess.check_call(
             [
                 "python3",
