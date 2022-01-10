@@ -7,9 +7,9 @@ jupytext:
     format_version: 0.13
     jupytext_version: 1.11.5
 kernelspec:
-  display_name: Python [conda env:super_hydro]
+  display_name: Python 3 (super_hydro)
   language: python
-  name: conda-env-super_hydro-py
+  name: super_hydro
 ---
 
 +++ {"toc": true}

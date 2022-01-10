@@ -1,11 +1,87 @@
+To Do:
+* [ ] Client does not accept arguments like `--help` or `--shutdown`.
+* [ ] Maybe put all flask_client stuff together?  Including js which is now in `static/js`?
+
+9 Jan 2022
+==========
+Goals:
+* Refactor Flask client so we can better test and benchmark performance.
+
+
+The Flask client has two threads, the main client thread which responds to HTTP requests
+from the interface, and various actions like button clicks etc., and then the
+`push_thread` which calls `server.get_array()` and then uses `socketio.emit()` to send
+an rgba array of bytes to the browser.
+
+* `flask.py`: `push_thread()` -> `socket.emit("ret_array")`
+* `model.html`: `socket.on('ret_trace')` -> `drawTracer()`
+
+1. Can we get the javascript to run as an independent separate thread instead?
+
+* There was an issue executing notebooks because of the global `_LOGGER =
+  utils.Logger(__name__)` in `flask.py`.  This caused the following error:
+
+```
+WARNING: .../Dev/Flask.md
+Traceback (most recent call last):
+  File "/Users/mforbes/work/mmfbb/gpe-explorer/envs/super_hydro/lib/python3.9/asyncio/selector_events.py", line 261, in _add_reader
+    key = self._selector.get_key(fd)
+  File "/Users/mforbes/work/mmfbb/gpe-explorer/envs/super_hydro/lib/python3.9/selectors.py", line 193, in get_key
+    raise KeyError("{!r} is not registered".format(fileobj)) from None
+KeyError: '6 is not registered'
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "/Users/mforbes/work/mmfbb/gpe-explorer/envs/super_hydro/lib/python3.9/site-packages/jupyter_cache/executors/basic.py", line 141, in execute
+    yield self.execute_single(
+  File "/Users/mforbes/work/mmfbb/gpe-explorer/envs/super_hydro/lib/python3.9/site-packages/jupyter_cache/executors/basic.py", line 154, in execute_single
+    result = single_nb_execution(
+  File "/Users/mforbes/work/mmfbb/gpe-explorer/envs/super_hydro/lib/python3.9/site-packages/jupyter_cache/executors/utils.py", line 51, in single_nb_execution
+    executenb(
+  File "/Users/mforbes/work/mmfbb/gpe-explorer/envs/super_hydro/lib/python3.9/site-packages/nbclient/client.py", line 1093, in execute
+    return NotebookClient(nb=nb, resources=resources, km=km, **kwargs).execute()
+  File "/Users/mforbes/work/mmfbb/gpe-explorer/envs/super_hydro/lib/python3.9/site-packages/nbclient/util.py", line 84, in wrapped
+    return just_run(coro(*args, **kwargs))
+  File "/Users/mforbes/work/mmfbb/gpe-explorer/envs/super_hydro/lib/python3.9/site-packages/nbclient/util.py", line 47, in just_run
+    loop = asyncio.get_event_loop()
+  File "/Users/mforbes/work/mmfbb/gpe-explorer/envs/super_hydro/lib/python3.9/asyncio/events.py", line 639, in get_event_loop
+    self.set_event_loop(self.new_event_loop())
+  File "/Users/mforbes/work/mmfbb/gpe-explorer/envs/super_hydro/lib/python3.9/asyncio/events.py", line 659, in new_event_loop
+    return self._loop_factory()
+  File "/Users/mforbes/work/mmfbb/gpe-explorer/envs/super_hydro/lib/python3.9/asyncio/unix_events.py", line 54, in __init__
+    super().__init__(selector)
+  File "/Users/mforbes/work/mmfbb/gpe-explorer/envs/super_hydro/lib/python3.9/asyncio/selector_events.py", line 61, in __init__
+    self._make_self_pipe()
+  File "/Users/mforbes/work/mmfbb/gpe-explorer/envs/super_hydro/lib/python3.9/asyncio/selector_events.py", line 112, in _make_self_pipe
+    self._add_reader(self._ssock.fileno(), self._read_from_self)
+  File "/Users/mforbes/work/mmfbb/gpe-explorer/envs/super_hydro/lib/python3.9/asyncio/selector_events.py", line 263, in _add_reader
+    self._selector.register(fd, selectors.EVENT_READ,
+  File "/Users/mforbes/work/mmfbb/gpe-explorer/envs/super_hydro/lib/python3.9/selectors.py", line 523, in register
+    self._selector.control([kev], 0, 0)
+TypeError: changelist must be an iterable of select.kevent objects
+WARNING: autodoc: failed to import module 'notebook' from module 'super_hydro.clients'; the following exception was raised:
+cannot import name 'DensityMixin' from 'super_hydro.clients.mixins' (/Users/mforbes/work/mmfbb/gpe-explorer/src/super_hydro/clients/mixins.py)
+Exception ignored in: <function BaseEventLoop.__del__ at 0x10b58aaf0>
+Traceback (most recent call last):
+  File "/Users/mforbes/work/mmfbb/gpe-explorer/envs/super_hydro/lib/python3.9/asyncio/base_events.py", line 683, in __del__
+    self.close()
+  File "/Users/mforbes/work/mmfbb/gpe-explorer/envs/super_hydro/lib/python3.9/asyncio/unix_events.py", line 60, in close
+    for sig in list(self._signal_handlers):
+AttributeError: '_UnixSelectorEventLoop' object has no attribute '_signal_handlers'
+/Users/mforbes/work/mmfbb/gpe-explorer/envs/super_hydro/lib/python3.9/site-packages/sphinx/util/logging.py:184: RuntimeWarning: coroutine 'NotebookClient.async_execute' was never awaited
+  self.buffer = []
+RuntimeWarning: Enable tracemalloc to get the object allocation traceback
+```
+
+
 26 Dec 2021
 ===========
-Need to include local versions of
+Need to include local versions so that we can work offline:
 * [socket.io.js](https://cdnjs.cloudflare.com/ajax/libs/socket.io/3.0.4/socket.io.js)
 * [math.min.js](https://cdnjs.cloudflare.com/ajax/libs/mathjs/3.3.0/math.min.js)
-8 [MathJax]
+* [MathJax]
 
-so that we can work offline!
 
 25 Dec 2021
 ===========

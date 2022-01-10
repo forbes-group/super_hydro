@@ -1,3 +1,37 @@
+---
+jupytext:
+  formats: ipynb,md:myst
+  text_representation:
+    extension: .md
+    format_name: myst
+    format_version: 0.13
+    jupytext_version: 1.13.5
+kernelspec:
+  display_name: Python 3 (super_hydro)
+  language: python
+  name: super_hydro
+---
+
+```{code-cell} ipython3
+:tags: [hide-cell]
+
+from myst_nb import glue
+
+import logging
+
+logging.getLogger("matplotlib").setLevel(logging.CRITICAL)
+%pylab inline --no-import-all
+```
+
+# HTML-Based Clients
+
+## Displaying the Density
+
+All HTML-based clients need to render the density on an HTML canvas.  This involves:
+
+1. Getting the density information to the HTML client.
+2. Inserting this into the canvas element.
+
 # Flask Client
 
 The [Flask]-based web-client can either connect to a running server, or can be used to
@@ -31,6 +65,66 @@ and interact with the appropriate server.  These servers are managed by the
 {class}`flask_socketio.Namespace`.  This provides a bunch of [Flask-SocketIO] event
 handlers that handle user interactions with the model, which are tightly coupled with
 the JavaScript in the `templates/model.html` page.
+
+## Interface
+
+Create a `FlaskClient` model, passing the name and document:
+
+```javascript
+var flaskClient = FlaskClient(name, document);
+```
+
+The document should have the following elements:
+
+* `<canvas id="density">`: This is where the density will be displayed.
+
+### Indexing
+
+In our physics code, we use cartesian coordinates with $x$ increasing from left to right
+and $y$ increasing from bottom to top.  Thus, if `Nxy = (64, 32)`, we expect the image
+to be wide:
+
+```
+data[0, 31]    data[63, 31]
+
+data[0, 0]     data[63, 0]
+```
+
+This is not how images are typically shown in Matplotlib or HTML canvas (see [origin and
+extent in
+`imshow`](https://matplotlib.org/stable/tutorials/intermediate/imshow_extent.html#default-extent).
+Instead, their default is to display an array `image.shape == (32, 64)` as if it has 32
+rows and 64 columns, with the 0, 0 element in the upper left:
+
+```
+image[0, 0]     image[0, 63]
+
+image[31, 0]    image[31, 63]
+```
+
+Thus, to display our data, we must transpose **and** then flip the order of the first index:
+
+```python
+image = data.T[::-1]
+```
+
+For example, here we plot a density profile that is twice as wide as it is high, with a
+high value in the upper right corner, and a low value in the upper left corner:
+
+```{code-cell} ipython3
+
+Nx, Ny = Nxy = (64, 32)
+x = np.linspace(-1, 1, Nx)[:, None]
+y = np.linspace(0, 1, Ny)[None, :]
+
+data = y*x
+image = data.T[::-1]
+plt.imshow(image)
+plt.colorbar();
+plt.title("3");
+```
+
+The HTML canvas uses the same ordering, so we must do the same conversion.
 
 ## Flask Framework
 

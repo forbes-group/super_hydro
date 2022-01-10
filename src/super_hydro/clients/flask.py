@@ -28,13 +28,6 @@ from .mixins import ClientDensityMixin
 
 __all__ = ["FlaskClient", "ModelNamespace", "run"]
 
-# This establishes the communication with the server.
-_LOGGER = utils.Logger(__name__)
-
-log = _LOGGER.log
-log_task = _LOGGER.log_task
-
-
 ###############################################################################
 # Network Server Communication clases.
 # Taken from 'dumb.py' Dumb server as baseline.
@@ -187,11 +180,16 @@ class FlaskClient(ClientDensityMixin):
         self.socketio = flask_socketio.SocketIO(self.app, async_mode="eventlet")
         self.socketio.on_namespace(self.demonstration)
 
+        #### Needs testing.
+        self.app.logger.setLevel(logging.DEBUG)
+        _LOGGER = utils.Logger(self.app.logger.name)
+        self.log = _LOGGER.log
+        self.log_task = _LOGGER.log_task
+
         print(f"Running Flask client on http://{self.opts.host}:{self.opts.port}")
         self.socketio.run(
             self.app, host=self.opts.host, port=self.opts.port, debug=self.opts.debug
         )
-        self.app.logger.setLevel(logging.DEBUG)
 
     def shutdown_server(self):
         """Shuts down the Flask-SocketIO instance."""
@@ -635,7 +633,7 @@ def get_server_proxy(
         ServerProxy object with either local or network server communication.
     """
     if flask_client.opts is None:
-        with log_task("Reading Configuration"):
+        with flask_client.log_task("Reading Configuration"):
             parser = config.get_client_parser()
             opts, other_opts = parser.parse_known_args(args="")
     else:

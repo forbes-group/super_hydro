@@ -122,18 +122,18 @@ exclude_patterns = ["_build", "Thumbs.db", ".DS_Store"]
 # Cache notebook output to speed generation.
 # https://myst-nb.readthedocs.io/en/latest/use/execute.html
 jupyter_execute_notebooks = "cache"
-jupyter_execute_notebooks = "off"
+# jupyter_execute_notebooks = "off"
 execution_allow_errors = True
-execution_timeout = 300
-nbsphinx_timeout = 300  # Time in seconds; use -1 for no timeout
+execution_timeout = 30
+# nbsphinx_timeout = 300  # Time in seconds; use -1 for no timeout
+
+execution_excludepatterns = ["Dev/Performance.md", "Dev/Kivy Summary.md"]
 
 # -- Options for HTML output -------------------------------------------------
 
 # The theme to use for HTML and HTML Help pages.  See the documentation for
 # a list of builtin themes.
 #
-html_theme = "alabaster"  # Default Sphinx theme
-html_theme = "sphinx_rtd_theme"  # Default Read The Docs theme.
 html_theme = "sphinx_book_theme"  # Theme for JupyterBook
 html_logo = "logo.jpg"  # Needed for sidebars
 
@@ -160,7 +160,7 @@ intersphinx_mapping = {
     "matplotlib [stable]": ("https://matplotlib.org/stable/", None),
     "numpy [stable]": ("https://numpy.org/doc/stable/", None),
     "scipy": ("https://docs.scipy.org/doc/scipy/", None),
-    "sphinx": ("https://www.sphinx-doc.org/", None),
+    "sphinx": ("https://www.sphinx-doc.org/en/master/", None),
 }
 
 # Napoleon settings
