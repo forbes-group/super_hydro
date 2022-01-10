@@ -67,6 +67,7 @@ real-clean: clean
 	cd Docs && make clean 
 	rm -rf .conda
 	-conda config --remove env_dirs $(CONDA_ENVS)
+	find . -type d -name "__pycache__" -exec rm -rf "{}" +
 
 .PHONY: init real-clean clean install uninstall conda-env conda-env-gpu
 
@@ -191,7 +192,7 @@ Testing:
 
 Maintenance:
    make clean        Call conda clean --all: saves disk space.
-   make reallyclean  delete the environments and kernel as well.
+   make real-clean   delete the environments and kernel as well.
 
 Documentation:
    make doc-server   Build the html documentation server on http://localhost:8000

@@ -232,9 +232,15 @@ def my_init():
     """
     if on_rtd:
         print(f"On RTD in directory {os.getcwd()}!")
-        # subprocess.check_call(
-        #    ["pip", "install", "--upgrade", "--use-feature=in-tree-build", ".[docs]"]
-        # )
+        subprocess.check_call(
+            [
+                "pip",
+                "install",
+                "--upgrade",
+                "--use-feature=in-tree-build",
+                "../..[docs]",
+            ]
+        )
         subprocess.check_call(
             [
                 "python3",
