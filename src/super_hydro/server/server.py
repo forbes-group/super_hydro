@@ -42,7 +42,6 @@ if PROFILE:
 
         return wrap
 
-
 else:
 
     def profile(filename=None):
@@ -171,7 +170,7 @@ class Computation(ThreadMixin):
                 if self.paused:
                     time.sleep(self.pause_timeout)
                 else:
-                    self.state.step(self.steps, tracer_particles=self.tracer_particles)
+                    self.model.step(self.steps, tracer_particles=self.tracer_particles)
                 self.process_queue()
 
         log("Computation Finished.", level=100)
@@ -197,11 +196,11 @@ class Computation(ThreadMixin):
     # Commands: Requests to the message_queue are dispatched by name.
     def do_set(self, param, value):
         """Generic set method."""
-        self.state.set(param, value)
+        self.model.set(param, value)
 
     def do_get(self, param):
         """Generic get method."""
-        value = self.state.get(param)
+        value = self.model.get(param)
         self.param_queue.put((param, value))
 
     def do_quit(self):
@@ -217,40 +216,40 @@ class Computation(ThreadMixin):
         self.paused = False
 
     def do_get_density(self):
-        self.density_queue.put(self.state.get_density())
+        self.density_queue.put(self.model.get_density())
 
     def do_get_tracers(self):
         tracers = np.empty(0)
-        if self.opts.tracer_particles:
+        if self.opts.tracer_particles and "tracer_particles" in self.model.params:
             trpos = self.tracer_particles.get_tracer_particles()
-            trinds = self.tracer_particles.get_inds(trpos, state=self.state)
+            trinds = self.tracer_particles.get_inds(trpos, model=self.model)
             tracers = np.asarray(trinds)
         self.tracer_queue.put(tracers)
 
     def do_update_finger(self, x, y):
-        self.state.set("xy0", (x, y))
+        self.model.set("xy0", (x, y))
 
     def do_update_cooling_phase(self, cooling_phase):
-        self.state.set("cooling_phase", cooling_phase)
+        self.model.set("cooling_phase", cooling_phase)
 
     def do_get_cooling_phase(self):
-        return self.state.get("cooling_phase")
+        return self.model.get("cooling_phase")
 
     def do_get_pot(self):
-        self.pot_queue.put(self.state.get("pot_z"))
+        self.pot_queue.put(self.model.get("pot_z"))
 
     def do_reset_tracers(self):
         opts = self.opts
-        if opts.tracer_particles:
+        if self.opts.tracer_particles and "tracer_particles" in self.model.params:
             self.tracer_particles = tracer_particles.TracerParticles(
-                state=self.state, N_particles=opts.tracer_particles
+                model=self.model, N_particles=opts.tracer_particles
             )
         else:
             self.tracer_particles = None
 
     def do_reset(self):
         opts = self.opts
-        self.state = opts.State(opts=opts)
+        self.model = opts.Model(opts=opts)
         self.do_reset_tracers()
 
     def unknown_command(self, msg, *v):
@@ -290,7 +289,7 @@ class Server(ThreadMixin):
             tracer_queue=self.tracer_queue,
         )
         self.computation_thread = threading.Thread(target=self.computation.run)
-        self.state = opts.State(opts=opts)
+        self.model = opts.Model(opts=opts)
         super().__init__(**kwargs)
         global _SERVERS
         _SERVERS.append(self)
@@ -323,18 +322,18 @@ class Server(ThreadMixin):
 
     def _pos_to_xy(self, pos):
         """Return the (x, y) coordinates of (pos_x, pos_y) in the frame."""
-        return (np.asarray(pos) - 0.5) * self.state.get("Lxy")
+        return (np.asarray(pos) - 0.5) * self.model.get("Lxy")
 
     def _xy_to_pos(self, xy):
         """Return the frame (pos_x, pos_y) from (x, y) coordinates."""
-        return np.asarray(xy) / self.state.get("Lxy") + 0.5
+        return np.asarray(xy) / self.model.get("Lxy") + 0.5
 
     ######################################################################
     # Communication layer.
     def _do_reset(self, client=None):
         """Reset the server."""
         self.message_queue.put(("reset",))
-        self.state = self.opts.State(opts=self.opts)
+        self.model = self.opts.Model(opts=self.opts)
 
     def _do_reset_tracers(self, client=None):
         """Reset the tracers."""
@@ -359,10 +358,10 @@ class Server(ThreadMixin):
 
     def _get_layout(self, client=None):
         """Return the widget layout."""
-        layout = self.state.layout
+        layout = self.model.layout
         interactive_widgets = widgets.get_interactive_widgets(layout)
         for w in interactive_widgets:
-            w.value = self.state.params[w.name]
+            w.value = self.model.params[w.name]
         return repr(layout)
 
     def _get_Nxy(self, client=None):
@@ -389,7 +388,7 @@ class Server(ThreadMixin):
     def _get(self, param, client=None):
         """Generic get."""
         value = None
-        if param not in self.state.params:
+        if param not in self.model.params:
             log(f"Error: Attempt to get unknown param={param}")
             return value
 
@@ -407,11 +406,11 @@ class Server(ThreadMixin):
 
     def _set(self, param, value):
         """Generic set."""
-        if param not in self.state.params:
+        if param not in self.model.params:
             log(f"Error: Attempt to set unknown param={param}")
             return
 
-        self.state.set(param, value)
+        self.model.set(param, value)
         self.message_queue.put(("set", param, value))
 
     def _get_available_commands(self, client=None):
@@ -438,14 +437,14 @@ class Server(ThreadMixin):
         }
 
         # Add all other parameters
-        descriptions = widgets.get_descriptions(self.state.layout)
-        for _v in self.state.params:
+        descriptions = widgets.get_descriptions(self.model.layout)
+        for _v in self.model.params:
             if _v not in get_commands and _v not in get_array_commands:
-                get_commands[_v] = self.state.params_doc.get(
+                get_commands[_v] = self.model.params_doc.get(
                     _v, descriptions.get(_v, f"Parameter {_v}")
                 )
             if _v not in set_commands and _v not in get_array_commands:
-                set_commands[_v] = self.state.params_doc.get(
+                set_commands[_v] = self.model.params_doc.get(
                     _v, descriptions.get(_v, f"Parameter {_v}")
                 )
 
@@ -528,7 +527,7 @@ class Server(ThreadMixin):
            Dictionary of values corresponding to default parameters.
         """
         self._do_reset(client=client)
-        return self.state.params
+        return self.model.params
 
     def quit(self, client=None):
         """Quit server."""
@@ -621,7 +620,7 @@ def run(block=True, network_server=True, interrupted=False, args=None, kwargs={}
     module = ".".join(["physics"] + opts.model.split(".")[:-1])
     cls = opts.model.split(".")[-1]
     pkg = "super_hydro"
-    opts.State = getattr(importlib.import_module("." + module, pkg), cls)
+    opts.Model = getattr(importlib.import_module("." + module, pkg), cls)
     if network_server:
         server = NetworkServer(opts=opts)
     else:

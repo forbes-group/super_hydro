@@ -32,6 +32,8 @@ log = _LOGGER.log
 warn = _LOGGER.warn
 log_task = _LOGGER.log_task
 
+from .testing import HelloWorld
+
 
 class GPEBase(ModelBase, FingerMixin):
     """Helper class for models.
@@ -133,12 +135,12 @@ class GPEBase(ModelBase, FingerMixin):
             if tracer_particles is not None:
                 # Update tracer particle positions.
                 # Maybe defer if too expensive
-                tracer_particles.update_tracer_velocity(state=self)
-                tracer_particles.update_tracer_pos(dt, state=self)
+                tracer_particles.update_tracer_velocity(model=self)
+                tracer_particles.update_tracer_pos(dt, model=self)
 
             density = self.get_density()
             if isinstance(self, FingerMixin) and self.t > 0:
-                # Don't move finger potential while preparing state.
+                # Don't move finger potential while preparing the state.
                 self._step_finger_potential(dt=dt, density=density)
 
             self.apply_expV(dt=dt, factor=1.0, density=density)
@@ -187,8 +189,8 @@ class BEC(GPEBase):
         [w.Checkbox(True, name="cylinder", description="Trap"), GPEBase.layout]
     )
 
-    def __init__(self, opts):
-        super().__init__(opts=opts)
+    def __init__(self, Nxy, opts):
+        super().__init__(Nxy=Nxy, opts=opts)
 
         self.t = 0
 

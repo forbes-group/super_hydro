@@ -27,7 +27,7 @@ from ..contexts import nointerrupt, NoInterrupt
 
 from .. import config, communication, utils, widgets
 
-from .mixins import DensityMixin
+from .mixins import ClientDensityMixin
 
 
 _LOGGER = utils.Logger(__name__)
@@ -79,7 +79,7 @@ class _Interrupted(object):
         return not self.app._running
 
 
-class NotebookApp(DensityMixin, App):
+class NotebookApp(ClientDensityMixin, App):
     fmt = "PNG"
     browser_control = True
     server = None

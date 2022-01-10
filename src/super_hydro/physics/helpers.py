@@ -50,62 +50,8 @@ class ModelBase(object):
         Note: your class should call init() when it is ready.
         """
 
-    @classmethod
-    def get_sliders(cls):
-        """Return a list of "sliders" from `self.layout`.
 
-        This is a convenience function for the flask client.  Ultimately, that client
-        should parse the layout itself so that the models can customize the display.
-        """
-
-        def get_widgets(tree):
-            """Return a list of all widgets."""
-            widgets = []
-            for widget in tree:
-                if hasattr(widget, "children"):
-                    widgets.extend(get_widgets(widget.children))
-                else:
-                    widgets.append(widget)
-            return widgets
-
-        sliders = []
-        for widget in get_widgets([cls.layout]):
-            slider = {
-                "id": widget.name,
-                "min": None,
-                "max": None,
-                "step": None,
-            }
-            if isinstance(widget, w.FloatLogSlider) or isinstance(
-                widget, w.FloatSlider
-            ):
-                slider.update(
-                    {
-                        "class": "slider",
-                        "type": "range",
-                        "name": "linear",
-                        "min": widget.min,
-                        "max": widget.max,
-                        "step": widget.step,
-                    }
-                )
-                if isinstance(widget, w.FloatLogSlider):
-                    slider["name"] = "logarithmic"
-            elif isinstance(widget, w.Checkbox):
-                slider.update(
-                    {
-                        "class": "toggle",
-                        "name": None,
-                        "type": "checkbox",
-                    }
-                )
-            else:
-                continue
-            sliders.append(slider)
-        return sliders
-
-
-class FingerMixin(object):
+class FingerMixin:
     """Support for the location of a user's finger and an associated potential.
 
     The actual potential is connected to the finger with a spring, and

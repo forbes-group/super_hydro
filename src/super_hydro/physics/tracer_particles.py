@@ -7,18 +7,18 @@ import numpy as np
 
 
 class TracerParticles(object):
-    def __init__(self, state, N_particles=1000):
+    def __init__(self, model, N_particles=1000):
         self.N_particles = N_particles
-        self.state = state
-        self._par_pos = self.tracer_particles_create(self.state)
+        self.model = model
+        self._par_pos = self.tracer_particles_create(self.model)
 
-    def tracer_particles_create(self, state):
+    def tracer_particles_create(self, model):
         N_particles = self.N_particles
         np.random.seed(1)
-        Nx, Ny = state.Nxy
-        x, y = state.xy
+        Nx, Ny = model.Nxy
+        x, y = model.xy
         x, y = np.ravel(x), np.ravel(y)
-        n = state.get_density()
+        n = model.get_density()
         n_max = n.max()
 
         particles = []
@@ -30,21 +30,21 @@ class TracerParticles(object):
                 particles.append(x[ix] + 1j * y[iy])
         return np.asarray(particles)
 
-    def get_inds(self, pos, state):
+    def get_inds(self, pos, model):
         """Return the indices (ix, iy) on the grid.
 
         Note: these are floating point values.  We keep them as floats
         so that the clients can display with higher accuracy if desired.
         """
-        x, y = state.xy
-        Lx, Ly = state.Lxy
-        Nx, Ny = state.Nxy
+        x, y = model.xy
+        Lx, Ly = model.Lxy
+        Nx, Ny = model.Nxy
         pos = pos + (Lx + 1j * Ly) / 2.0
         ix = (pos.real % Lx) / Lx * (Nx - 1)
         iy = (pos.imag % Ly) / Ly * (Ny - 1)
         return (ix, iy)
 
-    def update_tracer_velocity(self, state):
+    def update_tracer_velocity(self, model):
         """Define the velocity field for the particles"""
         # px, py = self.kxy
         # px *= self.hbar
@@ -54,9 +54,9 @@ class TracerParticles(object):
         # self._data_fft == self.fft(self.data)
         # v_x = (self.ifft(px*self.fft(self.data)) / self.data / m).real
         # v_y = (self.ifft(py*self.fft(self.data)) / self.data / m).real
-        self.v_trace = state.get_v()
+        self.v_trace = model.get_v()
 
-    def update_tracer_pos(self, dt, state):
+    def update_tracer_pos(self, dt, model):
         """Applies the velocity field to the particle positions and
         updates with time dt"""
         if not hasattr(self, "_par_pos"):
@@ -64,7 +64,7 @@ class TracerParticles(object):
         if not hasattr(self, "v_trace"):
             self.update_tracer_velocity()
         pos = self._par_pos
-        ix, iy = [np.round(_i).astype(int) for _i in self.get_inds(pos, state=state)]
+        ix, iy = [np.round(_i).astype(int) for _i in self.get_inds(pos, model=model)]
         v = self.v_trace[ix, iy]
         pos += dt * v
 

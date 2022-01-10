@@ -8,7 +8,6 @@ For more details see :ref:`flask-client`.
 
 # Standard Library Imports
 from collections import OrderedDict
-import functools
 import importlib
 import inspect
 import logging
@@ -25,6 +24,7 @@ import flask_socketio
 from .. import config, utils, communication
 from ..server import server
 from .mixins import ClientDensityMixin
+from .. import widgets as w
 
 __all__ = ["FlaskClient", "ModelNamespace", "run"]
 
@@ -238,14 +238,11 @@ class FlaskClient(ClientDensityMixin):
             "model_name": cls,
             "Title": f"{cls}",
             "info": Model.__doc__,
-            "sliders": Model.get_sliders(),
+            "sliders": get_sliders(Model),
             "models": list(self.models),
         }
 
-        return flask.render_template(
-            "model.html",
-            **template_vars,
-        )
+        return flask.render_template("model.html", **template_vars,)
 
     @route("/quit")
     def quit(self):
@@ -596,7 +593,7 @@ def get_server(
     # module = importlib.import_module(modpath)
     # Model = getattr(module, model)
     Model = flask_client.models[model_name]
-    opts.State = Model
+    opts.Model = Model
     if network_server:
         _server = server.NetworkServer(opts=opts)
     else:
@@ -656,6 +653,54 @@ def get_server_proxy(
             kwargs=kwargs,
         )
     return server_proxy
+
+
+def get_sliders(Model):
+    """Return a list of "sliders" from `Model.layout`.
+
+    This is a convenience function for the flask client.  Ultimately, that client
+    should parse the layout itself so that the models can customize the display.
+    """
+
+    def get_widgets(tree):
+        """Return a list of all widgets."""
+        widgets = []
+        for widget in tree:
+            if hasattr(widget, "children"):
+                widgets.extend(get_widgets(widget.children))
+            else:
+                widgets.append(widget)
+        return widgets
+
+    sliders = []
+    for widget in get_widgets([Model.layout]):
+        slider = {
+            "id": widget.name,
+            "min": None,
+            "max": None,
+            "step": None,
+        }
+        if isinstance(widget, w.FloatLogSlider) or isinstance(widget, w.FloatSlider):
+            slider.update(
+                {
+                    "class": "slider",
+                    "type": "range",
+                    "name": "linear",
+                    "min": widget.min,
+                    "max": widget.max,
+                    "step": widget.step,
+                }
+            )
+            if isinstance(widget, w.FloatLogSlider):
+                slider["name"] = "logarithmic"
+        elif isinstance(widget, w.Checkbox):
+            slider.update(
+                {"class": "toggle", "name": None, "type": "checkbox",}
+            )
+        else:
+            continue
+        sliders.append(slider)
+    return sliders
 
 
 def run(*args, **kwargs):

@@ -22,7 +22,7 @@ class IModel(Interface):
 
         from .. import widgets as w
 
-        class(Model):
+        class Model:
             params = dict(n=1, b=2.0)
             param_doc = dict(n='Parameter n', b='Parameter b')
             layout = w.VBox([
@@ -36,20 +36,22 @@ class IModel(Interface):
 
     """
 
-    params = Attribute("Dictionary of parameters and default values.")
+    params = Attribute(
+        """Dictionary of parameters and default values.
+
+        Must contain at least `Nx` and `Ny`, the grid dimensions."""
+    )
     params_doc = Attribute("Dictionary of parameter documentation.")
     layout = Attribute("Widget layout.")
 
-    def __init__(Nxy, opts):
+    def __init__(opts):
         """Constructor.
 
         Parameters
         ----------
-        Nxy : (int, int)
-            Size of the grid.
         opts : Options
-           Options object with attributes defined through the
-           configuration mechanism.
+           Options object with attributes defined through the configuration mechanism.
+           May contain updated values for `Nx` and `Ny`
         """
 
     def get_density():
@@ -63,7 +65,9 @@ class IModel(Interface):
 
         This is called interactively by the server.  Parameters could
         be implemented with properties, but our server explicitly
-        calls this method to limit the require interface.
+        calls this method to limit the required interface.
+
+        Must also support `param="Nxy"`.
         """
 
     def set(param, value):

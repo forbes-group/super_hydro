@@ -18,6 +18,11 @@ an rgba array of bytes to the browser.
 
 1. Can we get the javascript to run as an independent separate thread instead?
 
+
+* Interface violations:
+  * Flask client needs `get_sliders()` provided by ModelBase.
+  * tracer particles needs `model.xy`
+
 * There was an issue executing notebooks because of the global `_LOGGER =
   utils.Logger(__name__)` in `flask.py`.  This caused the following error:
 
