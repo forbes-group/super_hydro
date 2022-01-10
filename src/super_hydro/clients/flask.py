@@ -539,18 +539,14 @@ class ModelNamespace(flask_socketio.Namespace):
             ### Can we avoid this?
             rgba = "".join(map(chr, rgba.tobytes()))
 
-            self.flask_client.socketio.emit(
-                "ret_array",
-                {"rgba": rgba, "vxy": vxy, "fxy": fxy},
-                namespace=namespace,
-                room=room,
-            )
-            if self.flask_client.opts.tracers == True:
-                trace = server.server.get_array("tracers").tolist()
+            data = {"rgba": rgba, "vxy": vxy, "fxy": fxy}
+            if self.flask_client.opts.tracers:
+                data["trace"] = server.server.get_array("tracers").tolist()
 
-                self.flask_client.socketio.emit(
-                    "ret_trace", {"trace": trace}, namespace=namespace, room=room
-                )
+            self.flask_client.socketio.emit(
+                "do_update", data, namespace=namespace, room=room
+            )
+
             print("Framerate currently is: ", int(1.0 / (time.time() - start_time)))
             self.flask_client.socketio.sleep(0)
 

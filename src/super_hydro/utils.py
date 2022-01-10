@@ -84,7 +84,7 @@ class MyFormatter(logging.Formatter):
         return msg
 
 
-class Logger(object):
+class Logger:
     """Logging object."""
 
     def __init__(self, name="", indent_amount=2):

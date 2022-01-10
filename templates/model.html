@@ -39,9 +39,12 @@
 <br>
 
 
-<button type="button" class="toggle" name="start" onclick="flaskClient.doAction(this.name)">Start</button>
-<button type="button" class="toggle" name="pause" onclick="flaskClient.doAction(this.name)">Pause</button>
-<button type="button" class="toggle" name="reset" onclick="flaskClient.doAction(this.name)">Reset</button>
+<button type="button" class="toggle"
+        name="start" onclick="flaskClient.doAction(this)">Start</button>
+<button type="button" class="toggle"
+        name="pause" onclick="flaskClient.doAction(this)">Pause</button>
+<button type="button" class="toggle"
+        name="reset" onclick="flaskClient.doAction(this)">Reset</button>
 <div style="float: right; padding-right: 5px;">
   <span id="ping-pong"></span>fps
 </div>
@@ -66,46 +69,19 @@
   </canvas>
 </div>
 
-<script type="text/javascript" src="{{ url_for('static', filename = '/js/flask_client.js') }}"></script>
+<script type="text/javascript"
+        src="{{ url_for('static', filename = '/js/flask_client.js') }}">
+</script>
 
 <script>
-  var flaskClient = FlaskClient();
+  var flaskClient = FlaskClient('{{ model_name }}', document);
   
   // Establish namespace (model), websocket, and page width/height values
-  var model = {};
-  model.name = '{{ model_name }}';
-  var socket = io('/modelpage');
-
-  // FPS tracker:
-  var pingTimes = [];
-  var timeStart = (new Date).getTime();
-
-  // Create the canvas Density display element
-  var chartDensity = document.getElementById("density");
-  var ctxDensity = chartDensity.getContext("2d");
-  // Create the canvas Tracers display element
-  var chartTracer = document.getElementById("tracers");
-  var ctxTracer = chartTracer.getContext("2d");
-  // Create the canvas Finger display element
-  var chartFinger = document.getElementById("finger");
-  var ctxFinger = chartFinger.getContext("2d");
-
+  var model = flaskClient.model;
+  var socket = flaskClient.socket;
+  
   // Auto-scale Model Animation to available window whitespace area.
-  window.onload = window.onresize = function() {
-    containers = document.getElementsByClassName('containers');
-    heightDiff = 0;
-    for (c = 0; c < containers.length; ++c) {
-      heightDiff += containers[c].offsetHeight;
-    }
-    if (chartDensity.width > (window.innerHeight - heightDiff)) {
-	    chartDensity.width = chartFinger.width = chartTracer.width = window.innerHeight - heightDiff;
-    } else if (chartDensity.height > chartDensity.width) {
-	    chartDensity.height = chartFinger.height = chartTracer.height = chartDensity.width;
-    } else {
-	    chartDensity.width = chartFinger.width = chartTracer.width= window.innerWidth;
-	    chartDensity.height = chartFinger.height = chartTracer.height = window.innerHeight - heightDiff;
-    }
-  }
+  window.onload = window.onresize = flaskClient.on_resize;
 
   // When the User socket connection is made, start a server if not running
   socket.on('connect', function() {
@@ -138,43 +114,14 @@
     // Set sizing and finger positions.
     model.nx = data.Nx;
     model.ny = data.Ny;
-    model.fx = chartFinger.width - data.finger_x*chartFinger.width;
-    model.fy = data.finger_y*chartFinger.height;
+    model.fx = flaskClient.fingerCanvas.canvas.width - data.finger_x*flaskClient.fingerCanvas.canvas.width;
+    model.fy = data.finger_y*flaskClient.fingerCanvas.canvas.height;
  
   });
 
   // Receives rgba, external potential data and generates animation frames.
   // Also calculates framerate.
-  socket.on('ret_array', function(data) {
-   rgba = Uint8ClampedArray.from(data.rgba, c => c.charCodeAt(0));
-   flaskClient.drawCustom(rgba, model.nx, model.ny);
-   //vbytes = Uint8Array.from(data.vxy, c => c.charCodeAt(0));
-   //vfloats = new Float64Array(vbytes.buffer);
-   vfloats = data.vxy;
-   model.fx = chartFinger.width - data.fxy[1]*chartFinger.width;
-   model.fy = data.fxy[0]*chartFinger.height;
-
-   // FPS Counter tracking:
-   model.timeEnd = (new Date).getTime();
-   latency = model.timeEnd - timeStart;
-   pingTimes.push(latency);
-   pingTimes = pingTimes.slice(-30); //keep last 30 samples
-   var sum = 0;
-   for (var i = 0; i < pingTimes.length; i++)
-    sum += pingTimes[i];
-   model.fps = Math.floor(10000/ Math.round(10 * sum / pingTimes.length));
-   document.getElementById('ping-pong').innerHTML = model.fps;
-   timeStart = model.timeEnd;
-
-   //Draw the Finger Potential (placed last to allow consistent FPS tracking)
-   //flaskClient.drawFinger(model.fx, model.fy, vfloats[1], vfloats[0]);
-
-  });
-
-  // Receives tracer particle data and draws to Canvas element.
-  socket.on('ret_trace', function(data){
-	  console.log(data.trace);
-	  flaskClient.drawTracer(data.trace, model.nx, model.ny)})
+  socket.on('do_update', flaskClient.doUpdate);
 
   //Socket data reception to update user display for slider interactions,
   //regardless of which connected user interacted.
@@ -192,13 +139,6 @@
    }
   });
   
-  //Event listener for User mouse-click interaction/placement of potential
-  //finger on Canvas display element.
-  const getCanvas = document.querySelector('canvas#finger')
-  chartFinger.addEventListener('mousedown', function(e) {
-   getCursorPosition(chartFinger, e)
- });
-
   //When User navigates away from page, informs Flask framework to update user
   //count. This may result in computational server being shut down if room is
   //empty.
