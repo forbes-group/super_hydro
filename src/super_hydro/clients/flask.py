@@ -24,7 +24,7 @@ import flask_socketio
 # Project-defined Modules
 from .. import config, utils, communication
 from ..server import server
-from .mixins import DensityMixin
+from .mixins import ClientDensityMixin
 
 __all__ = ["FlaskClient", "ModelNamespace", "run"]
 
@@ -129,7 +129,7 @@ def route(*v, **kw):
 #
 # These determine which URL-endpoint will be linked to which HTML page.
 #############################################################################
-class FlaskClient(DensityMixin):
+class FlaskClient(ClientDensityMixin):
     """Encapsulates the Flask app.
 
     Attributes

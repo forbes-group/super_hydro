@@ -20,7 +20,7 @@
       <input id="{{ slider.id }}"
              class="{{ slider.class }}"
              type="{{ slider.type }}"
-             onchange="setParam(this.id, this.checked)">
+             onchange="flaskClient.setParam(this.id, this.checked)">
     </div>
       {% else %}
       <input id="{{ slider.id }}"
@@ -31,7 +31,7 @@
              max="{{ slider.max }}"
              step="{{ slider.step }}"
              value="0"
-             onchange="setParam(this.id, this.value, this.name=='logarithmic')">
+             onchange="flaskClient.setParam(this.id, this.value, this.name=='logarithmic')">
     </div>
       {% endif %}
   {% endfor %}
@@ -39,9 +39,9 @@
 <br>
 
 
-<button type="button" class="toggle" name="start" onclick="doAction(this.name)">Start</button>
-<button type="button" class="toggle" name="pause" onclick="doAction(this.name)">Pause</button>
-<button type="button" class="toggle" name="reset" onclick="doAction(this.name)">Reset</button>
+<button type="button" class="toggle" name="start" onclick="flaskClient.doAction(this.name)">Start</button>
+<button type="button" class="toggle" name="pause" onclick="flaskClient.doAction(this.name)">Pause</button>
+<button type="button" class="toggle" name="reset" onclick="flaskClient.doAction(this.name)">Reset</button>
 <div style="float: right; padding-right: 5px;">
   <span id="ping-pong"></span>fps
 </div>
@@ -66,9 +66,11 @@
   </canvas>
 </div>
 
-<script type="text/javascript" src="{{ url_for('static', filename = '/js/app_func.js') }}"></script>
+<script type="text/javascript" src="{{ url_for('static', filename = '/js/flask_client.js') }}"></script>
 
 <script>
+  var flaskClient = FlaskClient();
+  
   // Establish namespace (model), websocket, and page width/height values
   var model = {};
   model.name = '{{ model_name }}';
@@ -145,7 +147,7 @@
   // Also calculates framerate.
   socket.on('ret_array', function(data) {
    rgba = Uint8ClampedArray.from(data.rgba, c => c.charCodeAt(0));
-   drawCustom(rgba, model.nx, model.ny);
+   flaskClient.drawCustom(rgba, model.nx, model.ny);
    //vbytes = Uint8Array.from(data.vxy, c => c.charCodeAt(0));
    //vfloats = new Float64Array(vbytes.buffer);
    vfloats = data.vxy;
@@ -165,14 +167,14 @@
    timeStart = model.timeEnd;
 
    //Draw the Finger Potential (placed last to allow consistent FPS tracking)
-   //drawFinger(model.fx, model.fy, vfloats[1], vfloats[0]);
+   //flaskClient.drawFinger(model.fx, model.fy, vfloats[1], vfloats[0]);
 
   });
 
   // Receives tracer particle data and draws to Canvas element.
   socket.on('ret_trace', function(data){
 	  console.log(data.trace);
-	  drawTracer(data.trace, model.nx, model.ny)})
+	  flaskClient.drawTracer(data.trace, model.nx, model.ny)})
 
   //Socket data reception to update user display for slider interactions,
   //regardless of which connected user interacted.
