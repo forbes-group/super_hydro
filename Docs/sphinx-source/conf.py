@@ -127,7 +127,13 @@ execution_allow_errors = True
 execution_timeout = 30
 # nbsphinx_timeout = 300  # Time in seconds; use -1 for no timeout
 
-execution_excludepatterns = ["Dev/Performance.md", "Dev/Kivy Summary.md"]
+execution_excludepatterns = [
+    "Dev/Performance.md",
+    "Dev/Kivy Summary.md",
+    "Dev/JavaScript Client.md",
+    "Dev/Testing.md",
+    "Dev/NotebookClient.md",
+]
 
 # -- Options for HTML output -------------------------------------------------
 
@@ -258,6 +264,11 @@ def my_init():
         print("Not On RTD!  Assuming you have run make init.")
         # Don't reinstall everything each time or this can get really slow.
         # subprocess.check_call(["anaconda-project", "run", "init"])
+
+
+# https://github.com/eventlet/eventlet/issues/670
+# os.environ["EVENTLET_HUB"] = "poll"
+autodoc_mock_imports = ["eventlet"]
 
 
 def setup(app):
