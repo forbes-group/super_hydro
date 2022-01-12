@@ -22,7 +22,7 @@ import flask_socketio
 
 # Project-defined Modules
 from .. import config, utils, communication
-from ..server import server
+from ..server import server, ThreadMixin
 from .mixins import ClientDensityMixin
 from .. import widgets as w
 
@@ -162,6 +162,10 @@ class FlaskClient(ClientDensityMixin):
         self.app = flask.Flask("flask_client")
         # self.app.config["EXPLAIN_TEMPLATE_LOADING"] = True
 
+        #### Needs testing.
+        self.app.logger.setLevel(logging.DEBUG)
+        self.logger = utils.Logger(self.app.logger.name)
+
         for name, method in inspect.getmembers(self):
             # Run through all routed methods and route them with self.app.
             if hasattr(method, "_routing"):
@@ -179,12 +183,6 @@ class FlaskClient(ClientDensityMixin):
 
         self.socketio = flask_socketio.SocketIO(self.app, async_mode="eventlet")
         self.socketio.on_namespace(self.demonstration)
-
-        #### Needs testing.
-        self.app.logger.setLevel(logging.DEBUG)
-        _LOGGER = utils.Logger(self.app.logger.name)
-        self.log = _LOGGER.log
-        self.log_task = _LOGGER.log_task
 
         print(f"Running Flask client on http://{self.opts.host}:{self.opts.port}")
         self.socketio.run(
@@ -255,7 +253,7 @@ class FlaskClient(ClientDensityMixin):
         for model_name in list(self.running_models):
             # Should we not pop?
             model = self.running_models[model_name]
-            if model_name != "init" and model["server"] is not None:
+            if model["server"] is not None:
                 model["server"].quit()
         self.shutdown_server()
         return flask.render_template("goodbye.html")
@@ -314,6 +312,7 @@ class ModelNamespace(flask_socketio.Namespace):
 
     def __init__(self, flask_client, root, **kw):
         self.flask_client = flask_client
+        self.logger = self.flask_client.logger
         super().__init__(root, **kw)
 
     def on_connect(self):
@@ -339,11 +338,6 @@ class ModelNamespace(flask_socketio.Namespace):
         data : dict
             dict of {str : str}, keys are 'name' and 'params' for model name and
             interaction parameters.
-
-        Returns
-        -------
-        flask_socketio.emit('init')
-            Initial model parameters
         """
         opts = self.flask_client.opts
 
@@ -374,55 +368,49 @@ class ModelNamespace(flask_socketio.Namespace):
         flask_socketio.join_room(model_name)
         model["users"] += 1
 
-        ### Not sure what the purpose of "init" is
-        running_models["init"] = init = {}
-        for param in data["params"]:
-            init.update(model["server"].server.get([f"{param}"]))
+        params = model["server"].server.get(data["params"])
 
-        flask_socketio.emit("init", init, room=model_name)
+        flask_socketio.emit("update_widgets", params, room=model_name)
+        push_thread = PushThread(flask_client=self.flask_client, name=model_name)
 
         if model["d_thread"] is None:
             model["d_thread"] = self.flask_client.socketio.start_background_task(
-                target=self.push_thread,
+                target=push_thread.run,
                 namespace="/modelpage",
                 server=model["server"],
                 room=model_name,
             )
 
-    def on_set_param(self, data):
+    def on_set_params(self, data):
         """Transfers parameter change to computational server.
 
         Receives parameter change from User-side Javascript and passes it into
         model computational server before updating all connected User pages.
 
+        Sends new parameter value to all Users connected to model's Room.
+
         Parameters
         ----------
         data : dict
-            dict containing model room name, parameter being modified and new
+            dict containing model room name, and parameter being modified and new
             value.
-
-        Returns
-        -------
-        flask_socketio.emit('param_up')
-            Sends new parameter value to all Users connected to model's Room.
         """
-        model_name = data["data"]
+        model_name = data["model_name"]
         model = self.flask_client.running_models[model_name]
-        for key, value in data["param"].items():
-            model["server"].server.set({f"{key}": float(value)})
-            data = {"name": key, "param": value}
-        flask_socketio.emit("param_up", data, room=model_name)
+        params = {key: float(value) for key, value in data["params"].items()}
+        model["server"].server.set(params)
+        flask_socketio.emit("set_params", params, room=model_name)
 
-    def on_do_action(self, data):
-        """Transfers Server action request to computational server.
+    def on_click(self, data):
+        """Button clicks.
 
         Receives and passes server action request to computational server.
 
         Parameters
         ----------
         data : dict
-            dict containing model room name, action request for computational
-            server
+            dict containing model room name, and the button name (the action request for
+            computational server)
         """
 
         model_name = data["data"]
@@ -499,7 +487,14 @@ class ModelNamespace(flask_socketio.Namespace):
     # End socket connection section.
     ###############################################################################
 
-    def push_thread(self, namespace, server, room):
+
+class PushThread(ThreadMixin):
+    def __init__(self, flask_client, name):
+        self.flask_client = flask_client
+        self.logger = flask_client.logger
+        self.init(name=name)
+
+    def run(self, namespace, server, room):
         """Continuously updates display information to model page.
 
         Background thread that continuously queries computational server for
@@ -522,32 +517,53 @@ class ModelNamespace(flask_socketio.Namespace):
         socketio.emit('ret_trace')
             Transmits tracer particle position data to Javascript via web socket.
         """
-        while server._running is True:
+        available_commands = server.server.get_available_commands()
+        if "density" not in available_commands["get_array"]:
+            self.logger.error('ERROR: Server does not support get_array("density")')
+            return
+
+        finger_vars = set(["finger_x", "finger_y", "V_pos"])
+        has_finger = finger_vars.issubset(available_commands["get"])
+
+        has_tracers = bool(self.flask_client.opts.tracers)
+
+        if has_tracers:
+            if "tracers" not in available_commands["get_array"]:
+                self.logger.error(
+                    'ERROR: Client asked for tracers, but no server.get_array("tracers")'
+                )
+            return
+
+        max_fps = self.flask_client.opts.fps
+
+        while server._running:
             start_time = time.time()
-            # Exchange comments to revert display/performance:
 
-            # fxy = [server.server.get(["finger_x"])['finger_x'],
-            #        server.server.get(["finger_y"])['finger_y']]
-            # vxy = server.server.get(['Vpos'])['Vpos']
-
-            fxy = vxy = [0.5, 0.5]
+            data = {}
 
             density = server.server.get_array("density")
             rgba = self.flask_client.get_rgba_from_density(density)
-
             ### Can we avoid this?
             rgba = "".join(map(chr, rgba.tobytes()))
 
-            data = {"rgba": rgba, "vxy": vxy, "fxy": fxy}
-            if self.flask_client.opts.tracers:
+            data["rgba"] = rgba
+
+            if has_finger:
+                res = server.server.get(finger_vars)
+                data["fxy"] = (res["finger_x"], res["finger_y"])
+                data["vxy"] = res["Vpos"]
+
+            if has_tracers:
                 data["trace"] = server.server.get_array("tracers").tolist()
 
             self.flask_client.socketio.emit(
-                "do_update", data, namespace=namespace, room=room
+                "update", data, namespace=namespace, room=room
             )
 
-            print("Framerate currently is: ", int(1.0 / (time.time() - start_time)))
-            self.flask_client.socketio.sleep(0)
+            fps = 1 / (time.time() - start_time)
+            wait_time = max(0, 1 / max_fps - 1 / fps)
+            self.flask_client.socketio.sleep(wait_time)
+            self.heartbeat(f"Current framerate: {fps:.2f}fps")
 
 
 ###############################################################################
@@ -634,7 +650,7 @@ def get_server_proxy(
         ServerProxy object with either local or network server communication.
     """
     if flask_client.opts is None:
-        with flask_client.log_task("Reading Configuration"):
+        with flask_client.logger.log_task("Reading Configuration"):
             parser = config.get_client_parser()
             opts, other_opts = parser.parse_known_args(args="")
     else:

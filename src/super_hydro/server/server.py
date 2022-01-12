@@ -51,7 +51,7 @@ else:
         return wrap
 
 
-__all__ = ["run", "__doc__", "__all__"]
+__all__ = ["run", "__doc__", "__all__", "ThreadMixin"]
 
 
 _LOGGER = utils.Logger(__name__)
@@ -59,12 +59,13 @@ log = _LOGGER.log
 log_task = _LOGGER.log_task
 
 
-class ThreadMixin(object):
+class ThreadMixin:
     """Couple of useful methods for threads."""
 
     shutdown = False  # Flag to manually trigger shutdown
     shutdown_time = None  # Time to shut server down.
     name = None
+    logger = _LOGGER
 
     def heartbeat(self, msg="", timeout=1):
         """Log a heartbeat to show if the server is running."""
@@ -75,7 +76,7 @@ class ThreadMixin(object):
         tic = getattr(self, "_heartbeat_tic", 0)
         toc = time.time()
         if toc - tic > timeout:
-            _LOGGER.debug(f"Alive ({self.name}): {msg}")
+            self.logger.debug(f"Alive ({self.name}): {msg}")
             self._heartbeat_tic = time.time()
 
     @property
@@ -90,9 +91,9 @@ class ThreadMixin(object):
         )
         if finished:
             if self.shutdown:
-                _LOGGER.debug("Shutdown: Explicit shutdown")
+                self.logger.debug("Shutdown: Explicit shutdown")
             else:
-                _LOGGER.debug("Shutdown: shutdown_time exceed")
+                self.logger.debug("Shutdown: shutdown_time exceed")
         return finished
 
     def init(self, name, shutdown_min=60):
@@ -109,7 +110,7 @@ class ThreadMixin(object):
         self.shutdown = False
         self.shutdown_time = time.time() + shutdown_min * 60
         self.name = name
-        _LOGGER.debug(
+        self.logger.debug(
             f"Init: {self.name} will shutdown in "
             + f"{datetime.timedelta(minutes=shutdown_min)} (H:MM:SS)"
         )
@@ -135,6 +136,7 @@ class Computation(ThreadMixin):
         self.fps = opts.fps
         self.steps = opts.steps
         self.paused = True
+        self.logger = _LOGGER
 
         self._times = deque(maxlen=100)
 
@@ -290,6 +292,7 @@ class Server(ThreadMixin):
         )
         self.computation_thread = threading.Thread(target=self.computation.run)
         self.model = opts.Model(opts=opts)
+        self.logger = _LOGGER
         super().__init__(**kwargs)
         global _SERVERS
         _SERVERS.append(self)

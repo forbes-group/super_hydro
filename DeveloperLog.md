@@ -1,16 +1,27 @@
 To Do:
 * [ ] Client does not accept arguments like `--help` or `--shutdown`.
+* [ ] Client-launched servers should maybe shutdown if no clients are connected?
 * [ ] Maybe put all flask_client stuff together?  Including js which is now in `static/js`?
+* [ ] Autosummary does not include interfaces... see `super_hydro.interfaces.rst` and
+      `module.rst`.
+* [ ] Another interface for tracer particles with `Lxy` and `xy`?
 
 12 Jan 2022
 ===========
 * Continue refactoring JS for Flask Client.
   * Created minimal application "Hello World" as a minimal example.
     * Use to get orientation of canvas correct.
+      * Python should send an `rgba` array to JS in the correct order.  I.e. whoever converts
+        to the `rgba` array should do the transpositions.
     * Finger placement.
     * Framerate throttling.
-* Notebook execution in docs messed up because of logging with the client.
 
+
+
+* Notebook execution in docs messed due to [eventlet issue #670] conflicting with
+  `asyncio` in Python 3.9.  Mocking the `eventlet` import fixed this
+  [`autodoc_mock_imports = ["eventlet"]`].
+  
 9 Jan 2022
 ==========
 Goals:
@@ -201,3 +212,6 @@ Remaining issues:
 * sane cooling range and interpretation
 * Running at high latency can result in overspooling computational servers
 
+
+[eventlet issue #670]: <https://github.com/eventlet/eventlet/issues/670>
+[`autodoc_mock_imports = ["eventlet"]`]: <https://www.sphinx-doc.org/en/master/usage/extensions/autodoc.html?highlight=mock#confval-autodoc_mock_imports>

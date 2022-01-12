@@ -79,8 +79,11 @@ The document should have the following elements:
 * `<canvas id="density">`: This is where the density will be displayed.
 * `<input id="name">`: Input widget corresponding to the parameter `name` such as `"Nx"`
   or `"Ny"` (required parameters in every model).  This name corresponds to the entry in
-  the {attr}`super_hydro.interfaces.IModel.params`
-  corresponds to the parameter values in the model
+  the {attr}`super_hydro.interfaces.IModel.params` dictionary.
+* `<button name="name">`: These will be connected to the `flaskClient.doAction(name)`
+  event.
+  
+  
 ## Startup Sequence
 
 When a given model is displayed, the following happens:
@@ -91,9 +94,16 @@ When a given model is displayed, the following happens:
   rest of the action happens because of JS callbacks loaded through this page.
 * `model.html`: Creates the HTML elements (sliders, canvases, etc.) then sets up the
   events by loading the `static/js/flask_client.js` code.
-* `var flaskClient = FlaskClient()`: This connects the following events:
-  * `on_resize`: 
-* 
+* `var flaskClient = FlaskClient()`: This defines the various event handlers, connects
+  the events, and then tells the python server to do things.  The action starts when the
+  `socket` connects, which leads to the following chain:
+  
+  | JavaScript         |      | Python           | Comment                            |
+  | ------------------ | ---- | ---------------- | ---------------------------------- |
+  | `onConnect()`      | `->` | `on_start_srv()` | Starts or connects to a server     |
+  | `update_widgets()` | `<-` | `on_start_srv()` | Sends parameters from server to UI |
+  |                    |      | `push_thread()`  | Started as a background task       |
+
 
 * `on_start_src(data)`: 
 * If needed, a server is run with the model.
