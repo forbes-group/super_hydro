@@ -77,6 +77,30 @@ var flaskClient = FlaskClient(name, document);
 The document should have the following elements:
 
 * `<canvas id="density">`: This is where the density will be displayed.
+* `<input id="name">`: Input widget corresponding to the parameter `name` such as `"Nx"`
+  or `"Ny"` (required parameters in every model).  This name corresponds to the entry in
+  the {attr}`super_hydro.interfaces.IModel.params`
+  corresponds to the parameter values in the model
+## Startup Sequence
+
+When a given model is displayed, the following happens:
+
+* {meth}`super_hydro.clients.flask.FlaskClient.modelpage`: This is called when a user
+  opens a model page.  The name of the page specifies the model to load.  The
+  `templates/model.html` template is loaded with appropriate variables and served.  The
+  rest of the action happens because of JS callbacks loaded through this page.
+* `model.html`: Creates the HTML elements (sliders, canvases, etc.) then sets up the
+  events by loading the `static/js/flask_client.js` code.
+* `var flaskClient = FlaskClient()`: This connects the following events:
+  * `on_resize`: 
+* 
+
+* `on_start_src(data)`: 
+* If needed, a server is run with the model.
+* `flask_socketio.join_room(model_name)`: A connection between the python client and the
+  JS client is made.
+* 
+
 
 ### Indexing
 
@@ -121,7 +145,6 @@ data = y*x
 image = data.T[::-1]
 plt.imshow(image)
 plt.colorbar();
-plt.title("3");
 ```
 
 The HTML canvas uses the same ordering, so we must do the same conversion.

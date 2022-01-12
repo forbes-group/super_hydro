@@ -15,7 +15,7 @@ kernelspec:
 Testing
 =======
 
-# Server
+ # Server
 
 The server can be started from the command-line.
 

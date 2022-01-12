@@ -5,7 +5,7 @@ jupytext:
     extension: .md
     format_name: myst
     format_version: 0.13
-    jupytext_version: 1.10.3
+    jupytext_version: 1.13.5
 kernelspec:
   display_name: Python 3
   language: python
@@ -32,6 +32,13 @@ IPython.OutputArea.prototype._should_scroll = function(lines) { return false; }
 from mmf_setup.set_path import hgroot
 from super_hydro.clients import notebook
 notebook.run(network_server=True, run_server=False, tracer_particles=0)
+```
+
+```{code-cell} ipython3
+%pylab inline
+from mmf_setup.set_path import hgroot
+from super_hydro.clients import notebook
+notebook.run(model='testing.HelloWorld', network_server=False, run_server=True, tracer_particles=0)
 ```
 
 ```{code-cell} ipython3
@@ -336,7 +343,6 @@ With our Canvas widget, we can us [requestAnimationFrame](https://developer.mozi
 1. Use `requestAnimationFrame()` to send a message to python that the browser is ready for an update.
 2. Wait until the browser performs an update.
 3. Once the update is done, wait until the clock runs out (to limit the fps) then go to 1.
-
 
 +++
 

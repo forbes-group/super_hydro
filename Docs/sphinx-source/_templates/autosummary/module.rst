@@ -2,11 +2,24 @@
 
 .. automodule:: {{ fullname }}
 
+   {% block interfaces %}
+   {% if interfaces %}
+   .. rubric:: {{ _('Module Interfaces') }}
+
+   .. autosummary::
+      :toctree:
+   {% for item in interfaces %}
+      {{ item }}
+   {%- endfor %}
+   {% endif %}
+   {% endblock %}
+
    {% block attributes %}
    {% if attributes %}
    .. rubric:: {{ _('Module Attributes') }}
 
    .. autosummary::
+      :toctree:
    {% for item in attributes %}
       {{ item }}
    {%- endfor %}
@@ -18,6 +31,7 @@
    .. rubric:: {{ _('Functions') }}
 
    .. autosummary::
+      :toctree:
    {% for item in functions %}
       {{ item }}
    {%- endfor %}
@@ -29,6 +43,7 @@
    .. rubric:: {{ _('Classes') }}
 
    .. autosummary::
+      :toctree:
    {% for item in classes %}
       {{ item }}
    {%- endfor %}

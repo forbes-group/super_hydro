@@ -1,5 +1,3 @@
-my base.rst
-
 {{ fullname | escape | underline}}
 
 .. currentmodule:: {{ module }}
