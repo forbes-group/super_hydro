@@ -209,7 +209,8 @@ class NotebookApp(ClientDensityMixin, App):
             self.server = communication.NetworkServer(opts=self.opts)
         from IPython.display import display
 
-        self.Nx, self.Ny = self.server.get(["Nxy"])["Nxy"]
+        _res = self.server.get(["Nx", "Ny"])
+        self.Nx, self.Ny = _res["Nx"], _res["Ny"]
         self._frame = 0
         self._tic0 = time.time()
 

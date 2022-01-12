@@ -15,7 +15,7 @@ class TracerParticles(object):
     def tracer_particles_create(self, model):
         N_particles = self.N_particles
         np.random.seed(1)
-        Nx, Ny = model.Nxy
+        Nx, Ny = model.Nx, model.Ny
         x, y = model.xy
         x, y = np.ravel(x), np.ravel(y)
         n = model.get_density()
@@ -38,7 +38,7 @@ class TracerParticles(object):
         """
         x, y = model.xy
         Lx, Ly = model.Lxy
-        Nx, Ny = model.Nxy
+        Nx, Ny = model.Nx, model.Ny
         pos = pos + (Lx + 1j * Ly) / 2.0
         ix = (pos.real % Lx) / Lx * (Nx - 1)
         iy = (pos.imag % Ly) / Ly * (Ny - 1)

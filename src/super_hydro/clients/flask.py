@@ -242,7 +242,10 @@ class FlaskClient(ClientDensityMixin):
             "models": list(self.models),
         }
 
-        return flask.render_template("model.html", **template_vars,)
+        return flask.render_template(
+            "model.html",
+            **template_vars,
+        )
 
     @route("/quit")
     def quit(self):
@@ -450,7 +453,8 @@ class ModelNamespace(flask_socketio.Namespace):
         model = self.flask_client.running_models[model_name]
         server = model["server"].server
         for key, value in data["position"].items():
-            Nxy = server.get(["Nxy"])["Nxy"]
+            _res = server.get(["Nx", "Ny"])
+            Nxy = _res["Nx"], _res["Ny"]
             dx = server.get(["dx"])["dx"]
             pos = (np.asarray(data["position"]["xy0"]) - 0.5) * Nxy * dx
             pos = pos.tolist()
@@ -695,7 +699,11 @@ def get_sliders(Model):
                 slider["name"] = "logarithmic"
         elif isinstance(widget, w.Checkbox):
             slider.update(
-                {"class": "toggle", "name": None, "type": "checkbox",}
+                {
+                    "class": "toggle",
+                    "name": None,
+                    "type": "checkbox",
+                }
             )
         else:
             continue

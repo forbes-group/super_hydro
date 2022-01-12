@@ -76,7 +76,8 @@ class Display(FloatLayout):
         self.opts = app.opts
         self.graph_pxsize = app.graph_pxsize
 
-        self.Nx, self.Ny = self.comm.get(b"Nxy")
+        self.Nx = self.comm.get(b"Nx")
+        self.Ny = self.comm.get(b"Ny")
         self.get_texture()
 
         with log_task("Get density from server and push to texture"):
@@ -305,7 +306,8 @@ class SuperHydroApp(App):
 
         self.graph_pxsize = 150
 
-        Nx, Ny = self.comm.get(b"Nxy")
+        Nx = self.comm.get(b"Nx")
+        Ny = self.comm.get(b"Ny")
         frame_width = self.opts.window_width
         frame_height = self.opts.window_width * Ny / Nx
         window_width = frame_width + self.graph_pxsize

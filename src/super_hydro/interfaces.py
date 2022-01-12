@@ -66,8 +66,6 @@ class IModel(Interface):
         This is called interactively by the server.  Parameters could
         be implemented with properties, but our server explicitly
         calls this method to limit the required interface.
-
-        Must also support `param="Nxy"`.
         """
 
     def set(param, value):
