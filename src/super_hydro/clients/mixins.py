@@ -17,7 +17,7 @@ class ClientDensityMixin:
 
         One must be a bit careful to transpose the arrays so that indexing works
         properly."""
-        density = density[::-1].T
+        density = density.T[::-1]
         # array = cm.viridis((n_-n_.min())/(n_.max()-n_.min()))
         array = cm.viridis(density / density.max())
         # array = self._update_frame_with_tracer_particles(array)

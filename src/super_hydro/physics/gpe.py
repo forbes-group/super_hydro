@@ -189,8 +189,8 @@ class BEC(GPEBase):
         [w.Checkbox(True, name="cylinder", description="Trap"), GPEBase.layout]
     )
 
-    def __init__(self, Nxy, opts):
-        super().__init__(Nxy=Nxy, opts=opts)
+    def __init__(self, opts):
+        super().__init__(opts=opts)
 
         self.t = 0
 
