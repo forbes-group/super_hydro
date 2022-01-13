@@ -570,7 +570,7 @@ class PushThread(ThreadMixin):
 ###############################################################################
 
 
-def get_server(
+def launch_server(
     flask_client,
     model_name,
     block=True,
@@ -579,7 +579,11 @@ def get_server(
     args=None,
     kwargs={},
 ):
-    """Generates a Server object for computation and communication. Loads in a
+    """Start running a server.
+
+    This starts a computational server running on the local computer.  (In the future,
+    it may launch a server on a remote computer.)
+    Generates a Server object for computation and communication. Loads in a
     series of configuration options as well as the specified computational
     model to run.
 
@@ -590,9 +594,15 @@ def get_server(
     model_name : str
         Name of the class representing a physical model
     block : bool
-        Boolean for Asynchronous/Synchronous thread running.
+        If this is `True`, then the server is run synchronously without threads, and the
+        call will block until the server is finished running.  You should only do this
+        if you plan to launch a `network_server` and then connect to it over the
+        network, sending a `quit` signal to terminate it.
+
+        If `False`, then the server will be run in an independent thread, and
+        you can stop it by calling the returned `server.quit()` method.
     network_server : bool
-        Boolean determining whether creating a local or network server
+        If `True`, then the server will listen on the specified port for interactions.
     interrupted : bool
         Boolean to flag whether process is interrupted or not
     args : dict
@@ -602,7 +612,7 @@ def get_server(
 
     Returns
     -------
-    _server : :obj:
+    server : :obj:
         The running server object with loaded configuration options.
     """
     parser = config.get_server_parser()
@@ -613,12 +623,17 @@ def get_server(
     # Model = getattr(module, model)
     Model = flask_client.models[model_name]
     opts.Model = Model
+    if block and not network_server:
+        raise ValueError(
+            "Don't start a `block=True` server without `network_server = True` "
+            + "(there is no way to stop it!)"
+        )
     if network_server:
-        _server = server.NetworkServer(opts=opts)
+        server_ = server.NetworkServer(opts=opts)
     else:
-        _server = server.Server(opts=opts)
-    _server.run(block=block, interrupted=interrupted)
-    return _server
+        server_ = server.Server(opts=opts)
+    server_.run(block=block, interrupted=interrupted)
+    return server_
 
 
 ###############################################################################
@@ -658,11 +673,7 @@ def get_server_proxy(
     server_proxy = ServerProxy(opts=opts)
 
     if run_server:
-        # Delay import becuase clients may not have all of the dependencies needed
-        # to run the server.
-        from super_hydro.server import server
-
-        server_proxy.server = get_server(
+        server_proxy.server = launch_server(
             flask_client=flask_client,
             model_name=model_name,
             args="",

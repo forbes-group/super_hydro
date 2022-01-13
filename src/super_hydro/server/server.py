@@ -66,6 +66,7 @@ class ThreadMixin:
     shutdown_time = None  # Time to shut server down.
     name = None
     logger = _LOGGER
+    _counters = None
 
     def heartbeat(self, msg="", timeout=1):
         """Log a heartbeat to show if the server is running."""
@@ -76,8 +77,20 @@ class ThreadMixin:
         tic = getattr(self, "_heartbeat_tic", 0)
         toc = time.time()
         if toc - tic > timeout:
-            self.logger.debug(f"Alive ({self.name}): {msg}")
+            counters = self._counters
+            _msgc = " ".join([f"{c}={counters[c]}" for c in counters])
+            for c in list(counters):
+                if counters[c] == 0:
+                    # If a counter was zero, remove it from future reporting.
+                    del counters[c]
+                else:
+                    counters[c] = 0
+            self.logger.debug(f"Alive ({self.name}): {msg} (# {_msgc})")
             self._heartbeat_tic = time.time()
+
+    def _count(self, name):
+        self._counters.setdefault(name, 0)
+        self._counters[name] += 1
 
     @property
     def finished(self):
@@ -107,6 +120,7 @@ class ThreadMixin:
         shutdown_min : int, None
            Time after which to shutdown the server.  Default is 1 hour.
         """
+        self._counters = {}
         self.shutdown = False
         self.shutdown_time = time.time() + shutdown_min * 60
         self.name = name
@@ -462,11 +476,13 @@ class Server(ThreadMixin):
     ######################################################################
     # Public interface.  These dispatch to the various methods above.
     def get_available_commands(self, client=None):
+        self._count("get_available_commands")
         log(f"Getting available commands")
         return self._get_available_commands(client=client)
 
     def do(self, action, client=None):
         """Tell the server to perform the specified `action`."""
+        self._count("do")
         method = getattr(self, f"_do_{action}", None)
         if not method:
             print("Unknown data type")
@@ -488,6 +504,7 @@ class Server(ThreadMixin):
         param_dict : {param: val}
            Dictionary of values corresponding to specified parameters.
         """
+        self._count("get")
         # log(f"Getting {params}")
         param_dict = {}
         for param in params:
@@ -506,6 +523,7 @@ class Server(ThreadMixin):
         param_vals : {param: val}
            Dictionary of values corresponding to specified parameters.
         """
+        self._count("set")
         # log(f"Setting {param_dict}")
         for param in param_dict:
             value = param_dict[param]
@@ -513,6 +531,7 @@ class Server(ThreadMixin):
 
     def get_array(self, param, client=None):
         """Get the specified array."""
+        self._count("get_array")
         method = getattr(self, f"_get_array_{param}", None)
         if not method:
             print("Unknown data type")
@@ -529,11 +548,13 @@ class Server(ThreadMixin):
         param_vals : {param: val}
            Dictionary of values corresponding to default parameters.
         """
+        self._count("reset")
         self._do_reset(client=client)
         return self.model.params
 
     def quit(self, client=None):
         """Quit server."""
+        self._count("quit")
         self._do_quit(client=client)
 
     @staticmethod
@@ -544,6 +565,7 @@ class Server(ThreadMixin):
             _SERVERS.pop(0).quit()
 
 
+@implementer(IServer)
 class NetworkServer(Server):
     """Network Server.
 

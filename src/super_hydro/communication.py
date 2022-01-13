@@ -194,7 +194,7 @@ class Server(object):
 
 
 @implementer(IServer)
-class NetworkServer(object):
+class NetworkServer:
     """Wrapper for the `server.Server` class.
 
     This is used when the server is not started locally and the client

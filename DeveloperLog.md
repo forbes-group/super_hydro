@@ -9,6 +9,9 @@ To Do:
 13 Jan 2022
 ===========
 * `flask.py`: `res = server.server.get(finger_vars)` drops fps from 50 to 15!
+* We are overloading the server by sending it a flood of `set()` requests.  Latest
+  amendment makes the JS reponsive, but then the emitted server events pile up.  We need
+  to drop some of them.  (Basically, later finger updates should supersede earlier ones.)
 
 12 Jan 2022
 ===========
