@@ -74,12 +74,12 @@ class FingerMixin:
        Size of the finger potential
     """
 
-    pot_z = 0 + 0j
     pot_v = 0 + 0j
 
     params = dict(
         finger_x=0.5,
         finger_y=0.5,
+        finger_Vxy=(0.5, 0.5),
         finger_k_m=10.0,
         finger_damp=4.0,
         finger_r0=10.0,
@@ -111,7 +111,6 @@ class FingerMixin:
     )
 
     def init(self):
-        self.pot_z = 0 + 0j
         self.pot_v = 0 + 0j
 
     def set_xy0(self, xy0):
@@ -128,19 +127,36 @@ class FingerMixin:
         else:
             Lx, Ly = self.Lxy
             x0 = Lx * (self.finger_x - 0.5)
-            y0 = Ly * (0.5 - self.finger_y)
+            y0 = Ly * (self.finger_y - 0.5)
             return x0 + 1j * y0
 
     @z_finger.setter
     def z_finger(self, z_finger):
         Lx, Ly = self.Lxy
         self.finger_x = z_finger.real / Lx + 0.5
-        self.finger_y = 0.5 - z_finger.imag / Ly
+        self.finger_y = z_finger.imag / Ly - 0.5
+
+    @property
+    def pot_z(self):
+        Lx, Ly = self.Lxy
+        x = Lx * (self.finger_Vxy[0] - 0.5)
+        y = Ly * (self.finger_Vxy[1] - 0.5)
+        pot_z = x + 1j * y
+        return pot_z
+
+    @pot_z.setter
+    def pot_z(self, pot_z):
+        Lx, Ly = self.Lxy
+        self.finger_Vxy = (
+            pot_z.real / Lx + 0.5,
+            pot_z.imag / Ly + 0.5,
+        )
 
     def get_Vext(self):
         """Return the full external potential."""
         x, y = self.xy
-        x0, y0 = self.pot_z.real, self.pot_z.imag
+        z0 = self.pot_z
+        x0, y0 = z0.real, z0.imag
         Lx, Ly = self.Lxy
 
         # Wrap displaced x and y in periodic box.
@@ -155,14 +171,15 @@ class FingerMixin:
         return np.inf
 
     def _step_finger_potential(self, dt, density=None):
-        self.pot_z += dt * self.pot_v
-        pot_a = -self.finger_k_m * (self.pot_z - self.z_finger)
+        pot_z = self.pot_z
+        pot_z += dt * self.pot_v
+        pot_a = -self.finger_k_m * (pot_z - self.z_finger)
         pot_a += -self.finger_damp * self.pot_v
         self.pot_v += dt * pot_a
         v_max = self.get_finger_v_max(density=density)
         if abs(self.pot_v) > v_max:
             self.pot_v *= v_max / abs(self.pot_v)
-        self.pot_z = self.mod(self.pot_z)
+        self.pot_z = self.mod(pot_z)
 
     def mod(self, z):
         """Make sure the point z lies in the box."""

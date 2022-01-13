@@ -21,6 +21,8 @@ function FlaskClient(name, document_) {
  var model = {
   name: name,
   params: ['Nx', 'Ny', 'finger_x', 'finger_y'],
+  f_xy: [0.5, 0.5],
+  v_xy: [0.5, 0.5],
  };
 
  // Add all input widgets
@@ -48,10 +50,13 @@ function FlaskClient(name, document_) {
   densityCanvas.draw(data.rgba);
   let width = densityCanvas.canvas.width;
   let height = densityCanvas.canvas.height;
-  
-  model.fx = fingerCanvas.canvas.width - data.fxy[1]*fingerCanvas.canvas.width;
-  model.fy = data.fxy[0]*fingerCanvas.canvas.height;
 
+  if (data.hasOwnProperty("f_xy")) {
+   model.f_xy = data["f_xy"];
+   model.v_xy = data["v_xy"];
+   fingerCanvas.draw(model);
+  }
+  
   if (data.hasOwnProperty("trace")) {
    tracerCanvas.draw(data.trace, model.nx, model.ny, width, height);
   }
@@ -66,30 +71,9 @@ function FlaskClient(name, document_) {
    sum += _pingTimes[i];
   model.fps = Math.floor(10000/ Math.round(10 * sum / _pingTimes.length));
   document.getElementById('ping-pong').innerHTML = model.fps;
-  _timeStart = _timeEnd;
-  
-  //Draw the Finger Potential (placed last to allow consistent FPS tracking)
-  //vbytes = Uint8Array.from(data.vxy, c => c.charCodeAt(0));
-  //vfloats = new Float64Array(vbytes.buffer);
-  //var vfloats = data.vxy;
-  //fingerCanvas.draw(model.fx, model.fy, vfloats[1], vfloats[0],
-   //                  densityCanvas.canvas.width, densityCanvas.canvas.height);
- //                  densityCanvas.canvas.width, densityCanvas.canvas.height);
-   
+  _timeStart = _timeEnd;  
  };
-
-
- // This section provides mouseclick/touchscreen interaction for finger
- // potential.
- function getCursorPosition(canvas, event) {
-  const rect = canvas.getBoundingClientRect()
-  model.fy = (event.clientY - rect.top);
-  model.fx = (event.clientX - rect.left);
-  const fPos = {'xy0' : [model.fy/(rect.bottom-rect.top),
-                         model.fx/(rect.right-rect.left)]}
-  socket.emit('finger', {data: model.name, position: fPos})
- };
-
+ 
  // Resize all of the widgets.
  function resize() {
   let containers = document_.getElementsByClassName('containers');
@@ -168,10 +152,39 @@ function FlaskClient(name, document_) {
 
   // Resize window.
   resize();
+ }
 
-  // Set finger
-  model.fx = fingerCanvas.canvas.width - data.finger_x * fingerCanvas.canvas.width;
-  model.fy = data.finger_y * fingerCanvas.canvas.height;  
+ // This section provides mouseclick/touchscreen interaction for finger
+ // potential.
+ function getCursorPosition(event) {
+  const canvas = fingerCanvas.canvas;
+  const rect = canvas.getBoundingClientRect();
+  return [
+   (event.clientX - rect.left) / (rect.right - rect.left),
+   (event.clientY - rect.bottom) / (rect.top - rect.bottom)];
+ }
+
+ let mouse_down = false;
+ function moveFinger(f_xy) {
+  model.f_xy = f_xy;
+  setParams({finger_x: f_xy[0], finger_y: f_xy[1]});
+  socket.emit('finger', {data: model.name, f_xy: f_xy});
+  fingerCanvas.draw(model);
+ }
+ 
+ function onMouseDown(e) {
+  mouse_down = true;
+  moveFinger(getCursorPosition(e));
+ }
+ 
+ function onMouseUp(e) {
+  mouse_down = false;
+ }
+ 
+ function onMouseMove(e) {
+  if (mouse_down) {
+   moveFinger(getCursorPosition(e));
+  }
  }
  
  //////////////////////////////////////////////////////////////////////
@@ -186,9 +199,9 @@ function FlaskClient(name, document_) {
  // Event listener for User mouse-click interaction/placement of potential
  // finger on Canvas display element.
  // const getCanvas = document_.querySelector('canvas#finger')
- fingerCanvas.canvas.addEventListener('mousedown', function(e) {
-  getCursorPosition(fingerCanvas.canvas, e)
- });
+ fingerCanvas.canvas.addEventListener('mousedown', onMouseDown)
+ fingerCanvas.canvas.addEventListener('mouseup', onMouseUp)
+ fingerCanvas.canvas.addEventListener('mousemove', onMouseMove)
 
  for (let button of document.getElementsByTagName("button")) {
   button.addEventListener("click", function () {
@@ -231,17 +244,9 @@ function DensityCanvas(canvas, model, document_) {
   let height = canvas.height;
   let im_width = nx;
   let im_height = ny;
-
-  // if (height < window.innerWidth) {
-	//  width = height * nx / ny;
-  // } else {
-	//  height = width * ny / nx;
-  // }
   
   if (width == im_width && height == im_height) {
    // Simply draw.
-   // canvas.width = width;
-   // canvas.height = height;
    ctx.putImageData(image_data, 0, 0);
   } else {
    // Pre-render on background canvas, then scale
@@ -249,8 +254,6 @@ function DensityCanvas(canvas, model, document_) {
    tmpcanvas.height = im_height;
    tmpctx.putImageData(image_data, 0, 0);
    
-   //canvas.width = width;
-   //canvas.height = height;
    ctx.drawImage(tmpcanvas,
                  0, 0, im_width, im_height,
                  0, 0, width, height);
@@ -274,18 +277,22 @@ function FingerCanvas(canvas, model, document_) {
   canvas.height = height;
  };
 
- function draw(fx, fy, vx, vy, width, height) {
-  vxNew = vx*canvas.width;
-  vyNew = vy*canvas.height;
-  potSize = document_.getElementById('finger_V0_mu').value
+ function draw(data) {
+  let fx = data.f_xy[0] * canvas.width;
+  let fy = (1 - data.f_xy[1]) * canvas.height;
 
-  if (height < window.innerWidth) {
-	 canvas.width = height;
-  } else {
-	 canvas.height = width;
-  }
+  let vx = data.v_xy[0] * canvas.width;
+  let vy = (1 - data.v_xy[1]) * canvas.height;
 
-  ctx.clearRect(0, 0, width, height);
+  // Finger size is 10% of minimum width
+  let fr = 0.1*Math.min(canvas.width, canvas.height);
+
+  // Should compute this from finger_r.
+  let vr = 0.1*Math.min(canvas.width, canvas.height);
+
+  //potSize = document_.getElementById('finger_V0_mu').value
+
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
 
   ctx.beginPath();
   ctx.fillStyle = "Black";
@@ -293,11 +300,11 @@ function FingerCanvas(canvas, model, document_) {
   ctx.fill();
   ctx.beginPath();
   ctx.strokeStyle = "White";
-  ctx.arc(vxNew, vyNew, 8, 0, Math.PI*2, true);
+  ctx.arc(vx, vy, 8, 0, Math.PI*2, true);
   ctx.stroke();
   ctx.beginPath();
   ctx.moveTo(fx, fy);
-  ctx.lineTo(vxNew, vyNew);
+  ctx.lineTo(vx, vy);
   ctx.stroke();
  };
  

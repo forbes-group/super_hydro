@@ -6,6 +6,10 @@ To Do:
       `module.rst`.
 * [ ] Another interface for tracer particles with `Lxy` and `xy`?
 
+13 Jan 2022
+===========
+* `flask.py`: `res = server.server.get(finger_vars)` drops fps from 50 to 15!
+
 12 Jan 2022
 ===========
 * Continue refactoring JS for Flask Client.

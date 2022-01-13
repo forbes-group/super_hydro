@@ -440,13 +440,8 @@ class ModelNamespace(flask_socketio.Namespace):
         model_name = data["data"]
         model = self.flask_client.running_models[model_name]
         server = model["server"].server
-        for key, value in data["position"].items():
-            _res = server.get(["Nx", "Ny"])
-            Nxy = _res["Nx"], _res["Ny"]
-            dx = server.get(["dx"])["dx"]
-            pos = (np.asarray(data["position"]["xy0"]) - 0.5) * Nxy * dx
-            pos = pos.tolist()
-            model["server"].server.set({f"{key}": pos})
+        f_xy = np.asarray(data["f_xy"])
+        server.set({"finger_x": f_xy[0], "finger_y": f_xy[1]})
 
     def on_user_exit(self, data):
         """Model Room updating on User exit from page.
@@ -522,7 +517,7 @@ class PushThread(ThreadMixin):
             self.logger.error('ERROR: Server does not support get_array("density")')
             return
 
-        finger_vars = set(["finger_x", "finger_y", "V_pos"])
+        finger_vars = set(["finger_x", "finger_y", "finger_Vxy"])
         has_finger = finger_vars.issubset(available_commands["get"])
 
         has_tracers = bool(self.flask_client.opts.tracers)
@@ -549,10 +544,14 @@ class PushThread(ThreadMixin):
             data["rgba"] = rgba
 
             if has_finger:
-                res = server.server.get(finger_vars)
-                data["fxy"] = (res["finger_x"], res["finger_y"])
-                data["vxy"] = res["Vpos"]
-
+                check_performance = False
+                if check_performance:
+                    data["f_xy"] = list(map(str, np.random.random(2)))  # ("0.5", "0.5")
+                    data["v_xy"] = list(map(str, np.random.random(2)))  # ("0.5", "0.5")
+                else:
+                    res = server.server.get(finger_vars)
+                    data["f_xy"] = (res["finger_x"], res["finger_y"])
+                    data["v_xy"] = res["finger_Vxy"]
             if has_tracers:
                 data["trace"] = server.server.get_array("tracers").tolist()
 

@@ -488,7 +488,7 @@ class Server(ThreadMixin):
         param_dict : {param: val}
            Dictionary of values corresponding to specified parameters.
         """
-        log(f"Getting {params}")
+        # log(f"Getting {params}")
         param_dict = {}
         for param in params:
             method = getattr(
@@ -506,7 +506,7 @@ class Server(ThreadMixin):
         param_vals : {param: val}
            Dictionary of values corresponding to specified parameters.
         """
-        log(f"Setting {param_dict}")
+        # log(f"Setting {param_dict}")
         for param in param_dict:
             value = param_dict[param]
             self.message_queue.put(("set", param, value))
