@@ -165,12 +165,11 @@ class Computation(ThreadMixin):
         finally:
             dt = time.perf_counter() - tic
             self._times.append(dt)
-            if PROFILE:
+            if True or PROFILE:
+                dt_ = np.mean(self._times) * 1000 + 1j * np.std(self._times) * 1000
                 log(
-                    "{:.2g}+-{:.2g}ms/step".format(
-                        np.mean(self._times) * 1000 / self.steps,
-                        np.std(self._times) * 1000 / self.steps,
-                    ),
+                    f"{dt.real/self.steps:.2g}+-{dt.imag/self.steps:.2g}ms/step "
+                    + f"(max {1/dt.real:.2f}fps)",
                     level=100,
                 )
             t_sleep = max(0, 1.0 / self.fps - dt)
@@ -304,6 +303,7 @@ class Server(ThreadMixin):
             pot_queue=self.pot_queue,
             tracer_queue=self.tracer_queue,
         )
+        self._param_cache = {}
         self.computation_thread = threading.Thread(target=self.computation.run)
         self.model = opts.Model(opts=opts)
         self.logger = _LOGGER
@@ -403,13 +403,8 @@ class Server(ThreadMixin):
         self.message_queue.put(("update_finger", x0, y0))
 
     def _get(self, param, client=None):
-        """Generic get."""
-        value = None
-        if param not in self.model.params:
-            log(f"Error: Attempt to get unknown param={param}")
-            return value
-
-        self.message_queue.put(("get", param))
+        """Get the specified parameter, waiting for a response."""
+        self._get_async(param=param, client=client)
         for n in range(self._tries):
             param_, value = msg = self.param_queue.get()
             if param == param_:
@@ -417,9 +412,18 @@ class Server(ThreadMixin):
             else:
                 log(f"Asked for {param} but got {param_}.  Trying again.")
                 self.param_queue.put(msg)
-                sleep(self._poll_interval)
-
+                time.sleep(self._poll_interval)
         return value
+
+    def _get_async(self, param, client=None):
+        """Sent a get request to the computation server.
+
+        When the server gets a chance, it will put the result on the `param_queue`.
+        """
+        if param not in self.model.params:
+            log(f"Error: Attempt to get unknown param={param}")
+
+        self.message_queue.put(("get", param))
 
     def _set(self, param, value):
         """Generic set."""
@@ -491,28 +495,56 @@ class Server(ThreadMixin):
         else:
             method(client=client)
 
-    def get(self, params, client=None):
+    def get(self, params, client=None, use_cache=True):
         """Return the specified parameters.
 
         Parameters
         ----------
         params : [str]
            List of parameters.
+        use_cache : bool
+           If `True`, then use cached values (may be incorrect).
 
         Returns
         -------
         param_dict : {param: val}
            Dictionary of values corresponding to specified parameters.
         """
-        self._count("get")
         # log(f"Getting {params}")
         param_dict = {}
         for param in params:
-            method = getattr(
-                self, f"_get_{param}", functools.partial(self._get, param=param)
-            )
-            val = method(client=client)
-            param_dict[param] = val
+            method = getattr(self, f"_get_{param}", None)
+            if not method and not use_cache:
+                # Special methods always called synchronously
+                method = functools.partial(self._get, param=param)
+
+            if method:
+                self._count(f"_get_{param}")
+                param_dict[param] = self._param_cache[param] = method(client=client)
+            else:
+                self._count(f"_get_async")
+                self._get_async(param=param, client=client)
+
+        if set(param_dict) == set(params):
+            return param_dict
+
+        # Now get all values from the param_queue and store them in the cache
+        try:
+            while True:
+                param, value = self.param_queue.get_nowait()
+                self._param_cache[param] = value
+        except queue.Empty:
+            pass
+
+        for param in params:
+            if param in param_dict:
+                continue
+
+            if param not in self._param_cache:
+                # Get it synchronously
+                self._param_cache[param] = self._get(param=param, client=client)
+            param_dict[param] = self._param_cache[param]
+
         return param_dict
 
     def set(self, param_dict, client=None):

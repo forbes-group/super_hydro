@@ -181,7 +181,7 @@ class FlaskClient(ClientDensityMixin):
         self.models = self.get_models()
         self.demonstration = ModelNamespace(flask_client=self, root="/modelpage")
 
-        self.socketio = flask_socketio.SocketIO(self.app, async_mode="eventlet")
+        self.socketio = flask_socketio.SocketIO(self.app, async_handlers=False)
         self.socketio.on_namespace(self.demonstration)
 
         print(f"Running Flask client on http://{self.opts.host}:{self.opts.port}")

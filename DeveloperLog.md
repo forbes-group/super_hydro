@@ -8,10 +8,12 @@ To Do:
 
 13 Jan 2022
 ===========
-* `flask.py`: `res = server.server.get(finger_vars)` drops fps from 50 to 15!
-* We are overloading the server by sending it a flood of `set()` requests.  Latest
-  amendment makes the JS reponsive, but then the emitted server events pile up.  We need
-  to drop some of them.  (Basically, later finger updates should supersede earlier ones.)
+* `flask.py`: `res = server.server.get(finger_vars)` drops fps from 50 to 15!  After
+  some playing, it is clear that this is due to the `get()` calls, not the `set()`
+  calls.  We revamped the server to cache results.  Much better, but still some client
+  side issues.
+* `flask_socketio.SocketIO(self.app, async_handlers=False)` was very important -
+  otherwise emit messages got mucked up.  Not exactly sure why.  Try with BEC to see.
 
 12 Jan 2022
 ===========
