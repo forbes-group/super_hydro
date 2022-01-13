@@ -538,8 +538,13 @@ class BECBreather(BEC):
 
     params = dict(
         BECFlow.params,
-        a_HO=0.125,  # Fraction of Lx/2
-        R=0.5,  # Fraction of Lx/2
+        Nx=32 * 8,
+        Ny=32 * 8,
+        # a_HO=0.125,  # Fraction of Lx/2
+        # R=0.5,  # Fraction of Lx/2
+        a_HO=0.04,  # Fraction of Lx/2
+        dt_t_scale=0.5,
+        R=0.3,
         Nshape=3,
         cooling=1e-10,
         tracer_particles=0,

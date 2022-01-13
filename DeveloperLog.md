@@ -15,6 +15,10 @@ To Do:
 * `flask_socketio.SocketIO(self.app, async_handlers=False)` was very important -
   otherwise emit messages got mucked up.  Not exactly sure why.  Try with BEC to see.
 
+* Performance is still bad: Notebook client runs much faster than Flask client.  Not
+  sure why.  Flask client updates more frequently, but seems to block.  Might be because
+  parameters like `dt_t_scale` are not properly updated.
+
 12 Jan 2022
 ===========
 * Continue refactoring JS for Flask Client.

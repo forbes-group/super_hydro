@@ -5,11 +5,11 @@ jupytext:
     extension: .md
     format_name: myst
     format_version: 0.13
-    jupytext_version: 1.11.5
+    jupytext_version: 1.13.6
 kernelspec:
-  display_name: Python 3
+  display_name: Python 3 (super_hydro)
   language: python
-  name: python3
+  name: super_hydro
 ---
 
 # Scale-Invariant Breathers
@@ -38,12 +38,12 @@ $$
   \I \hbar\pdiff{\psi_n}{t} = \op{H}\psi_n.
 $$
 
-```{code-cell}
+```{code-cell} ipython3
 %%javascript
 IPython.OutputArea.prototype._should_scroll = function(lines) { return false; }
 ```
 
-```{code-cell}
+```{code-cell} ipython3
 # Does not work on CoLab yet
 from mmf_setup.set_path import hgroot
 from importlib import reload
@@ -63,12 +63,13 @@ notebook.run(
     Nshape=3,
     cooling=1e-10,
     tracer_particles=0,
+    run_server=True,
     network_server=False,
     random_phase=True,
 )
 ```
 
-```{code-cell}
+```{code-cell} ipython3
 # Does not work on CoLab yet
 from mmf_setup.set_path import hgroot
 from importlib import reload
@@ -93,7 +94,7 @@ notebook.run(
 )
 ```
 
-```{code-cell}
+```{code-cell} ipython3
 %pylab inline
 import numpy as np
 N = 256
@@ -113,6 +114,6 @@ dn = 20
 axs[1].axis([N/2-dn, N/2+dn, N/2-dn, N/2+dn])
 ```
 
-```{code-cell}
+```{code-cell} ipython3
 
 ```

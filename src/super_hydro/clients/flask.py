@@ -370,7 +370,6 @@ class ModelNamespace(flask_socketio.Namespace):
 
         params = model["server"].server.get(data["params"])
 
-        flask_socketio.emit("update_widgets", params, room=model_name)
         push_thread = PushThread(flask_client=self.flask_client, name=model_name)
 
         if model["d_thread"] is None:
@@ -380,6 +379,7 @@ class ModelNamespace(flask_socketio.Namespace):
                 server=model["server"],
                 room=model_name,
             )
+        flask_socketio.emit("update_widgets", params, room=model_name)
 
     def on_set_params(self, data):
         """Transfers parameter change to computational server.
@@ -530,7 +530,6 @@ class PushThread(ThreadMixin):
             return
 
         max_fps = self.flask_client.opts.fps
-
         while server._running:
             start_time = time.time()
 
