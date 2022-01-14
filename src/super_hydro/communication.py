@@ -26,7 +26,7 @@ from .interfaces import IServer, implementer, verifyClass
 
 __all__ = ["Client", "Server", "TimeoutError", "error"]
 
-_LOGGER = utils.Logger(__name__)
+_LOGGER = utils.Logger(__name__.split(".")[-1])
 log = _LOGGER.log
 log_task = _LOGGER.log_task
 
@@ -51,27 +51,30 @@ class Client(object):
     """Basic communication class for the client."""
 
     def __init__(self, opts):
+        self.logger = _LOGGER
+        self.log_task = self.logger.log_task
+
         url = "tcp://{0.host}:{0.port}".format(opts)
-        with log_task("Connecting to server: {}".format(url)):
+        with self.log_task("Connecting to server: {}".format(url)):
             self.context = zmq.Context()
             self.socket = self.context.socket(zmq.REQ)
             self.socket.connect(url)
 
     def reset(self):
         """Special reset method that returns the param_dict."""
-        with log_task("Reset"):
+        with self.self.log_task("Reset"):
             self.socket.send(msg)
             return self.socket.recv_json()
 
     def do(self, action):
         """Request an action of the server."""
-        with log_task(f"Do: {action}"):
+        with self.log_task(f"Do: {action}"):
             self.socket.send(action.encode())
             return self.socket.recv()
 
     def get(self, params):
         """Request data from server."""
-        with log_task(f"Getting {params} from server"):
+        with self.log_task(f"Getting {params} from server"):
             self.socket.send(b"get")
             response = self.socket.recv()
             if response != b"ok":
@@ -81,7 +84,7 @@ class Client(object):
 
     def send(self, msg, obj):
         """Send data to server."""
-        with log_task("Sending {} to server".format(msg)):
+        with self.log_task("Sending {} to server".format(msg)):
             self.socket.send(msg)
             response = self.socket.recv()
             if response != b"ok":
@@ -94,7 +97,7 @@ class Client(object):
     def get_array(self, msg, flags=0, copy=True, track=False):
         """Request a numpy array."""
         # https://pyzmq.readthedocs.io/en/latest/serialization.html
-        with log_task("Getting {} from server".format(msg)):
+        with self.log_task("Getting {} from server".format(msg)):
             self.socket.send(msg)
             md = self.socket.recv_json(flags=flags)
             msg = self.socket.recv(flags=flags, copy=copy, track=track)
@@ -103,7 +106,7 @@ class Client(object):
     def send_array(self, msg, A, flags=0, copy=True, track=False):
         """Request a numpy array."""
         # https://pyzmq.readthedocs.io/en/latest/serialization.html
-        with log_task("Sending array {} to server".format(msg)):
+        with self.log_task("Sending array {} to server".format(msg)):
             md = dict(dtype=str(A.dtype), shape=A.shape)
 
             # Somewhat convoluted since each send() requires a recv()
@@ -120,12 +123,15 @@ class Client(object):
 
 class Server(object):
     def __init__(self, opts):
+        self.logger = _LOGGER
+        self.log_task = self.logger.log_task
+
         url = "tcp://*:{0.port}".format(opts)
-        with log_task("Starting server socket: {}".format(url)):
+        with self.log_task("Starting server socket: {}".format(url)):
             self.context = zmq.Context()
             self.socket = self.context.socket(zmq.REP)
             self.socket.bind("tcp://*:{}".format(opts.port))
-        log("Server listening on port: {}".format(opts.port), level=100)
+        self.logger.info("Server listening on port: {}".format(opts.port))
 
     def recv(self, timeout=None):
         """Listen for incoming requests from clients.
@@ -194,16 +200,19 @@ class Server(object):
 
 
 @implementer(IServer)
-class NetworkServer:
+class LocalNetworkServer:
     """Wrapper for the `server.Server` class.
 
-    This is used when the server is not started locally and the client
-    must communicate over the network.
+    This is used locally as a proxy for a remote server, allowing local clients to
+    interact with the remote server through this proxy.
     """
 
     def __init__(self, opts):
+        self.logger = _LOGGER
+        self.log_task = self.logger.log_task
+
         self.opts = opts
-        with log_task("Connecting to server"):
+        with self.log_task("Connecting to server"):
             self.comm = Client(opts=self.opts)
 
     def get_available_commands(self, client=None):
@@ -234,4 +243,4 @@ class NetworkServer:
         self.do("quit")
 
 
-verifyClass(IServer, NetworkServer)
+verifyClass(IServer, LocalNetworkServer)

@@ -141,6 +141,10 @@ class Logger:
         """Log error msg to the logger."""
         self.log(msg, level=level)
 
+    def info(self, msg, level=logging.INFO):
+        """Log error msg to the logger."""
+        self.log(msg, level=level)
+
     @contextmanager
     def log_task(self, msg, level=logging.INFO):
         """Context for tasks with paired start and Done messages.

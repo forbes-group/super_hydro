@@ -6,8 +6,9 @@ import datetime
 import functools
 import importlib
 import inspect
-import threading
+import logging
 import queue
+import threading
 import time
 
 import numpy as np
@@ -53,8 +54,7 @@ else:
 
 __all__ = ["run", "__doc__", "__all__", "ThreadMixin"]
 
-
-_LOGGER = utils.Logger(__name__)
+_LOGGER = utils.Logger("server")
 log = _LOGGER.log
 log_task = _LOGGER.log_task
 
@@ -68,7 +68,7 @@ class ThreadMixin:
     logger = _LOGGER
     _counters = None
 
-    def heartbeat(self, msg="", timeout=1):
+    def heartbeat(self, msg="", timeout=1, msgs=()):
         """Log a heartbeat to show if the server is running."""
         if not self.name:
             raise AttributeError(
@@ -86,6 +86,8 @@ class ThreadMixin:
                 else:
                     counters[c] = 0
             self.logger.debug(f"Alive ({self.name}): {msg} (# {_msgc})")
+            [self.logger.debug(_msg) for _msg in msgs]
+
             self._heartbeat_tic = time.time()
 
     def _count(self, name):
@@ -151,8 +153,22 @@ class Computation(ThreadMixin):
         self.steps = opts.steps
         self.paused = True
         self.logger = _LOGGER
+        self.log = self.logger.log
 
         self._times = deque(maxlen=100)
+        self._width = 3
+
+    def heartbeat(self, msg="", timeout=1, msgs=()):
+        msgs = list(msgs)
+        if True or PROFILE:
+            dt = np.mean(self._times) * 1000 / self.steps
+            # ddt = np.std(self._times) * 1000 / self.steps
+            msgs.append(
+                f"{dt:.2g}ms/step "
+                + f"(< {1000 / self.steps / dt:.2g}fps at {self.steps} steps/frame)"
+            )
+
+        super().heartbeat(msg=msg, timeout=timeout, msgs=msgs)
 
     @contextmanager
     def sync(self):
@@ -165,13 +181,6 @@ class Computation(ThreadMixin):
         finally:
             dt = time.perf_counter() - tic
             self._times.append(dt)
-            if True or PROFILE:
-                dt_ = np.mean(self._times) * 1000 + 1j * np.std(self._times) * 1000
-                log(
-                    f"{dt.real/self.steps:.2g}+-{dt.imag/self.steps:.2g}ms/step "
-                    + f"(max {1/dt.real:.2f}fps)",
-                    level=100,
-                )
             t_sleep = max(0, 1.0 / self.fps - dt)
             time.sleep(t_sleep)
 
@@ -188,7 +197,7 @@ class Computation(ThreadMixin):
                     self.model.step(self.steps, tracer_particles=self.tracer_particles)
                 self.process_queue()
 
-        log("Computation Finished.", level=100)
+        self.logger.info("Computation Finished.")
 
     def process_queue(self):
         """Process all messages in the queue."""
@@ -219,15 +228,15 @@ class Computation(ThreadMixin):
         self.param_queue.put((param, value))
 
     def do_quit(self):
-        log("Quitting!")
+        self.logger.info("Quitting!")
         self.shutdown = True
 
     def do_pause(self):
-        print("pausing")
+        self.logger.info("pausing")
         self.paused = True
 
     def do_start(self):
-        print("running")
+        self.logger.info("resuming")
         self.paused = False
 
     def do_get_density(self):
@@ -331,7 +340,6 @@ class Server(ThreadMixin):
             while not self.finished and not interrupted:
                 self.heartbeat()
                 time.sleep(min(self._poll_interval, 1 / self.opts.fps))
-            print("Done")
         finally:
             self.message_queue.put(("quit",))
             # print(f"finished status is {self.finished} and Interrupted is {interrupted}")
@@ -410,7 +418,9 @@ class Server(ThreadMixin):
             if param == param_:
                 return value
             else:
-                log(f"Asked for {param} but got {param_}.  Trying again.")
+                self.logger.warning(
+                    f"Asked for {param} but got {param_}.  Trying again."
+                )
                 self.param_queue.put(msg)
                 time.sleep(self._poll_interval)
         return value
@@ -421,14 +431,14 @@ class Server(ThreadMixin):
         When the server gets a chance, it will put the result on the `param_queue`.
         """
         if param not in self.model.params:
-            log(f"Error: Attempt to get unknown param={param}")
+            self.logger.error(f"Error: Attempt to get unknown param={param}")
 
         self.message_queue.put(("get", param))
 
     def _set(self, param, value):
         """Generic set."""
         if param not in self.model.params:
-            log(f"Error: Attempt to set unknown param={param}")
+            self.logger.error(f"Error: Attempt to set unknown param={param}")
             return
 
         self.model.set(param, value)
@@ -481,7 +491,7 @@ class Server(ThreadMixin):
     # Public interface.  These dispatch to the various methods above.
     def get_available_commands(self, client=None):
         self._count("get_available_commands")
-        log(f"Getting available commands")
+        self.logger.debug("Getting available commands")
         return self._get_available_commands(client=client)
 
     def do(self, action, client=None):
@@ -641,7 +651,6 @@ class NetworkServer(Server):
                     print("Unknown data type")
                     print("client message:", client_message)
                     self.comm.respond(b"Unknown Message")
-            print("Done")
         finally:
             self.message_queue.put(("quit",))
             self.computation_thread.join()

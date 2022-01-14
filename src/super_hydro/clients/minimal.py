@@ -59,7 +59,7 @@ class App(object):
 
     def run(self):
         if self.server is None:
-            self.server = communication.NetworkServer(opts=self.opts)
+            self.server = communication.LocalNetworkServer(opts=self.opts)
 
     ######################################################################
     # Server Communication

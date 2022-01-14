@@ -206,7 +206,7 @@ class NotebookApp(ClientDensityMixin, App):
     @nointerrupt
     def run(self, interrupted=False):
         if self.server is None:
-            self.server = communication.NetworkServer(opts=self.opts)
+            self.server = communication.LocalNetworkServer(opts=self.opts)
         from IPython.display import display
 
         _res = self.server.get(["Nx", "Ny"])
