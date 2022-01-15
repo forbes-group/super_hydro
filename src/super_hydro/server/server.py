@@ -250,18 +250,6 @@ class Computation(ThreadMixin):
             tracers = np.asarray(trinds)
         self.tracer_queue.put(tracers)
 
-    def do_update_finger(self, x, y):
-        self.model.set("xy0", (x, y))
-
-    def do_update_cooling_phase(self, cooling_phase):
-        self.model.set("cooling_phase", cooling_phase)
-
-    def do_get_cooling_phase(self):
-        return self.model.get("cooling_phase")
-
-    def do_get_pot(self):
-        self.pot_queue.put(self.model.get("pot_z"))
-
     def do_reset_tracers(self):
         opts = self.opts
         if self.opts.tracer_particles and "tracer_particles" in self.model.params:
@@ -345,105 +333,8 @@ class Server(ThreadMixin):
             # print(f"finished status is {self.finished} and Interrupted is {interrupted}")
             self.computation_thread.join()
 
-    def _pos_to_xy(self, pos):
-        """Return the (x, y) coordinates of (pos_x, pos_y) in the frame."""
-        return (np.asarray(pos) - 0.5) * self.model.get("Lxy")
-
-    def _xy_to_pos(self, xy):
-        """Return the frame (pos_x, pos_y) from (x, y) coordinates."""
-        return np.asarray(xy) / self.model.get("Lxy") + 0.5
-
     ######################################################################
     # Communication layer.
-    def _do_reset(self, client=None):
-        """Reset the server."""
-        self.message_queue.put(("reset",))
-        self.model = self.opts.Model(opts=self.opts)
-
-    def _do_reset_tracers(self, client=None):
-        """Reset the tracers."""
-        self.message_queue.put(("reset_tracers",))
-
-    def _do_start(self, client=None):
-        self.message_queue.put(("start",))
-
-    def _do_pause(self, client=None):
-        self.message_queue.put(("pause",))
-
-    def _do_quit(self, client=None):
-        self.shutdown = True
-
-    def _get_Vpos(self, client=None):
-        """Return the position of the external potential."""
-        self.message_queue.put(("get_pot",))
-        pot_z = self.pot_queue.get()
-        xy = self._xy_to_pos((pot_z.real, pot_z.imag))
-        return tuple(xy.tolist())
-        # return xy
-
-    def _get_layout(self, client=None):
-        """Return the widget layout."""
-        layout = self.model.layout
-        interactive_widgets = widgets.get_interactive_widgets(layout)
-        for w in interactive_widgets:
-            w.value = self.model.params[w.name]
-        return repr(layout)
-
-    def _get_Nxy(self, client=None):
-        """Return the size of the frame."""
-        return (self.opts.Nx, self.opts.Ny)
-
-    def _get_array_tracers(self, client=None):
-        """Return the positions of the tracers."""
-        self.message_queue.put(("get_tracers",))
-        trdata = self.tracer_queue.get()
-        return trdata
-
-    def _get_array_density(self, client=None):
-        """Return the density data."""
-        self.message_queue.put(("get_density",))
-        density = np.ascontiguousarray(self.density_queue.get())
-        return density
-
-    def _set_touch_pos(self, touch_pos, client=None):
-        """Set the coordinates of the user's touch."""
-        x0, y0 = self.pos_to_xy(touch_pos)
-        self.message_queue.put(("update_finger", x0, y0))
-
-    def _get(self, param, client=None):
-        """Get the specified parameter, waiting for a response."""
-        self._get_async(param=param, client=client)
-        for n in range(self._tries):
-            param_, value = msg = self.param_queue.get()
-            if param == param_:
-                return value
-            else:
-                self.logger.warning(
-                    f"Asked for {param} but got {param_}.  Trying again."
-                )
-                self.param_queue.put(msg)
-                time.sleep(self._poll_interval)
-        return value
-
-    def _get_async(self, param, client=None):
-        """Sent a get request to the computation server.
-
-        When the server gets a chance, it will put the result on the `param_queue`.
-        """
-        if param not in self.model.params:
-            self.logger.error(f"Error: Attempt to get unknown param={param}")
-
-        self.message_queue.put(("get", param))
-
-    def _set(self, param, value):
-        """Generic set."""
-        if param not in self.model.params:
-            self.logger.error(f"Error: Attempt to set unknown param={param}")
-            return
-
-        self.model.set(param, value)
-        self.message_queue.put(("set", param, value))
-
     def _get_available_commands(self, client=None):
         """Get a dictionary of available commands."""
         do_commands = {
@@ -486,6 +377,89 @@ class Server(ThreadMixin):
             "get_array": get_array_commands,
         }
         return available_commands
+
+    # Do commands
+    def _do_reset(self, client=None):
+        """Reset the server."""
+        self.message_queue.put(("reset",))
+        self.model = self.opts.Model(opts=self.opts)
+
+    def _do_reset_tracers(self, client=None):
+        """Reset the tracers."""
+        self.message_queue.put(("reset_tracers",))
+
+    def _do_start(self, client=None):
+        self.message_queue.put(("start",))
+
+    def _do_pause(self, client=None):
+        self.message_queue.put(("pause",))
+
+    def _do_quit(self, client=None):
+        self.shutdown = True
+
+    # get_array methods
+    def _get_array_tracers(self, client=None):
+        """Return the positions of the tracers."""
+        self.message_queue.put(("get_tracers",))
+        trdata = self.tracer_queue.get()
+        return trdata
+
+    def _get_array_density(self, client=None):
+        """Return the density data."""
+        self.message_queue.put(("get_density",))
+        density = np.ascontiguousarray(self.density_queue.get())
+        return density
+
+    # Get and Set commands
+    def _get(self, param, client=None):
+        """Get the specified parameter, waiting for a response."""
+        self._get_async(param=param, client=client)
+        for n in range(self._tries):
+            param_, value = msg = self.param_queue.get()
+            if param == param_:
+                return value
+            else:
+                self.logger.warning(
+                    f"Asked for {param} but got {param_}.  Trying again."
+                )
+                self.param_queue.put(msg)
+                time.sleep(self._poll_interval)
+        return value
+
+    def _get_async(self, param, client=None):
+        """Sent a get request to the computation server.
+
+        When the server gets a chance, it will put the result on the `param_queue`.
+        """
+        if param not in self.model.params:
+            self.logger.error(f"Error: Attempt to get unknown param={param}")
+
+        self.message_queue.put(("get", param))
+
+    def _set(self, param, value):
+        """Generic set."""
+        if param not in self.model.params:
+            self.logger.error(f"Error: Attempt to set unknown param={param}")
+            return
+
+        self.model.set(param, value)
+        self.message_queue.put(("set", param, value))
+
+    # Special get and set commands.  Generically one should use the previous commands
+    # with an appropriate `param`, but special cases can be overloaded here.  One reason
+    # is if special processing is needed (see _get_layout).  Another is for performance
+    # (_get_Nxy() need not query the computational server).
+    def _get_layout(self, client=None):
+        """Return the widget layout."""
+        layout = self.model.layout
+        interactive_widgets = widgets.get_interactive_widgets(layout)
+        for w in interactive_widgets:
+            w.value = self.model.params[w.name]
+        return repr(layout)
+
+    def _get_Nxy(self, client=None):
+        """Return the size of the frame."""
+        return (self.opts.Nx, self.opts.Ny)
 
     ######################################################################
     # Public interface.  These dispatch to the various methods above.

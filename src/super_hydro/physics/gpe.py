@@ -29,7 +29,7 @@ except ImportError:
 
 _LOGGER = utils.Logger(__name__)
 log = _LOGGER.log
-warn = _LOGGER.warn
+warning = _LOGGER.warning
 log_task = _LOGGER.log_task
 
 from .testing import HelloWorld

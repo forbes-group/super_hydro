@@ -198,7 +198,7 @@ class Display(FloatLayout):
         potential = self.ids.potential
         force = self.ids.force
 
-        Vpos = np.array(self.comm.get(b"Vpos"))
+        Vpos = np.array(self.comm.get(b"finger_Vxy"))
         Vx, Vy = Vpos[0], Vpos[1]
 
         x = float(Vx * Winx)

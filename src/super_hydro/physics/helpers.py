@@ -113,10 +113,6 @@ class FingerMixin:
     def init(self):
         self.pot_v = 0 + 0j
 
-    def set_xy0(self, xy0):
-        x0, y0 = xy0
-        self.z_finger = x0 + 1j * y0
-
     @property
     def z_finger(self):
         if self.test_finger:

@@ -133,7 +133,7 @@ class Logger:
         """Log debug msg to the logger."""
         self.log(msg, level=level)
 
-    def warn(self, msg, level=logging.WARNING):
+    def warning(self, msg, level=logging.WARNING):
         """Log warning msg to the logger."""
         self.log(msg, level=level)
 
