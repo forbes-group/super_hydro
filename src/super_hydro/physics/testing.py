@@ -24,8 +24,15 @@ class HelloWorldMinimal:
         Nx=256,
         Ny=128,
     )
-    params_doc = {}
+    param_docs = {}
     layout = w.density
+
+    @classmethod
+    def get_params_and_docs(cls):
+        return [
+            (param, cls.params[param], cls.param_docs.get(param, ""))
+            for param in cls.params
+        ]
 
     @property
     def Nxy(self):

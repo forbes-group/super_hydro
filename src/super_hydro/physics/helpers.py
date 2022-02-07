@@ -15,10 +15,21 @@ from .. import widgets as w
 __all__ = ["ModelBase", "FingerMixin"]
 
 
-class ModelBase(object):
+class ModelBase:
     """Helper class for models."""
 
-    params_doc = {}
+    params = {}
+    param_docs = {}
+
+    @classmethod
+    def get_params_and_docs(cls):
+        """Return a list of all parameters `(name, default, doc)`"""
+        params = {}
+        param_docs = {}
+        for kls in reversed(cls.mro()):
+            params.update(getattr(kls, "params", {}))
+            param_docs.update(getattr(kls, "param_docs", {}))
+        return [(param, params[param], param_docs.get(param, "")) for param in params]
 
     def __init__(self, opts):
         """Default constructor simply sets attributes defined in params."""
@@ -29,14 +40,11 @@ class ModelBase(object):
         if isinstance(opts, collections.abc.Mapping):
             opts = argparse.Namespace(**opts)
 
-        # Collect all parameters from base classes
-        params = {}
-        mro = type(self).mro()
-        for kls in reversed(mro):
-            params.update(getattr(kls, "params", {}))
-
         # Update any of the parameters from opts if provided.
-        self.params = {_key: getattr(opts, _key, params[_key]) for _key in params}
+        self.params = {
+            _key: getattr(opts, _key, params[_key])
+            for _key, _val, _doc in self.get_params_and_docs()
+        }
 
         # Set the attributes, allowing customized setters to be used.
         for _key in self.params:

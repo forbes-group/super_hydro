@@ -64,6 +64,14 @@ class GPEBase(ModelBase, FingerMixin):
         cooling=0.01,
     )
 
+    param_docs = dict(
+        hbar="Planck's constant.",
+        Nx="Size of the grid.",
+        Ny="Size of the grid.",
+        dx="Lattice spacing (assumed to be the same in each direction).",
+        cooling="Amount of cooling to apply to the system during evolution.",
+    )
+
     layout = w.VBox(
         [
             w.FloatLogSlider(

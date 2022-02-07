@@ -1,9 +1,16 @@
 """Interfaces for various components of the system.
 """
-from zope.interface import Interface, Attribute, implementer
+from zope.interface import Interface, Attribute, implementer, implementedBy
 from zope.interface.verify import verifyClass, verifyObject
 
-__all__ = ["IModel", "IServer"]
+__all__ = [
+    "IModel",
+    "IServer",
+    "implementer",
+    "implementedBy",
+    "verifyClass",
+    "verifyObject",
+]
 
 
 class IModel(Interface):
@@ -24,7 +31,7 @@ class IModel(Interface):
 
         class Model:
             params = dict(n=1, b=2.0)
-            param_doc = dict(n='Parameter n', b='Parameter b')
+            param_docs = dict(n='Parameter n', b='Parameter b')
             layout = w.VBox([
                 w.FloatLogSlider(name='cooling',
                                  base=10, min=-10, max=1, step=0.2,
@@ -41,7 +48,7 @@ class IModel(Interface):
 
         Must contain at least `Nx` and `Ny`, the grid dimensions."""
     )
-    params_doc = Attribute("Dictionary of parameter documentation.")
+    param_docs = Attribute("Dictionary of parameter documentation.")
     layout = Attribute("Widget layout.")
 
     def __init__(opts):
@@ -81,6 +88,11 @@ class IModel(Interface):
 
         Tracer particles will be removed in the future.
         """
+
+    def get_params_and_docs():
+        """Return a list of `(param, default, doc)` values for all parameters.
+
+        This must be a class-method, and return all configurable values."""
 
 
 class IServer(Interface):
