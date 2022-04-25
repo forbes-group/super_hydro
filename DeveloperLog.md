@@ -6,6 +6,25 @@ To Do:
       `module.rst`.
 * [ ] Another interface for tracer particles with `Lxy` and `xy`?
 
+25 Apr 2022
+===========
+* How to run `ctx = super_hydro(test_cli=True)` for debugging?  Hack:
+  
+  ```python
+  from click.testing import CliRunner
+  from super_hydro import cli
+  runner = CliRunner()
+  result = runner.invoke(cli.super_hydro, ['--test-cli'])
+  ctx = cli._testing['ctx']
+  kw = cli._testing['kw']
+  ```
+
+* Check documentation and think about how clients will connect to or launch servers.
+  Currently we have specified that they run locally.  Where does the flask client run?
+  Can we use the same port number?
+* Allow the following to show model help: `apr super_hydro --help testing.HelloWorld`
+
+
 13 Jan 2022
 ===========
 * `flask.py`: `res = server.server.get(finger_vars)` drops fps from 50 to 15!  After

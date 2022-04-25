@@ -33,16 +33,21 @@ function findipy { findf ipynb "${*}"; }
 function findjs { findf js "${*}"; }
 function findcss { findf css "${*}"; }
 
-# Write this as a function so that we can run it in the background
-# Should make these use existing variables
-EMACSNAME=${EMACSNAME:-"Emacs"}
-EMACSAPP=${EMACSAPP:-"/Applications/${EMACSNAME}.app"}
-export EMACS=${EMACS:-"/Applications/${EMACSNAME}.app/Contents/MacOS/${EMACSNAME}"}
-export EMACSCLIENT=${EMACSCLIENT:-"${EMACSAPP}/Contents/MacOS/bin/emacsclient"}
+# Personal customizations... unlikely to work unless you configure your machine like mine.
+if [ "$(whoami)" == "mforbes" ]; then
+    # Write this as a function so that we can run it in the background
+    # Should make these use existing variables
+    EMACSNAME=${EMACSNAME:-"Emacs"}
+    EMACSAPP=${EMACSAPP:-"/Applications/${EMACSNAME}.app"}
+    export EMACS=${EMACS:-"/Applications/${EMACSNAME}.app/Contents/MacOS/${EMACSNAME}"}
+    export EMACSCLIENT=${EMACSCLIENT:-"${EMACSAPP}/Contents/MacOS/bin/emacsclient"}
 
-alias emacs_="${EMACS}"
+    alias emacs_="${EMACS}"
+    
+    function emacs {
+        "${EMACSCLIENT}" -a ${EMACS} --quiet --no-wait "$@" & disown
+    }
+    export emacs
+    alias hg="/data/apps/conda/bin/hg"
+fi
 
-function emacs {
-    "${EMACSCLIENT}" -a ${EMACS} --quiet --no-wait "$@" & disown
-}
-export emacs

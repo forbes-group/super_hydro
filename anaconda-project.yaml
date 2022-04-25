@@ -104,6 +104,7 @@ dependencies:
 - anaconda-project>=0.10.1
 - poetry
 - conda-forge::pyfftw
+#- conda-forge::pandoc>=2.7.2   # May be needed on rtd?
 
   # To deal with error in XXXX setup command: use_2to3 is invalid when false
   # https://github.com/pypa/setuptools/issues/2775
