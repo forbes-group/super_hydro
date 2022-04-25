@@ -41,6 +41,7 @@ class ModelBase:
             opts = argparse.Namespace(**opts)
 
         # Update any of the parameters from opts if provided.
+        params = {_k: _v for _k, _v, _doc in self.get_params_and_docs()}
         self.params = {
             _key: getattr(opts, _key, params[_key])
             for _key, _val, _doc in self.get_params_and_docs()

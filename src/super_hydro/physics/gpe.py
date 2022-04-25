@@ -184,14 +184,18 @@ class BEC(GPEBase):
     params = dict(
         g=1.0,
         m=1.0,
-        healing_length=10.0,
+        healing_length=1.0,
         cooling=0.01,
         cooling_steps=100,
         dt_t_scale=0.1,
-        winding=10,
+        winding=30,
         cylinder=True,
         random_phase=False,
+        finger_r0=2.0,
+        finger_V0_mu=5.0,
     )
+
+    params_doc = dict(winding="Number of vortices in the initial state.")
 
     layout = w.VBox(
         [w.Checkbox(True, name="cylinder", description="Trap"), GPEBase.layout]

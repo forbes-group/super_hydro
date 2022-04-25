@@ -240,10 +240,7 @@ class FlaskClient(ClientDensityMixin):
             "models": list(self.models),
         }
 
-        return flask.render_template(
-            "model.html",
-            **template_vars,
-        )
+        return flask.render_template("model.html", **template_vars,)
 
     @route("/quit")
     def quit(self):
@@ -630,6 +627,8 @@ def launch_server(
     if network_server:
         server_ = server.NetworkServer(opts=opts)
     else:
+        print(opts)
+        breakpoint()
         server_ = server.Server(opts=opts)
     server_.run(block=block, interrupted=interrupted)
     return server_
@@ -724,11 +723,7 @@ def get_sliders(Model):
                 slider["name"] = "logarithmic"
         elif isinstance(widget, w.Checkbox):
             slider.update(
-                {
-                    "class": "toggle",
-                    "name": None,
-                    "type": "checkbox",
-                }
+                {"class": "toggle", "name": None, "type": "checkbox",}
             )
         else:
             continue

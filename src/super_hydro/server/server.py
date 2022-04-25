@@ -262,6 +262,7 @@ class Computation(ThreadMixin):
     def do_reset(self):
         opts = self.opts
         self.model = opts.Model(opts=opts)
+        print(self.model.__dict__)
         self.do_reset_tracers()
 
     def unknown_command(self, msg, *v):
@@ -362,11 +363,11 @@ class Server(ThreadMixin):
         descriptions = widgets.get_descriptions(self.model.layout)
         for _v in self.model.params:
             if _v not in get_commands and _v not in get_array_commands:
-                get_commands[_v] = self.model.params_doc.get(
+                get_commands[_v] = self.model.param_docs.get(
                     _v, descriptions.get(_v, f"Parameter {_v}")
                 )
             if _v not in set_commands and _v not in get_array_commands:
-                set_commands[_v] = self.model.params_doc.get(
+                set_commands[_v] = self.model.param_docs.get(
                     _v, descriptions.get(_v, f"Parameter {_v}")
                 )
 

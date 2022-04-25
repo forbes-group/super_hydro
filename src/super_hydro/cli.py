@@ -1,4 +1,11 @@
-"""Command-line interface.
+"""Command-line interface
+~~~~~~~~~~~~~~~~~~~~~~
+
+This module defines the command-line interface (CLI) for the application.  The CLI
+mirrors the structure of the configuration files, organizing options by Model.  The
+models are found dynamically from modules in :mod:``super_hydro.physics` that support
+the :interface:`IModel` interface, and from any modules specified by the user with the
+`--models` or `-m` command-line options.
 
 Here are some examples::
 
@@ -10,29 +17,168 @@ Here are some examples::
 After server/client options are specified, one can specify options for various models.
 To make use of click, we allow these to be separate commands.
 
-    super_hydro ... GPE --Nx 64 --Ny 64 GPEBreather --Nxy 256
+    super_hydro ... gpe.GPE --Nx 64 --Ny 64 gpe.GPEBreather --Nxy 256
 
 Goals:
+
 * Translation between config file and cli.
 
+To Do:
+* Check autoenv_prefix... set to SUPER_HYDRO_?
+* 
 
+Configuration
+~~~~~~~~~~~~~
+
+Options can be specified in a configuration file located.  A typical configuration file
+looks like this::
+
+    # General options - relevant for both the client and server
+    [super_hydro]
+    port = 27372
+
+    # Client specific options
+    [client]
+
+    # Server specific options
+    [server]
+
+    # Default parameters for all models that support them
+    [*]
+    Nx = 64
+    Ny = 64
+    steps = 20
+
+    # Model-specific parameters
+    [gpe.BECVortex]
+    dt_t_scale = 0.5
+
+    [gpe.BECBreather]
+    Nx = 256
+    Ny = 256
+    dt_t_scale = 0.5
+    a_HO = 0.04
 """
-
+from functools import partial
+import configparser
 import importlib
 import pkgutil
+import os.path
 
 import click
-from click_default_group import DefaultGroup
 
 from .interfaces import IModel
 from . import physics
 
+APP_NAME = "super_hydro"
 
-# https://stackoverflow.com/a/58770064/1088938
-class ModelGroup(DefaultGroup):
-    """Group of models as commands allowing each model to have different arguments."""
+
+def process_path(path):
+    """Return the normalized path with '~' and vars expanded."""
+    return os.path.normpath(os.path.expandvars(os.path.expanduser(path)))
+
+
+# Standard XDG config directory
+# https://specifications.freedesktop.org/basedir-spec/basedir-spec-0.6.html
+XDG_CONFIG_HOME = process_path(os.environ.get("XDG_CONFIG_HOME", "~/.config"))
+
+# This directory
+SUPER_HYDRO_DIR = process_path(os.path.join(os.path.dirname(__file__), ".."))
+
+SUPER_HYDRO_APP_DIR = click.get_app_dir("super_hydro")
+
+CONFIG_FILE_NAME = "super_hydro.conf"
+
+DEFAULT_CONFIG_FILES = [
+    process_path(os.path.join(_dir, CONFIG_FILE_NAME))
+    for _dir in [
+        SUPER_HYDRO_DIR,
+        SUPER_HYDRO_APP_DIR,
+        "/etc",
+        XDG_CONFIG_HOME,
+        "~",
+        ".",
+    ]
+]
+
+
+def get_config_file(config_file_name):
+    click.get
+
+
+__all__ = ["ModelGroup"]
+
+
+class ModelGroup(click.Group):
+    """Custom group allowing allowing each model to have different arguments.
+
+    This is a slight abuse of the click CLI as these are not actually "commands" but
+    allows us to organize the options.  Models are loaded dynamically with their options
+    as returned by :func:`IModel.get_params_and_docs`.
+
+    We provide custom formatting as to list the options for each model.  As these are
+    dynamically loaded, we need to provide some eager option processing to
+    allow the user to specify modules that might contain viable models, and for options
+    like verbosity.  These are managed by explicit callbacks.
+
+    References
+    ----------
+
+    * https://stackoverflow.com/a/58770064/1088938: Discussion by Stephen Rauch about
+      how to display options for chained commands.
+    """
+
+    # https://stackoverflow.com/a/58770064/1088938
 
     models = {}
+    config_files = ()
+    verbosity = 0
+
+    ######################################################################
+    # Callbacks
+    #
+    # These should be class methods, that store values in the class variables for later
+    # processing.
+    @classmethod
+    def set_verbosity(cls, ctx, param, value):
+        cls.verbosity = value
+
+    @classmethod
+    def set_model_modules(cls, ctx, param, names):
+        """Store all potential models in `self.models`."""
+        super_hydro_names = [
+            f"{physics.__name__}.{_m.name}"
+            for _m in pkgutil.iter_modules(physics.__path__)
+        ]
+
+        # Unique list of names with ours first.
+        names = dict.fromkeys(super_hydro_names + list(names))
+        for name in names:
+            try:
+                mod = importlib.import_module(name)
+            except ImportError:
+                click.echo(f"WARNING: Could not import requested `--models={name}`.")
+                continue
+            cls.models.update(cls.get_models(mod))
+
+    @classmethod
+    def set_config_files(cls, ctx, param, config_files=None):
+        """Specify and load the specified config file."""
+        if config_files:
+            config_files = list(map(process_path, config_files))
+        else:
+            config_files = []
+
+        cls.config_files = list(DEFAULT_CONFIG_FILES) + config_files
+
+    ######################################################################
+    # Custom methods
+    def load_config_files(cls):
+        parser = configparser.ConfigParser()
+        files = parser.read(cls.config_files)
+        if cls.verbosity > 1 and files:
+            click.echo(f"Configuration loaded from {files}")
+        cls.config_parser = parser
 
     def command(self, *args, **kwargs):
         """Gather the command help model"""
@@ -102,28 +248,6 @@ class ModelGroup(DefaultGroup):
             cmd = self.get_model_command(ctx, name)
         return cmd
 
-    @classmethod
-    def set_verbosity(cls, ctx, param, value):
-        cls.verbosity = value
-
-    @classmethod
-    def add_model_modules(cls, ctx, param, names):
-        """Store all potential models in `self.models`."""
-        super_hydro_names = [
-            f"{physics.__name__}.{_m.name}"
-            for _m in pkgutil.iter_modules(physics.__path__)
-        ]
-
-        # Unique list of names with ours first.
-        names = dict.fromkeys(super_hydro_names + list(names))
-        for name in names:
-            try:
-                mod = importlib.import_module(name)
-            except ImportError:
-                click.echo(f"WARNING: Could not import requested `--models={name}`.")
-                continue
-            cls.models.update(cls.get_models(mod))
-
     @staticmethod
     def get_models(mod):
         """Return a list of `(name, Model)` for all exported models in module `mod`,
@@ -151,6 +275,19 @@ class ModelGroup(DefaultGroup):
         ]
         return dict(models)
 
+    def invoke_all_models(self, ctx):
+        """Call `_callback()` for all models so that the parameters are set."""
+        super_hydro = ctx.find_root().command
+        model_names = super_hydro.list_commands(ctx)
+        for model_name in model_names:
+            command = super_hydro.get_command(ctx, model_name)
+            ctx.forward(command)
+
+    @staticmethod
+    def _callback(*, _model_name, _ctx, **kwargs):
+        """Callback that stores the parameters."""
+        _ctx.obj[_model_name] = kwargs
+
     @classmethod
     def get_model_command(cls, ctx, name):
         """Return a class`click.Command` instance for the model."""
@@ -166,55 +303,129 @@ class ModelGroup(DefaultGroup):
             for _name, _value, _doc in Model.get_params_and_docs()
         ]
         command = click.Command(
-            name=name, params=params, help=Model.__doc__, add_help_option=False
+            name=name,
+            params=params,
+            help=Model.__doc__,
+            add_help_option=False,
+            callback=partial(cls._callback, _model_name=name, _ctx=ctx),
         )
         return command
 
+    def format_usage(self, ctx, formatter):
+        # breakpoint()
+        return super().format_usage(ctx, formatter)
 
+    def get_help(self, ctx):
+        # breakpoint()
+        return super().get_help(ctx)
+
+
+######################################################################
+# Methods for debugging and testing.
+def inspect_ctx(ctx):
+    """ """
+    from pprint import pprint
+
+    root = ctx.find_root()
+    super_hydro = root.command
+    # models = super_hydro.commands
+    model_names = super_hydro.list_commands(ctx)
+    print("Models:")
+    pprint(list(model_names))
+    for model_name in model_names:
+        model = super_hydro.get_command(ctx, model_name)
+
+
+######################################################################
+# super_hydro
+#
+# This is the definition of the super_hydro command.
+#
+# fmt: off
 # May be no point in using this: it breaks in some cases like:
 # super_hydro --test-cli
 # https://github.com/click-contrib/click-default-group/issues/17
-@click.group(cls=ModelGroup, default="client", default_if_no_args=True)
+@click.group(cls=ModelGroup, invoke_without_command=True,
+             subcommand_metavar='MODEL [ARGS]... MODEL [ARGS]...',
+             no_args_is_help=False)
 @click.version_option()
 @click.option(
-    "--test-cli",
-    is_flag=True,
-    help="Just process arguments, don't run anything. (For testing).",
-)
-@click.option(
-    "--models",
-    "-m",
-    multiple=True,
+    "--models", "-m", multiple=True, is_eager=True,
     help="Importable module containing models.",
-    is_eager=True,
-    callback=ModelGroup.add_model_modules,
-)
+    callback=ModelGroup.set_model_modules)
 @click.option(
-    "--verbose",
-    "-v",
+    "--config", "-c", multiple=True, is_eager=True, expose_value=False,
+    help="Config file.",
+    callback=ModelGroup.set_config_files)
+@click.option(
+    "--port", "-p", default=9000, show_default=True, envvar="PORT", show_envvar=True,
+    help="Port used for communication by the server and client")
+@click.option(
+    "--host", default="localhost", envvar="HOST",
+    help="URL where the server is listening")
+@click.option(
+    "--server", is_flag=True,
+    help="Start a local computation server")
+@click.option(
+    "--client", is_flag=True,
+    help="Start a local flask client")
+@click.option(
+    "--verbose", "-v", count=True, is_eager=True, expose_value=False,
     help="Increase verbosity (-vvv to see all models)",
-    count=True,
-    is_eager=True,
-    callback=ModelGroup.set_verbosity,
-)
+    callback=ModelGroup.set_verbosity)
+@click.option(
+    "--fps", default=80.0,
+    help="Maximum framerate (frames-per-second)")
+@click.option(
+    "--shutdown", "-s", default=60.0,
+    help="Server timeout (minutes)")
+@click.option(
+    "--test-cli", is_flag=True, hidden=True,
+    help="Just process arguments, don't run anything. (For testing).")
 @click.pass_context
-def super_hydro(ctx, models, **kw):
-    print(f"{models}")
-    click.echo(f"Main app with context {ctx.params}!")
-    pass
+def super_hydro(ctx, **kw):
+    """Superfluid hydrodynamics explorer.
 
+    Model parameters can be defined in configuration files, or by passing the appropriate
+    parameters after the model name.  These parameters will be used as default values when
+    the client or server starts the appropriate model.
 
-@super_hydro.command()
-@click.pass_context
-def client(ctx, **kw):
-    click.echo(f"Running Client with context {ctx.params}!")
+    Server: If you start a server with the `--server` option, then this process will run
+    a local computation server will be started, listening on the specified `--port` for
+    clients to connect and launch computations.  For security reasons, this sever will
+    only list on the local host -- to connect to a remote server, use SSH and forward
+    the appropriate port.  This can be done as follows:
 
+       ssh -L <port>:localhost:<port> <remote> 'super_hydro --server -p <port>'
 
-@super_hydro.command()
-@click.pass_context
-def server(ctx):
-    click.echo(f"Running Server with context {ctx.params}!")
+    This could also be specified in your ssh_config file:
 
+       \b
+       # ~/.ssh/config
+       Host <remote>_super_hydro
+         LocalForward <port> localhost:<port>
+         RemoteCommand='super_hydro --server --port <port>'
+       Host <remote>*
+         User <username>
+         Hostname <remote>
+
+    Client: If you start a client with the `--client` option, then this process will run
+    a webserver listening on http://localhost:<port>.  Connect to this with a
+    web-browser to view or run simulations.
+    """
+    # Make sure we have ctx.obj which will store the model parameters.
+    print("Calling super_hydro")
+    ctx.ensure_object(dict)
+    ctx.obj['super_hydro'] = kw
+    ctx.command.invoke_all_models(ctx=ctx)
+    
+    if kw.get('test_cli', False):
+        global _testing
+        _testing['ctx'] = ctx
+        _testing['kw'] = kw
+        inspect_ctx(ctx)
+
+_testing = {}
 
 if __name__ == "__main__":
     super_hydro()
