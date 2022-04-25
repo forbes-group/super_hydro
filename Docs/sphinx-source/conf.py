@@ -24,7 +24,7 @@ on_rtd = os.environ.get("READTHEDOCS") == "True"
 # -- Project information -----------------------------------------------------
 
 project = "Super_Hydro"
-copyright = "2020, Michael McNeil Forbes"
+copyright = "2021, Michael McNeil Forbes"
 author = "Michael McNeil Forbes"
 
 # The short X.Y version.
@@ -59,6 +59,7 @@ extensions = [
     # "sphinx_external_toc",
     # "sphinx_comments",  # Hypothes.is comments and annotations
     "sphinx_panels",
+    "sphinx_click",
     #'recommonmark',
     #'IPython.sphinxext.ipython_directive',
     #'IPython.sphinxext.ipython_console_highlighting',
@@ -125,7 +126,7 @@ jupyter_execute_notebooks = "cache"
 # jupyter_execute_notebooks = "off"
 execution_allow_errors = True
 execution_timeout = 30
-# nbsphinx_timeout = 300  # Time in seconds; use -1 for no timeout
+nbsphinx_timeout = 300  # Time in seconds; use -1 for no timeout
 
 execution_excludepatterns = [
     "Dev/Performance.md",

@@ -5,7 +5,7 @@ jupytext:
     extension: .md
     format_name: myst
     format_version: 0.13
-    jupytext_version: 1.10.3
+    jupytext_version: 1.13.7
 kernelspec:
   display_name: Python 3
   language: python
@@ -63,7 +63,7 @@ conda activate super_hydro
 jupyter notebook super_hydro/README.ipynb
 ```
 
-This will create a Conda environment called `super_hydro` with everything you need to run the code.  
+This will create a Conda environment called `super_hydro` with everything you need to run the code.
 
 +++
 
