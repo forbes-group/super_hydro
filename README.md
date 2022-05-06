@@ -80,7 +80,8 @@ anaconda-project run shell_gpu
 The simplest way to get started is to launch the Flask client:
 
 ```bash
-python bin/client
+super_hydro --help          # General help
+super_hydro gpe.BEC --help  # Help about the gpe.BEC model parameters
 ```
 
 This will start a webserver at [http://localhost:27372](http://localhost:27372) (or on a

@@ -57,6 +57,7 @@ class GPEBase(ModelBase, FingerMixin):
     """
 
     params = dict(
+        steps=20,
         hbar=1.0,
         Nx=32,
         Ny=32,
@@ -126,9 +127,7 @@ class GPEBase(ModelBase, FingerMixin):
         The init() method is called in case any attributes need updating.
         """
         # print(f"Setting {param}={value}")
-        set_param = getattr(
-            self, "set_{}".format(param), lambda _v: setattr(self, param, _v)
-        )
+        set_param = getattr(self, f"set_{param}", lambda _v: setattr(self, param, _v))
         set_param(value)
         self.init()
 
@@ -195,7 +194,10 @@ class BEC(GPEBase):
         finger_V0_mu=5.0,
     )
 
-    params_doc = dict(winding="Number of vortices in the initial state.")
+    params_doc = dict(
+        winding="Number of vortices in the initial state.",
+        cylinder="If True, then use a cylindrical trap, otherwise use a periodic box.",
+    )
 
     layout = w.VBox(
         [w.Checkbox(True, name="cylinder", description="Trap"), GPEBase.layout]

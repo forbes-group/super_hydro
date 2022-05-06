@@ -6,6 +6,13 @@ To Do:
       `module.rst`.
 * [ ] Another interface for tracer particles with `Lxy` and `xy`?
 
+2 May 2022
+==========
+* To Do:
+  * Make `steps` a model argument rather than passing directly to the server (different
+    models may want different steps).
+  * Test CLI.
+
 25 Apr 2022
 ===========
 * How to run `ctx = super_hydro(test_cli=True)` for debugging?  Hack:
@@ -22,7 +29,14 @@ To Do:
 * Check documentation and think about how clients will connect to or launch servers.
   Currently we have specified that they run locally.  Where does the flask client run?
   Can we use the same port number?
-* Allow the following to show model help: `apr super_hydro --help testing.HelloWorld`
+* Allow the following to show model help: `apr super_hydro --help testing.HelloWorld`:
+  * This seems [hard to
+    do](https://click.palletsprojects.com/en/8.1.x/api/?highlight=invoked_subcommand#click.Context.invoked_subcommand).
+    See https://github.com/pallets/click/commit/5fc29baf75897d594fe06ba085955d8068e22554.
+    Instead, just enable `add_help_option=True`, then `apr super_hydro
+    testing.HelloWorld --help` will work.
+
+
 
 
 13 Jan 2022
