@@ -77,6 +77,7 @@ the `result_callback` is used to actually execute the program.
 from typing import List, Optional
 from dataclasses import dataclass, field
 from functools import partial
+from contextlib import suppress
 import configparser
 import importlib
 import pkgutil
@@ -88,6 +89,13 @@ from .interfaces import IModel
 from . import physics
 
 APP_NAME = "super_hydro"
+
+
+class ConfigParser(configparser.ConfigParser):
+    """Custom version that preserves case of options."""
+
+    def optionxform(self, optionstr):
+        return optionstr
 
 
 def process_path(path):
@@ -120,6 +128,277 @@ DEFAULT_CONFIG_FILES = [
 
 
 __all__ = ["ModelGroup"]
+
+
+class Configuration:
+    """Represent the configuration.
+
+    The internal dictionaries contain pairs `(value, source)` where `source` is the file
+    (or command line) where the parameter was defined.
+
+    Attributes
+    ----------
+    default : dict
+        Dictionary of default values for the models.  Corresponds to the `[DEFAULT]`
+        section of the config file.  If a parameters is used by a model but not defined
+        in the specific section, then a value here (if defined) will be used.
+    models : dict
+        Dictionary of specific configurations.  Each entry is a dictionary of options
+        corresponding to the specified model (the key is the import path).
+    config : dict
+        Dictionary of application configurations in the `[super_hydro]` section of the
+        config file.
+    """
+
+    def __init__(self, files=None, ctx=None, check=True, verbosity=0):
+        """
+        Arguments
+        ---------
+        flies : [str]
+            List of config files.  Should exist and be readable.
+        check : bool
+            If `True`, then run checks, making sure that each section corresponds to an
+            importable module for example.
+        """
+        if files is None:
+            files = []
+        self.files = files
+        self.ctx = ctx
+        self.defaults, self.config, self.models = self.load_config_files(
+            self.files,
+            check=check,
+            verbosity=verbosity,
+        )
+
+    def load_config_files(self, files, verbosity=0, check=True):
+        """Returns the dicts `(defaults, config, models)` from the specified config files."""
+        read_files = []
+        models = {}
+        defaults = {}
+        config = {}
+
+        for _file in files:
+            parser = ConfigParser()
+            _files = parser.read(_file)
+            if not _files:
+                # File does not exist.  We do not raise an error.
+                continue
+            elif verbosity > 1 and files:
+                click.echo(f"Loading configuration from {_file}")
+
+            read_files.append(_file)
+
+            options = {section: dict(parser[section]) for section in parser}
+            defaults.update(
+                {_k: (_v, _file) for (_k, _v) in options.pop("DEFAULT", {}).items()}
+            )
+            config.update(
+                {_k: (_v, _file) for (_k, _v) in options.pop("super_hydro", {}).items()}
+            )
+            for section in list(options):
+                models.setdefault(section, {})
+                models[section].update(
+                    {_k: (_v, _file) for (_k, _v) in options.pop(section).items()}
+                )
+
+        if check:
+            for model_name in models:
+                try:
+                    Model = self._import_model(model_name, strict=True)
+                except Exception as e:
+                    sources = set(_v[1] for (_k, _v) in models[model_name].items())
+                    click.echo(f"WARNING: {e} (Referenced in {sources})")
+
+        return (defaults, config, models)
+
+    def _import_model(self, model_name, strict=False):
+        """Return `Model` class.
+
+        Arguments
+        ---------
+        model_name : str
+            Importable model name, relative to `super_hydro.physics` or absolutely
+            importable.
+        strict : bool
+            If True, then raise exceptions.
+
+        Raises
+        ------
+        ImportError
+            If no module is importable.
+        ValueError
+            If the model name is ambiguous
+        AttributeError
+            If the module is importable but has no model attribute.
+        NotImplementedError
+            If the Model class does not implement the IModel interface.
+        """
+        if "." not in model_name:
+            if strict:
+                raise ValueError(f"{model_name=} must have the form `<module>.<Model>`")
+            else:
+                return None
+
+        mod, model = model_name.rsplit(".", 1)
+        mods = [mod, f"{physics.__name__}.{mod}"]
+        modules = []
+        for _m in mods:
+            with suppress(ImportError):
+                modules.append(importlib.import_module(_m))
+        if not modules:
+            if strict:
+                raise ImportError(f"Could not import module=`{model_name}`.")
+            return None
+        if 2 == len(modules) and all(hasattr(_m, model) for _m in modules):
+
+            # If there are two, we use the first one which is the unqualified
+            # name.  This allows users to specify the local one if needed with a
+            # fully qualified name `super_hydro.physics.<mod>`.
+
+            if strict:
+                raise ValueError(f"Ambiguous models: `{mods}`: using `{mods[0]}`.")
+        module = modules[0]
+
+        try:
+            Model = getattr(module, model)
+        except AttributeError:
+            if strict:
+                raise AttributeError(f"Model `{model_name}` does not exist.")
+            return None
+
+        if not IModel.implementedBy(Model):
+            if strict:
+                raise NotImplementedError(
+                    f"`{model_name}` doesn't implement the IModel interface."
+                )
+            return None
+
+        return Model
+
+    def _unpack(self, d, eval_=False):
+        """Return the unpacked version of the dictionary d without sources."""
+        if eval_:
+            eval_ = self._eval
+        else:
+            eval_ = lambda x: x
+        return {key: eval_(value) for key, (value, _source) in d.items()}
+
+    def _eval(self, repr_):
+        """Return the evaluated version of value.  Inverse of `repr()`."""
+        return eval(repr_)
+
+    def _repr(self, value):
+        """Return the string representation of value. Inverse of `eval()`."""
+        return repr(value)
+
+    def get_opts(self, model_name=None, no_config=False, check=True):
+        """Return the full option dictionary of the specified model.
+
+        This dictionary has the evaluated values, and follows the prescribed order or
+        precedence:
+
+        1. Value as returned by `Model.get_params_and_docs()`.
+
+        If `not no_config`, then the following are used:
+
+        2. Values as defined in the `DEFAULTS` section of the config files.
+        3. Value as defined in a specific model section of config files.
+        4. Value as passed to the CLI.
+
+        Arguments
+        ---------
+        model_name : str, None
+            Importable model name, relative to `super_hydro.physics` or absolutely
+            importable.  If `None` then return the application options.
+        no_config : bool:
+            If `True`, then only get the values as defined in the Model class, and
+            ignore any configuration or CLI values.
+        check : bool
+            If `True`, then import the model and use it for the base defaults.
+        """
+        if model_name is None:
+            opts = self._unpack(self.config, eval_=True)
+            return opts
+
+        Model = self._import_model(model_name=model_name)
+        if not Model:
+            if check:
+                click.echo(f"WARNING: Could not import {model_name}.")
+            return {}
+
+        opts = {_name: _value for _name, _value, _doc in Model.get_params_and_docs()}
+        if no_config:
+            return opts
+
+        for _key in self.defaults:
+            if _key in opts:
+                _repr, _source = self.defaults[_key]
+                opts[_key] = self._eval(_repr)
+        model_opts = self.models.get(model_name, {})
+        for option in model_opts:
+            repr_, source = model_opts[option]
+            if check and option not in opts:
+                msg = f"{option} not a parameter of {model_name} (from {source})"
+                click.echo(f"WARNING: {msg}")
+                continue
+            opts[option] = self._eval(repr_)
+        return opts
+
+    def get_parser(self, full=False):
+        """Return a ConfigParser instance that can be used to save the parameters.
+
+        Arguments
+        ---------
+        full : bool
+            If `True`, then include all parameters, otherwise, only include parameters
+            that differ from the class defaults.
+        """
+        defaults = self._unpack(self.defaults)
+        parser = ConfigParser(defaults=defaults)
+        # parser.optionxform = str  # Prevent conversion to lowercase
+        if self.config:
+            section = "super_hydro"
+            parser.add_section(section)
+            for option, (value, _source) in self.config.items():
+                parser.set(section=section, option=option, value=value)
+
+        for section in self.models:
+            base_opts = self.get_opts(section, no_config=True, check=True)
+            if not base_opts:
+                continue
+
+            parser.add_section(section)
+            model_opts = self._unpack(self.models[section])
+            for option, value in base_opts.items():
+                default_repr_ = defaults.get(option, self._repr(value))
+                repr_ = model_opts.get(option, default_repr_)
+                if full or repr_ != default_repr_:
+                    parser.set(section=section, option=option, value=repr_)
+        return parser
+
+    @property
+    def _rep(self):
+        """Return a representation for testing."""
+        return [
+            self._unpack(self.defaults),
+            self._unpack(self.config),
+            {model: self._unpack(self.models[model]) for model in self.models},
+        ]
+
+    @property
+    def _full_rep(self):
+        """Return a representation for testing."""
+        return [
+            self._unpack(self.defaults),
+            self._unpack(self.config),
+            {
+                model: {
+                    key: self._repr(value)
+                    for key, value in self.get_opts(model).items()
+                }
+                for model in self.models
+            },
+        ]
 
 
 class ModelGroup(click.Group):
@@ -309,8 +588,7 @@ class SuperHydroParams:
     def load_config_files(self):
         """Return options from the config files."""
         # To Do: Maybe load one file at a time and do some error parsing?
-        parser = configparser.ConfigParser()
-        parser.optionxform = str  # Prevent conversion to lowercase
+        parser = ConfigParser()
         files = parser.read(self.config_files)
         if self.verbosity > 1 and files:
             click.echo(f"Configuration loaded from {files}")
