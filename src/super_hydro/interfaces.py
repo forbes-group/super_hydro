@@ -166,3 +166,29 @@ class IServer(Interface):
 
     def quit(client=None):
         """Quit the server."""
+
+
+class IConfiguration(Interface):
+    """Public interface of the configuration object."""
+
+    models = Attribute("Dictionary of Models (providing the IModel interface)")
+
+    def get_options(Model):
+        """Return a full option dictionary for the specified model.
+
+        Arguments
+        ---------
+        Model : IModel or str
+            Class or fully qualified import name for a class implementing the IModel
+            interface.
+        """
+
+    def model_name(Model):
+        """Return the canonical model name (the key in self.models)
+
+        Arguments
+        ---------
+        Model : IModel or str
+            Class or fully qualified import name for a class implementing the IModel
+            interface.
+        """

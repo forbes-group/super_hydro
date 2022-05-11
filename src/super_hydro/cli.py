@@ -85,7 +85,7 @@ import os.path
 
 import click
 
-from .interfaces import IModel
+from .interfaces import implementer, IModel, IConfiguration
 from . import physics
 
 APP_NAME = "super_hydro"
@@ -130,6 +130,7 @@ DEFAULT_CONFIG_FILES = [
 __all__ = ["ModelGroup"]
 
 
+@implementer(IConfiguration)
 @dataclass
 class Configuration:
     """Represent the configuration.
@@ -163,6 +164,49 @@ class Configuration:
     defaults: dict[str, str] = field(default_factory=dict)
     test_cli: bool = False
     verbosity: int = 0
+
+    ######################################################################
+    # Required by the IConfiguration interface
+    @property
+    def models(self):
+        "Dictionary of Models (providing the IModel interface)"
+        return self.get_models()
+
+    def get_options(self, Model):
+        """Return a full option dictionary for the specified model.
+
+        Arguments
+        ---------
+        Model : IModel or str
+            Class or fully qualified import name for a class implementing the IModel
+            interface.
+        """
+        return self.get_opts(self.model_name(Model))
+
+    @classmethod
+    def model_name(cls, Model):
+        """Return the canonical model name (the key in self.models)
+
+        Arguments
+        ---------
+        Model : IModel or str
+            Class or fully qualified import name for a class implementing the IModel
+            interface.
+        """
+        if isinstance(Model, str):
+            model_name = Model
+        elif isinstance(Model, type) and IModel.implementedBy(Model):
+            model_name = f"{Model.__module__}.{Model.__name__}"
+        else:
+            raise ValueError(f"{Model=} must implement the IModel or import one")
+
+        # Remove "super_hydro.physics." prefix.
+        if model_name.startswith("{physics.__name__}."):
+            model_name = model_name[len(physics.__name__) + 1 :]
+        return model_name
+
+    # End of IConfiguration interface
+    ######################################################################
 
     def check(self, strict=False):
         """Check that the models can be imported."""
@@ -241,8 +285,8 @@ class Configuration:
             models.update(self._get_models(mod))
         return models
 
-    @staticmethod
-    def _get_models(mod):
+    @classmethod
+    def _get_models(cls, mod):
         """Return a list of `(name, Model)` for all exported models in module `mod`,
 
         An exported model is a class that:
@@ -250,23 +294,16 @@ class Configuration:
         2. Does not start with an underscore.
         3. Is specified in ``mod.__all__`` if the module has ``__all__``.
         """
-        models = [
-            (f"{mod.__name__}.{name}", getattr(mod, name))
-            for name in getattr(mod, "__all__", mod.__dict__.keys())
-            if not name.startswith("_") and hasattr(mod, name)
-        ]
+        models = {}
+        for name in getattr(mod, "__all__", mod.__dict__.keys()):
+            if name.startswith("_") or not hasattr(mod, name):
+                continue
+            Model = getattr(mod, name)
+            if not isinstance(Model, type) or not IModel.implementedBy(Model):
+                continue
+            models[cls.model_name(Model)] = Model
 
-        models = [
-            (  # Only include full model name if they are not in physics
-                name[len(physics.__name__) + 1 :]
-                if name.startswith(physics.__name__)
-                else name,
-                Model,
-            )
-            for (name, Model) in models
-            if isinstance(Model, type) and IModel.implementedBy(Model)
-        ]
-        return dict(models)
+        return models
 
     def _import_model(self, model_name, strict=False):
         """Return `Model` class.

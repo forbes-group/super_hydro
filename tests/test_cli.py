@@ -14,6 +14,9 @@ import pytest
 import click.testing
 
 import super_hydro.cli
+import super_hydro.physics.testing
+import super_hydro.physics.gpe
+from super_hydro.interfaces import verifyClass, IConfiguration
 
 
 @pytest.fixture
@@ -70,6 +73,24 @@ class _TestCLI:
 
 
 class TestConfiguration:
+    def test_interface(self, config_file):
+        assert verifyClass(IConfiguration, super_hydro.cli.Configuration)
+        c = super_hydro.cli.Configuration()
+        c.add_config_file(config_file)
+
+        for model_name in c.models:
+            Model = c.models[model_name]
+            opts1 = c.get_options(model_name)
+            opts2 = c.get_options(Model)
+            assert opts1
+            np.testing.assert_equal(opts1, opts2)
+
+        opts1 = c.get_options(super_hydro.physics.testing.HelloWorld)
+        opts2 = c.get_options("super_hydro.physics.testing.HelloWorld")
+        opts3 = c.get_options("testing.HelloWorld")
+        np.testing.assert_equal(opts1, opts2)
+        np.testing.assert_equal(opts1, opts3)
+
     def test_1(self, config_file):
         c = super_hydro.cli.Configuration()
         c.add_config_file(config_file)
