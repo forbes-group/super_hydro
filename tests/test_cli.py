@@ -71,7 +71,8 @@ class _TestCLI:
 
 class TestConfiguration:
     def test_1(self, config_file):
-        c = super_hydro.cli.Configuration(files=[config_file])
+        c = super_hydro.cli.Configuration()
+        c.add_config_file(config_file)
         opts = c.get_opts()
         assert opts["port"] == 123456
 
@@ -81,7 +82,8 @@ class TestConfiguration:
         assert opts["Ny"] == 68 != default_opts["Ny"]
 
     def test_write(self, config_file):
-        c = super_hydro.cli.Configuration(files=[config_file])
+        c = super_hydro.cli.Configuration()
+        c.add_config_file(config_file)
 
         dirname = os.path.dirname(config_file)
         file1 = os.path.join(dirname, "super_hydro1.conf")
@@ -91,18 +93,20 @@ class TestConfiguration:
         with open(file2, "w") as f:
             c.get_parser(full=True).write(f)
 
-        c1 = super_hydro.cli.Configuration(files=[file1])
+        c1 = super_hydro.cli.Configuration()
+        c1.add_config_file(file1)
         np.testing.assert_equal(c1._rep, c._rep)
         np.testing.assert_equal(c1._full_rep, c._full_rep)
 
-        c2 = super_hydro.cli.Configuration(files=[file2])
+        c2 = super_hydro.cli.Configuration()
+        c2.add_config_file(file2)
         np.testing.assert_equal(c2._full_rep, c._full_rep)
 
     def test_missing_config_file(self, config_file, capsys):
         """Should ignore missing files."""
-        super_hydro.cli.Configuration(
-            files=[config_file, config_file + "garbage"], verbosity=2
-        )
+        c = super_hydro.cli.Configuration(verbosity=2)
+        c.add_config_file(config_file)
+        c.add_config_file(config_file + "garbage")
         captured = capsys.readouterr()
         assert captured.out.strip().startswith("Loading configuration from")
         assert captured.out.strip().endswith("/User/test/super_hydro.conf")
@@ -117,12 +121,37 @@ class TestConfiguration:
         config_file = os.path.join(fs.home, "super_hydro.conf")
         with open(config_file, "w") as f:
             f.write(textwrap.dedent(BAD_CONFIG))
-        super_hydro.cli.Configuration(files=[config_file], verbosity=2)
+        c = super_hydro.cli.Configuration(verbosity=2)
+        c.add_config_file(config_file)
+        c.check()
+
         captured = capsys.readouterr()
         out = captured.out.strip()
         assert out.startswith("Loading configuration from")
         assert "/User/test/super_hydro.conf" in out
         assert "WARNING: Could not import module=`this_model_does.not.exist`." in out
+
+    def test_multiple_model_modules(self, isolated_filesystem):
+        fs = isolated_filesystem
+        CONFIGs = [
+            """
+        [super_hydro]
+        model_modules = ['gpe']
+        """,
+            """
+        [super_hydro]
+        model_modules = ['testing']
+        """,
+        ]
+        files = []
+        for n, _CONFIG in enumerate(CONFIGs):
+            config_file = os.path.join(fs.home, f"super_hydro{n}.conf")
+            with open(config_file, "w") as f:
+                f.write(textwrap.dedent(_CONFIG))
+                files.append(config_file)
+        c = super_hydro.cli.Configuration()
+        list(map(c.add_config_file, files))
+        assert set(c.super_hydro_options["model_modules"]) == set(["gpe", "testing"])
 
 
 class TestConfigurationCoverage:
@@ -152,7 +181,8 @@ class TestConfigurationCoverage:
         config_file = os.path.join(fs.home, "super_hydro.conf")
         with open(config_file, "w") as f:
             f.write(textwrap.dedent(BAD_CONFIG))
-        c = super_hydro.cli.Configuration(files=[config_file], verbosity=2)
+        c = super_hydro.cli.Configuration(verbosity=2)
+        c.add_config_file(config_file)
         captured = capsys.readouterr()
         out = captured.out.strip()
         assert out.startswith("Loading configuration from")
@@ -193,7 +223,8 @@ class TestConfigurationCoverage:
 
     def test__import_model_2(self, config_file):
         """Test more import exceptions."""
-        c = super_hydro.cli.Configuration(config_file)
+        c = super_hydro.cli.Configuration()
+        c.add_config_file(config_file)
         tmpdir = os.path.dirname(config_file)
         with open(os.path.join(tmpdir, "testing.py"), "w") as f:
             f.write(

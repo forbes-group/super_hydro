@@ -74,7 +74,7 @@ the `result_callback` is used to actually execute the program.
 .. _Click: https://click.palletsprojects.com/en/8.1.x/documentation/
 
 """
-from typing import List, Optional
+from typing import Set, List, Optional
 from dataclasses import dataclass, field
 from functools import partial
 from contextlib import suppress
@@ -130,6 +130,7 @@ DEFAULT_CONFIG_FILES = [
 __all__ = ["ModelGroup"]
 
 
+@dataclass
 class Configuration:
     """Represent the configuration.
 
@@ -138,78 +139,134 @@ class Configuration:
 
     Attributes
     ----------
-    default : dict
+    defaults : dict[str, str]
         Dictionary of default values for the models.  Corresponds to the `[DEFAULT]`
         section of the config file.  If a parameters is used by a model but not defined
         in the specific section, then a value here (if defined) will be used.
-    models : dict
+    model_options : dict[str, dict[str]]
         Dictionary of specific configurations.  Each entry is a dictionary of options
         corresponding to the specified model (the key is the import path).
-    config : dict
-        Dictionary of application configurations in the `[super_hydro]` section of the
+    super_hydro_options : dict[str, str]
+        Dictionary of options for the application.
+    config_file : List[str]
+        List of config files.
+    Dictionary of application configurations in the `[super_hydro]` section of the
         config file.
+    flies : [str]
+        List of config files.  Should exist and be readable.
     """
 
-    def __init__(self, files=None, ctx=None, check=True, verbosity=0):
+    model_modules: Set[str] = field(default_factory=set)
+    config_files: List[str] = field(default_factory=list)
+    model_options: dict[str, dict[str, str]] = field(default_factory=dict)
+    super_hydro_options: dict[str, str] = field(default_factory=dict)
+    defaults: dict[str, str] = field(default_factory=dict)
+    test_cli: bool = False
+    verbosity: int = 0
+
+    def check(self, strict=False):
+        """Check that the models can be imported."""
+        for model_name in self.model_options:
+            try:
+                Model = self._import_model(model_name, strict=True)
+            except Exception as e:
+                sources = set(
+                    _v[1] for (_k, _v) in self.model_options[model_name].items()
+                )
+                click.echo(f"WARNING: {e} (Referenced in {sources})")
+
+    def add_config_file(self, file):
+        """Load the specified config file and add it's content.
+
+        Results
+        -------
+        Name of the file if it is successfully loaded, otherwise None.
         """
-        Arguments
-        ---------
-        flies : [str]
-            List of config files.  Should exist and be readable.
-        check : bool
-            If `True`, then run checks, making sure that each section corresponds to an
-            importable module for example.
-        """
-        if files is None:
-            files = []
-        self.files = files
-        self.ctx = ctx
-        self.defaults, self.config, self.models = self.load_config_files(
-            self.files,
-            check=check,
-            verbosity=verbosity,
+        parser = ConfigParser()
+        if not parser.read(file):
+            return None
+        elif self.verbosity > 1:
+            click.echo(f"Loading configuration from {file}")
+
+        options = {section: dict(parser[section]) for section in parser}
+        self.defaults.update(
+            {_k: (_v, file) for (_k, _v) in options.pop("DEFAULT", {}).items()}
         )
 
-    def load_config_files(self, files, verbosity=0, check=True):
-        """Returns the dicts `(defaults, config, models)` from the specified config files."""
-        read_files = []
+        super_hydro_options = options.pop("super_hydro", {})
+        # The 'model_modules' parameter is special: it is additive
+        if "model_modules" in super_hydro_options:
+            self.super_hydro_options.setdefault("model_modules", []).extend(
+                self._eval(super_hydro_options.pop("model_modules"))
+            )
+
+        self.super_hydro_options.update(
+            {_k: (_v, file) for (_k, _v) in super_hydro_options.items()}
+        )
+        for section in list(options):
+            self.model_options.setdefault(section, {})
+            self.model_options[section].update(
+                {_k: (_v, file) for (_k, _v) in options.pop(section).items()}
+            )
+        return file
+
+    def update_model_cli(self, model, options):
+        """Update the specified model dictionary from the command line."""
+        model_options = self.model_options.setdefault(model, {})
+        for option, value in options.items():
+            model_options[option] = (self._repr(value), "CLI")
+
+    def get_models(self, check=True):
+        """Return a dictionary of Models by name."""
+        super_hydro_names = [
+            f"{physics.__name__}.{_m.name}"
+            for _m in pkgutil.iter_modules(physics.__path__)
+        ]
+
+        # Unique list of names with ours first.
+        names = dict.fromkeys(
+            super_hydro_names + self.super_hydro_options.get("model_modules", [])
+        )
+
         models = {}
-        defaults = {}
-        config = {}
-
-        for _file in files:
-            parser = ConfigParser()
-            _files = parser.read(_file)
-            if not _files:
-                # File does not exist.  We do not raise an error.
+        for name in names:
+            try:
+                mod = importlib.import_module(name)
+            except ImportError:
+                if check:
+                    click.echo(
+                        f"WARNING: Could not import requested `--models={name}`."
+                    )
                 continue
-            elif verbosity > 1 and files:
-                click.echo(f"Loading configuration from {_file}")
+            models.update(self._get_models(mod))
+        return models
 
-            read_files.append(_file)
+    @staticmethod
+    def _get_models(mod):
+        """Return a list of `(name, Model)` for all exported models in module `mod`,
 
-            options = {section: dict(parser[section]) for section in parser}
-            defaults.update(
-                {_k: (_v, _file) for (_k, _v) in options.pop("DEFAULT", {}).items()}
+        An exported model is a class that:
+        1. Implements the :interface:`interfaces.IModel` interface.
+        2. Does not start with an underscore.
+        3. Is specified in ``mod.__all__`` if the module has ``__all__``.
+        """
+        models = [
+            (f"{mod.__name__}.{name}", getattr(mod, name))
+            for name in getattr(mod, "__all__", mod.__dict__.keys())
+            if not name.startswith("_") and hasattr(mod, name)
+        ]
+
+        models = [
+            (  # Only include full model name if they are not in physics
+                name[len(physics.__name__) + 1 :]
+                if name.startswith(physics.__name__)
+                else name,
+                Model,
             )
-            config.update(
-                {_k: (_v, _file) for (_k, _v) in options.pop("super_hydro", {}).items()}
-            )
-            for section in list(options):
-                models.setdefault(section, {})
-                models[section].update(
-                    {_k: (_v, _file) for (_k, _v) in options.pop(section).items()}
-                )
-
-        if check:
-            for model_name in models:
-                try:
-                    Model = self._import_model(model_name, strict=True)
-                except Exception as e:
-                    sources = set(_v[1] for (_k, _v) in models[model_name].items())
-                    click.echo(f"WARNING: {e} (Referenced in {sources})")
-
-        return (defaults, config, models)
+            for (name, Model) in models
+            if isinstance(Model, type) and IModel.implementedBy(Model)
+        ]
+        return dict(models)
 
     def _import_model(self, model_name, strict=False):
         """Return `Model` class.
@@ -317,7 +374,7 @@ class Configuration:
             If `True`, then import the model and use it for the base defaults.
         """
         if model_name is None:
-            opts = self._unpack(self.config, eval_=True)
+            opts = self._unpack(self.super_hydro_options, eval_=True)
             return opts
 
         Model = self._import_model(model_name=model_name)
@@ -334,7 +391,7 @@ class Configuration:
             if _key in opts:
                 _repr, _source = self.defaults[_key]
                 opts[_key] = self._eval(_repr)
-        model_opts = self.models.get(model_name, {})
+        model_opts = self.model_options.get(model_name, {})
         for option in model_opts:
             repr_, source = model_opts[option]
             if check and option not in opts:
@@ -356,19 +413,19 @@ class Configuration:
         defaults = self._unpack(self.defaults)
         parser = ConfigParser(defaults=defaults)
         # parser.optionxform = str  # Prevent conversion to lowercase
-        if self.config:
+        if self.super_hydro_options:
             section = "super_hydro"
             parser.add_section(section)
-            for option, (value, _source) in self.config.items():
+            for option, (value, _source) in self.super_hydro_options.items():
                 parser.set(section=section, option=option, value=value)
 
-        for section in self.models:
+        for section in self.model_options:
             base_opts = self.get_opts(section, no_config=True, check=True)
             if not base_opts:
                 continue
 
             parser.add_section(section)
-            model_opts = self._unpack(self.models[section])
+            model_opts = self._unpack(self.model_options[section])
             for option, value in base_opts.items():
                 default_repr_ = defaults.get(option, self._repr(value))
                 repr_ = model_opts.get(option, default_repr_)
@@ -381,8 +438,11 @@ class Configuration:
         """Return a representation for testing."""
         return [
             self._unpack(self.defaults),
-            self._unpack(self.config),
-            {model: self._unpack(self.models[model]) for model in self.models},
+            self._unpack(self.super_hydro_options),
+            {
+                model: self._unpack(self.model_options[model])
+                for model in self.model_options
+            },
         ]
 
     @property
@@ -390,13 +450,13 @@ class Configuration:
         """Return a representation for testing."""
         return [
             self._unpack(self.defaults),
-            self._unpack(self.config),
+            self._unpack(self.super_hydro_options),
             {
                 model: {
                     key: self._repr(value)
                     for key, value in self.get_opts(model).items()
                 }
-                for model in self.models
+                for model in self.model_options
             },
         ]
 
@@ -429,8 +489,9 @@ class ModelGroup(click.Group):
     ######################################################################
     # Customizations of methods
     def list_commands(self, ctx):
-        params = ctx.ensure_object(SuperHydroParams)
-        return super().list_commands(ctx) + list(params.models.keys())
+        config = ctx.ensure_object(Configuration)
+        models = config.get_models()
+        return super().list_commands(ctx) + list(models.keys())
 
     def format_commands(self, ctx, formatter):
         # Modified fom the base class method
@@ -449,7 +510,7 @@ class ModelGroup(click.Group):
             # allow for 3 times the default spacing
             limit = formatter.width - 6 - longest
 
-            with formatter.section("Commands"):
+            with formatter.section("Models:"):
                 rows = []
                 for subcommand, cmd in commands:
                     help_str = cmd.get_short_help_str(limit)
@@ -491,16 +552,21 @@ class ModelGroup(click.Group):
     def _callback(*, _model_name, _ctx, **kwargs):
         """Callback that stores the parameters."""
         ctx = _ctx.find_root()
-        params = ctx.ensure_object(SuperHydroParams)
-        if params.test_cli:
+        config = ctx.ensure_object(Configuration)
+        if config.test_cli:
             click.echo(f"{_model_name=} invoked with {kwargs=}")
-        params.model_options[_model_name] = kwargs
+        config.update_model_cli(_model_name, kwargs)
 
     @classmethod
     def _get_model_command(cls, ctx, name):
         """Return a class`click.Command` instance for the model."""
-        params = ctx.ensure_object(SuperHydroParams)
-        Model = params.models[name]
+        config = ctx.ensure_object(Configuration)
+        models = config.get_models(check=True)
+        if name not in models:
+            ctx.fail(f"Model {name} not found. (Try `super_hydro --help`)")
+
+        Model = models[name]
+
         params = [
             click.Option(
                 param_decls=[f"--{_name}", f"{_name}"],
@@ -529,170 +595,37 @@ class ModelGroup(click.Group):
         # breakpoint()
         return super().get_help(ctx)
 
-    ######################################################################
-    # Unused commands.  These are kept for now to show how they might be customized.
-    def UNUSED_command(self, *args, **kwargs):
-        """Gather the command help model"""
-        help_model = kwargs.pop("group", "Commands")
-        decorator = super().command(*args, **kwargs)
-
-        def wrapper(f):
-            cmd = decorator(f)
-            cmd.help_model = help_model
-            return cmd
-
-        return wrapper
-
-
-@dataclass
-class SuperHydroParams:
-    """Object used in `ctx.obj` for storing information about the application."""
-
-    models: dict[str, str] = field(default_factory=dict)
-    config_files: List[str] = field(default_factory=list)
-    model_options: dict[str, dict] = field(default_factory=dict)
-    test_cli: bool = False
-    verbosity: int = 0
-
-    def get_options(self, ctx):
-        """Return the dictionary of options for the models.
-
-        This loads all config files, then invokes all the model commands to process the
-        arguments.  Finally everything is collected and returned.
-        """
-        config_options = self.load_config_files()
-
-        # Gets any models from the config files and add them
-        models = config_options.get("super_hydro", {}).get("models", [])
-        if models:
-            set_model_modules(ctx, param=None, value=models)
-
-        options = {}
-        defaults = config_options.get("DEFAULTS", {})
-        # Process each model
-
-        for model in self.models:
-            Model = self.models[model]
-            config_opts = config_options.get(model, {})
-            options[model] = {
-                _param: self.model_options.get(model, {}).get(
-                    _param, config_opts.pop(_param, defaults.get(_param, _value))
-                )
-                for _param, _value, _doc in Model.get_params_and_docs()
-            }
-            if config_opts:
-                raise ValueError(f"Unknown parameters {config_opts} for {model=}")
-
-        return options
-
-    def load_config_files(self):
-        """Return options from the config files."""
-        # To Do: Maybe load one file at a time and do some error parsing?
-        parser = ConfigParser()
-        files = parser.read(self.config_files)
-        if self.verbosity > 1 and files:
-            click.echo(f"Configuration loaded from {files}")
-        self.config_parser = parser
-
-        options = {section: dict(parser[section]) for section in parser}
-        return options
-
-    def invoke_models(self, ctx):
-        """Call `_callback()` for models so that the parameters are set."""
-        group = ctx.command
-        model_names = group.list_commands(ctx)
-        for model_name in model_names:
-            if model_name in self.model_options:
-                if self.test_cli:
-                    click.echo(f"{model_name=} already invoked")
-                continue
-            if self.test_cli:
-                click.echo(f"Invoking {model_name=}")
-            command = group.get_command(ctx, model_name)
-            # ctx.forward(command)   # Passes all arguments... not what we want.
-            ctx.invoke(command)
-            assert model_name in self.model_options
-
-    @staticmethod
-    def get_models(mod):
-        """Return a list of `(name, Model)` for all exported models in module `mod`,
-
-        An exported model is a class that:
-        1. Implements the :interface:`interfaces.IModel` interface.
-        2. Does not start with an underscore.
-        3. Is specified in ``mod.__all__`` if the module has ``__all__``.
-        """
-        models = [
-            (f"{mod.__name__}.{name}", getattr(mod, name))
-            for name in getattr(mod, "__all__", mod.__dict__.keys())
-            if not name.startswith("_") and hasattr(mod, name)
-        ]
-
-        models = [
-            (  # Only include full model name if they are not in physics
-                name[len(physics.__name__) + 1 :]
-                if name.startswith(physics.__name__)
-                else name,
-                Model,
-            )
-            for (name, Model) in models
-            if isinstance(Model, type) and IModel.implementedBy(Model)
-        ]
-        return dict(models)
-
-    ######################################################################
-    # Functions for debugging and testing.
-    def inspect_ctx(self):
-        """ """
-        ctx = self.ctx
-        from pprint import pprint
-
-        # models = self.super_hydro_group.commands
-        model_names = self.super_hydro_group.list_commands()
-        print("Models:")
-        pprint(list(model_names))
-        for model_name in model_names:
-            model = self.super_hydro_group.get_command(ctx, model_name)
-
 
 ######################################################################
 # Callbacks
 def set_param(ctx, param, value):
-    params = ctx.ensure_object(SuperHydroParams)
-    setattr(params, param.name, value)
+    config = ctx.ensure_object(Configuration)
+    setattr(config, param.name, value)
 
 
 def set_config_files(ctx, param, value):
     """Specify and load the specified config file."""
-    params = ctx.ensure_object(SuperHydroParams)
+    config = ctx.ensure_object(Configuration)
     config_files = []
     if value:
         config_files = value = list(map(process_path, value))
 
-    params.config_files = list(DEFAULT_CONFIG_FILES) + config_files
+    config_files = list(DEFAULT_CONFIG_FILES) + config_files
+    for file in config_files:
+        config.add_config_file(file)
 
 
 def set_model_modules(ctx, param, value):
     """Store all potential models in `ctx.obj.models`."""
     group = ctx.command
-    params = ctx.ensure_object(SuperHydroParams)
-    models = params.models
-
-    super_hydro_names = [
-        f"{physics.__name__}.{_m.name}" for _m in pkgutil.iter_modules(physics.__path__)
-    ]
-
-    # Unique list of names with ours first.
-    names = dict.fromkeys(super_hydro_names + list(value))
-
-    for name in names:
+    config = ctx.ensure_object(Configuration)
+    for name in value:
         try:
             mod = importlib.import_module(name)
         except ImportError:
             click.echo(f"WARNING: Could not import requested `--models={name}`.")
             continue
-        models.update(params.get_models(mod))
-    params.models = models
+    config.model_modules.update(value)
 
 
 ######################################################################
@@ -780,8 +713,8 @@ def super_hydro(ctx, **kw):
 
        super_hydro MODEL --help
     """
-    params = ctx.ensure_object(SuperHydroParams)
-    if params.test_cli:
+    config = ctx.ensure_object(Configuration)
+    if config.test_cli:
         click.echo("Calling super_hydro")
     return ctx
 
@@ -790,12 +723,10 @@ def super_hydro(ctx, **kw):
 @click.pass_context
 def run_super_hydro(ctx, results, **kw):
     """Actually run the application."""
-    params = ctx.ensure_object(SuperHydroParams)
-    if params.test_cli:
+    config = ctx.ensure_object(Configuration)
+    if config.test_cli:
         click.echo(f"Running super_hydro with {ctx=}, {results=}, {kw=}")
-
-    options = params.get_options(ctx=ctx)
-    print(options)
+    print(config)
 
 
 _testing = {}
