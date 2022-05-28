@@ -5,14 +5,14 @@ jupytext:
     extension: .md
     format_name: myst
     format_version: 0.13
-    jupytext_version: 1.11.5
+    jupytext_version: 1.13.8
 kernelspec:
-  display_name: Python 3
+  display_name: Python [conda env:gpe-explorer-super_hydro]
   language: python
-  name: python3
+  name: conda-env-gpe-explorer-super_hydro-py
 ---
 
-```{code-cell}
+```{code-cell} ipython3
 :init_cell: true
 
 %%javascript
@@ -21,7 +21,7 @@ IPython.OutputArea.prototype._should_scroll = function(lines) { return false; }
 
 ## Vortex Pinning
 
-```{code-cell}
+```{code-cell} ipython3
 ---
 slideshow:
   slide_type: slide
@@ -40,13 +40,14 @@ notebook.run(
     finger_V0_mu=0.8,
     finger_x=0.7,
     winding=40,
+    tracer_particles=100,
     #network_server=False,
 )
 ```
 
 ## Flow
 
-```{code-cell}
+```{code-cell} ipython3
 from mmf_setup.set_path import hgroot
 from super_hydro.clients import notebook
 notebook.run(model='gpe.BECFlow', Nx=128, Ny=32, tracer_particles=0)
@@ -54,7 +55,7 @@ notebook.run(model='gpe.BECFlow', Nx=128, Ny=32, tracer_particles=0)
 
 ## Breathers
 
-```{code-cell}
+```{code-cell} ipython3
 from mmf_setup.set_path import hgroot
 from super_hydro.clients import notebook
 notebook.run(model='gpe.BECBreather',
@@ -65,6 +66,6 @@ notebook.run(model='gpe.BECBreather',
              Nshape=3)
 ```
 
-```{code-cell}
+```{code-cell} ipython3
 
 ```

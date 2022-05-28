@@ -5,7 +5,7 @@ jupytext:
     extension: .md
     format_name: myst
     format_version: 0.13
-    jupytext_version: 1.11.5
+    jupytext_version: 1.13.8
 kernelspec:
   display_name: Python 3 (super_hydro)
   language: python
@@ -38,7 +38,7 @@ $$
   \I \hbar\pdiff{\psi_n}{t} = \op{H}\psi_n.
 $$
 
-```{code-cell}
+```{code-cell} ipython3
 %matplotlib inline
 %load_ext autoreload
 import numpy as np, matplotlib.pyplot as plt
@@ -56,12 +56,12 @@ ax.set(aspect=1)
 #plt.plot(r, 1- gpe.utils.mstep(r - 0.5, 0.2) + gpe.utils.mstep(r - 0.8, 0.2))
 ```
 
-```{code-cell}
+```{code-cell} ipython3
 %%javascript
 IPython.OutputArea.prototype._should_scroll = function(lines) { return false; }
 ```
 
-```{code-cell}
+```{code-cell} ipython3
 # Does not work on CoLab yet
 from mmf_setup.set_path import hgroot
 from importlib import reload
@@ -87,7 +87,7 @@ notebook.run(
 )
 ```
 
-```{code-cell}
+```{code-cell} ipython3
 # Does not work on CoLab yet
 from mmf_setup.set_path import hgroot
 from importlib import reload
@@ -112,7 +112,7 @@ notebook.run(
 )
 ```
 
-```{code-cell}
+```{code-cell} ipython3
 %pylab inline
 import numpy as np
 N = 256
@@ -132,6 +132,6 @@ dn = 20
 axs[1].axis([N/2-dn, N/2+dn, N/2-dn, N/2+dn])
 ```
 
-```{code-cell}
+```{code-cell} ipython3
 
 ```

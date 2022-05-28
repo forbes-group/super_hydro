@@ -1,11 +1,13 @@
 import nox
 
 
-@nox.session(#python=["3.5", "3.6", "3.7", "3.8"])
+@nox.session(python="3.9")  # python=["3.5", "3.6", "3.7", "3.8"])
 def test(session):
     session.install(".[test]")
-    session.run('pytest')
+    session.run("pytest")
 
+
+"""
 @nox.session(
     venv_backend="conda",
     python=["3.5", "3.6", "3.7", "3.8"])
@@ -15,4 +17,4 @@ def _test_conda(session):
     #              conda="mamba", external=True)
     session.install(".[test]")
     session.run('pytest')
-'''
+"""

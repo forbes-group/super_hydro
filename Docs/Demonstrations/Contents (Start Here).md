@@ -5,11 +5,11 @@ jupytext:
     extension: .md
     format_name: myst
     format_version: 0.13
-    jupytext_version: 1.11.5
+    jupytext_version: 1.13.8
 kernelspec:
-  display_name: Python 3
+  display_name: Python 3 (super_hydro)
   language: python
-  name: python3
+  name: super_hydro
 ---
 
 # Super-Hydro Demonstration List
@@ -29,7 +29,6 @@ IPython.OutputArea.prototype._should_scroll = function(lines) { return false; }
 ## [Breathers.ipynb](Breathers.ipynb)
 
 ```{code-cell} ipython3
-# Does not work on CoLab yet
 from mmf_setup.set_path import hgroot
 from importlib import reload
 from super_hydro.physics import gpe

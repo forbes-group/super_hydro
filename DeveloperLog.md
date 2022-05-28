@@ -6,6 +6,44 @@ To Do:
       `module.rst`.
 * [ ] Another interface for tracer particles with `Lxy` and `xy`?
 
+27 May 2022
+===========
+* Offline environment fails even though required packages are installed.  Check: `make
+  init` might not have been run... also having flask errors.
+  ```
+  $ apr shell
+  Collecting package metadata (current_repodata.json): ...working... failed
+  CondaHTTPError: ...
+  ...
+  missing requirement to run this project: The project needs a Conda environment containing all required packages.
+    Conda environment is missing packages: conda-forge::pyfftw, ruamel-yaml
+  $ ap list-packages
+  Conda packages for environment 'super_hydro':
+
+  anaconda-project>=0.10.1
+  conda-forge::pyfftw
+  pip
+  poetry
+  python=3.9
+
+  Pip packages for environment 'super_hydro':
+
+  ruamel-yaml
+  $ conda activate envs super_hydro
+  $ conda list
+  ...
+  pyfftw                    0.12.0           py39h047060a_2    conda-forge
+  ...
+  ruamel-yaml               0.17.21                  pypi_0    pypi
+  ...
+  ```
+
+  1. Why is this failing?  How can we quickly find out what packages are requested?
+  2. How to prevent issues?  (Maybe `anaconda-project archive`?)
+  3. Add `make offline` which creates all environments for offline work.
+
+* `import flask` fails with `ImportError: cannot import name 'escape' from 'jinja2')
+
 2 May 2022
 ==========
 * To Do:

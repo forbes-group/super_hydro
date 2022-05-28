@@ -5,7 +5,7 @@ jupytext:
     extension: .md
     format_name: myst
     format_version: 0.13
-    jupytext_version: 1.11.5
+    jupytext_version: 1.13.8
 kernelspec:
   display_name: Python 3 (super_hydro)
   language: python
@@ -128,12 +128,12 @@ This immediately gives the condition $\mu = \braket{\op{H}}$ given above, which 
 
 Run the following simulation of a highly-excited superfluid and explore the effect of the cooling phase.  The simulation starts with a BEC in a cylindrical trap rotating with a high angular velocity.  You can addjust the cooling parameter $\epsilon$ with the first slider.  For large amounts of cooling, you should see the system rapidly lose energy to form a set of orbiting vortices.
 
-```{code-cell}
+```{code-cell} ipython3
 %%javascript
 IPython.OutputArea.prototype._should_scroll = function(lines) { return false; }
 ```
 
-```{code-cell}
+```{code-cell} ipython3
 # Does not work on CoLab yet
 from mmf_setup.set_path import hgroot
 from importlib import reload
@@ -141,11 +141,11 @@ from super_hydro.clients import notebook;reload(notebook)
 #notebook.run(model='gpe.BEC', Nx=64, Ny=64, random_phase=False)
 ```
 
-```{code-cell}
+```{code-cell} ipython3
 notebook.run(run_server=False)
 ```
 
-```{code-cell}
+```{code-cell} ipython3
 # Does not work on CoLab yet
 from mmf_setup.set_path import hgroot
 from importlib import reload
@@ -451,7 +451,7 @@ The overlaps and discrete Fourier transforms implemented numerically compute the
   \frac{1}{N}\sum_{m} e^{2\pi \I n m / N}\tilde{\psi}(k_m).
 \end{align}
 
-```{code-cell}
+```{code-cell} ipython3
 import numpy as np
 N = 4
 L = 10.0
@@ -707,7 +707,7 @@ $$
   -\omega\frac{(\xi^2-1)(u^2 - \xi/2)- 2\xi kx\I}{2\xi^2}\braket{x|\psi}.
 $$
 
-```{code-cell}
+```{code-cell} ipython3
 %pylab inline --no-import-all
 from mmf_setup.set_path import hgroot
 from super_hydro.contexts import NoInterrupt
@@ -751,7 +751,7 @@ plt.plot(ts1, Es1/E, ':')
 plt.plot(ts, 1+dE_dt*ts/E)
 ```
 
-```{code-cell}
+```{code-cell} ipython3
 %pylab inline --no-import-all
 from mmf_setup.set_path import hgroot
 from super_hydro.contexts import NoInterrupt
@@ -805,7 +805,7 @@ At each step we subtract the chemical potential so that if $\beta = -\I$, then i
 
 As a test problem, we find the ground state of a non-interacting gas ($g=0$) in a harmonic oscillator.  We explicitly demonstrate that the rate of cooling is independent of the UV and IR cutoff of the basis.  Optimal convergence for double precision is obtained with $L\approx 23$ and $N=2^6$.
 
-```{code-cell}
+```{code-cell} ipython3
 %pylab inline --no-import-all
 from mmf_setup.set_path import hgroot
 from super_hydro.contexts import NoInterrupt
@@ -867,19 +867,19 @@ plt.xlabel('t')
 plt.ylabel('abs((E-E0)/E0)');
 ```
 
-```{code-cell}
+```{code-cell} ipython3
 s.beta_0 = 1.0
 Hc = s.get_Hc(psi_0)
 plt.plot(abs(s.apply_Hc(psi_0)))
 plt.plot(abs(Hc.dot(psi_0)))
 ```
 
-```{code-cell}
+```{code-cell} ipython3
 plt.plot(s.xyz[0], np.diag(s.get_Hc(psi_0)).real)
 plt.plot(s.xyz[0], s.get_Vc(psi_0)*s.dx)
 ```
 
-```{code-cell}
+```{code-cell} ipython3
 Nx = s.Nxyz[0]
 s.beta_0 = 0
 I = np.eye(Nx, dtype=complex)
@@ -893,11 +893,11 @@ plt.plot(x, np.diag(Hc), '-')
 plt.plot(x, Vc, '.')
 ```
 
-```{code-cell}
+```{code-cell} ipython3
 
 ```
 
-```{code-cell}
+```{code-cell} ipython3
 n = abs(psi_0**2)
 n = s.get_density(psi_0)
 
@@ -905,14 +905,14 @@ n = s.get_density(psi_0)
 s.metric
 ```
 
-```{code-cell}
+```{code-cell} ipython3
 psi_0 = s.zero + np.exp(-r2/2.0)
 E0, N0 = s.get_E_N(psi_0)
 psi_0 /= np.sqrt(N0)
 s.get_E_N(psi_0)
 ```
 
-```{code-cell}
+```{code-cell} ipython3
 s0 = StateBase(Nxyz=(128,), beta_0=-1j)
 s0.g = 0
 r2 = sum(_x**2 for _x in s0.xyz)
@@ -947,7 +947,7 @@ plt.ylabel('abs((E-E0)/E0)');
 
 This demonstrates that for a bright soliton, imaginary time cooling cools at the same rate, independent of the box size.
 
-```{code-cell}
+```{code-cell} ipython3
 %pylab inline --no-import-all
 from mmf_setup.set_path import hgroot
 from super_hydro.contexts import NoInterrupt
@@ -990,7 +990,7 @@ plt.ylabel('abs((E-E0)/E0)');
 
 This demonstrates that the cooling is also independent of the lattice spacing.
 
-```{code-cell}
+```{code-cell} ipython3
 from mmf_setup.set_path import hgroot
 from super_hydro.contexts import NoInterrupt
 from IPython.display import clear_output
@@ -1025,7 +1025,7 @@ plt.xlabel('t')
 plt.ylabel('E-E0');
 ```
 
-```{code-cell}
+```{code-cell} ipython3
 np.random.seed(2)
 psi = s.unpack(np.random.random(2*np.prod(s.Nxyz)) - 0.5)
 Vc = s.get_Vc(psi)
@@ -1036,7 +1036,7 @@ Hc_k = np.fft.ifft(np.fft.fft(Hc, axis=0), axis=1)
 np.diag(Hc_k).real - Kc
 ```
 
-```{code-cell}
+```{code-cell} ipython3
 reload(quantum_friction)
 from quantum_friction import StateBase
 s = StateBase(Nxyz=(32, 32), beta_0=-1.0j, beta_V=0.0, beta_K=0.0)
@@ -1049,7 +1049,7 @@ ts, psis = s.solve(psi0, T=1.0, rtol=1e-5, atol=1e-6)
 display(s.plot(psis[-1]));
 ```
 
-```{code-cell}
+```{code-cell} ipython3
 NoInterrupt.unregister()
 with NoInterrupt() as interrupted:
     for t, psi in zip(ts, psis):
@@ -1061,7 +1061,7 @@ with NoInterrupt() as interrupted:
         clear_output(wait=True)
 ```
 
-```{code-cell}
+```{code-cell} ipython3
     def step(self, psi, n=1):
         """Evolve the state psi by applying n steps of the 
         Split-Operator method."""
@@ -1153,7 +1153,7 @@ with NoInterrupt() as interrupted:
     
 ```
 
-```{code-cell}
+```{code-cell} ipython3
 %pylab inline --no-import-all
 import numpy as np
 class CoolingEg(object):
@@ -1304,7 +1304,7 @@ class CoolingEg(object):
     
 ```
 
-```{code-cell}
+```{code-cell} ipython3
 args = dict(N=4)
 egs = [CoolingEg(beta_0=-1j, beta_V=0.0, beta_K=0.0, **args),
        CoolingEg(beta_0=0.0, beta_V=0.0, beta_K=1.0, **args),
@@ -1336,7 +1336,7 @@ for _n in range(Ndata):
 Es = np.asarray(Es)
 ```
 
-```{code-cell}
+```{code-cell} ipython3
 Hc = eg.get_Hc(psi0)
 H = eg.get_H(psi0)
 mu = (psi0.conj()*H.dot(psi0)).sum()/(abs(psi0)**2).sum()
@@ -1345,11 +1345,11 @@ dpsic = Hc.dot(psi0)
 dpsi, dpsic
 ```
 
-```{code-cell}
+```{code-cell} ipython3
 eg.get_Vc(psi0), np.diag(Hc)
 ```
 
-```{code-cell}
+```{code-cell} ipython3
 _n = 0
 plt.semilogy(ts, Es[1], c='C0', ls=':', label=labels[1])
 plt.semilogy(ts, Es[2], c='C0', ls='-', label=labels[2])
@@ -1365,15 +1365,15 @@ plt.legend()
 plt.savefig("Cooling.pdf")
 ```
 
-```{code-cell}
+```{code-cell} ipython3
 np.diag(eg.get_H(psi0)).round(2), eg.get_Vc(psi0)
 ```
 
-```{code-cell}
+```{code-cell} ipython3
 %debug
 ```
 
-```{code-cell}
+```{code-cell} ipython3
 I = np.eye(eg.N)
 U = np.fft.fft(I, axis=0)
 H1 = eg._K2[:, None]*U
@@ -1383,7 +1383,7 @@ assert np.allclose(H1.dot(psi0), eg._K2*np.fft.fft(psi0))
 assert np.allclose(H.dot(psi0), np.fft.ifft(eg._K2*np.fft.fft(psi0)))
 ```
 
-```{code-cell}
+```{code-cell} ipython3
 _n = 0
 plt.semilogy(ts, Es[1], c='C0', ls=':', label=labels[1])
 plt.semilogy(ts, Es[2], c='C0', ls='-', label=labels[2])
@@ -1399,7 +1399,7 @@ plt.legend()
 plt.savefig("Cooling.pdf")
 ```
 
-```{code-cell}
+```{code-cell} ipython3
 # Animation, but does not work on CoLab yet.
 from mmf_setup.set_path import hgroot
 from super_hydro.contexts import NoInterrupt
@@ -1437,7 +1437,7 @@ $$
 
 as before.
 
-```{code-cell}
+```{code-cell} ipython3
 class CoolingBoundary(CoolingEg):
     def __init__(self, **kw):
         super().__init__(**kw)
@@ -1453,7 +1453,7 @@ $$
   \hbar\dot{n} = \I \psi^\dagger(x)\braket{x|\op{K}|\psi} + \text{h.c.}
 $$
 
-```{code-cell}
+```{code-cell} ipython3
 eg = CoolingBoundary(beta_V=10.0, dt_Emax=0.1)
 psi = 0*eg.x + 1 + 1.0*np.exp(-eg.x**2/2)
 NoInterrupt.unregister()
@@ -1471,6 +1471,6 @@ $$
          + \int V_+(y+x)V_-(y-x)\psi_k(x)\d{x}
 $$
 
-```{code-cell}
+```{code-cell} ipython3
 
 ```
