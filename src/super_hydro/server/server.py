@@ -262,7 +262,7 @@ class Computation(ThreadMixin):
     def do_reset(self):
         opts = self.opts
         self.model = opts.Model(opts=opts)
-        print(self.model.__dict__)
+        # print(self.model.__dict__)
         self.do_reset_tracers()
 
     def unknown_command(self, msg, *v):

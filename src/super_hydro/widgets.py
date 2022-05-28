@@ -5,6 +5,7 @@ use to associate the widget with appropriate parameters in the client.
 """
 import traitlets
 import ipywidgets
+
 from .clients.canvas_widget import Canvas
 
 __all__ = [

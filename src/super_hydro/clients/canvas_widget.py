@@ -60,7 +60,13 @@ class Canvas(DOMWidget):
 
         # Until we properly install this, display the javascript to
         # load the widget in the notebook.
-        display_js()
+        self.on_displayed(self._display_js_callback)
+
+    def _display_js_callback(self, widget, **kwargs):
+        from IPython.display import Javascript, display
+
+        with open(_JS_FILE) as f:
+            display(Javascript(f.read()))
 
     @property
     def rgba(self):
@@ -113,10 +119,3 @@ class Canvas(DOMWidget):
     def _handle_update_request(self, canvas, content, buffers):
         if content.get("request", "") == "update":
             self.update()
-
-
-def display_js():
-    from IPython.display import Javascript, display
-
-    with open(_JS_FILE) as f:
-        display(Javascript(f.read()))
