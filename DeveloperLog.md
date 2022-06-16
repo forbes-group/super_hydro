@@ -6,6 +6,9 @@ To Do:
       `module.rst`.
 * [ ] Another interface for tracer particles with `Lxy` and `xy`?
 
+12 June 2022
+============
+
 27 May 2022
 ===========
 * Offline environment fails even though required packages are installed.  Check: `make
@@ -43,6 +46,13 @@ To Do:
   3. Add `make offline` which creates all environments for offline work.
 
 * `import flask` fails with `ImportError: cannot import name 'escape' from 'jinja2')
+
+**Tracer Particle Enhancements**
+* We can get the velocity for a 1024^2 grid while keeping 500fps, so we should ether
+  compute the tracer-particles completely on the server, or just get $\psi$ and don't
+  slow the server down at all.
+* It looks like in the current code, it is the computation of the tracers (server) that
+  is slowing things down...  Also suggests doing this on the client.
 
 2 May 2022
 ==========

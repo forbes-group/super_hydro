@@ -13,29 +13,390 @@ kernelspec:
   name: super_hydro
 ---
 
-# Performance
+```{code-cell} ipython3
+import mmf_setup;mmf_setup.nbinit(quiet=True)
+%load_ext autoreload
+```
 
-Here we explore the performance of some aspects of the code.  We have the following goals:
-
-* Reasonable display performance (goal of 20fps) at 1280×720 (720p HD) resolution.  (Currently, the code cannot perform computations 
-
-## Current Summary
-
-Currently, using IPyWidgets with an appropriate Image widget is fast enough for
-interactive displaying, but there are some issues:
-
-**Issues**
-* Decent performance can be realized with the JPEG format, but this does not support
-  alpha channels like PNG.  PNG is significantly slower.
-* The Image widget is [currently broken on
-  CoLaboratory](https://github.com/googlecolab/colabtools/issues/587).
-* There is no way to click or drag on the Image widget, so we are stuck with sliders
-  etc.
-
-**Options**
-* [Jupyter Canvas Widget](https://github.com/Who8MyLunch/Jupyter_Canvas_Widget)
+# Tracer Particles
 
 +++
+
+Although dynamical simulations allow one to see some aspects of the fluid flow, there are many cases where the velocity of fluid is not clearly depicted.  A single vortex is a good example where there is persistent flow, but the density is constant in time.
+
+Here we demonstrate a technique for visualizing flow by placing a bunch of "tracer particles" in the system and following their motion.  These particles respond to the local flow velocity $\vect{v}$ which can be deduced from the particle number current $\vect{j} = n\vect{v}$:
+
+\begin{gather*}
+  \vect{j}(\vect{x}, t)
+  = \frac{n(\vect{x}, t)\vect{p}(\vect{x}, t)}{m} 
+  = \psi^\dagger(\vect{x}, t)
+     \frac{-\I\hbar\vect{\nabla}}{2m}
+     \psi(\vect{x}, t)
+     + \text{h.c.}
+  = \Im\left(
+    \psi^\dagger(\vect{x}, t)
+     \frac{\hbar\vect{\nabla}}{m}
+     \psi(\vect{x}, t)
+   \right)
+\end{gather*}
+
+where $\text{h.c.}$ is the complex conjugate of the first term which effectively pulls out the imaginary part $\Im$ of the gadient.
+
+Using the Madelung transformation, it becomes clear that the velocity is related to the gradient of the phase:
+
+\begin{align*}
+  \psi(\vect{x}, t) &= \sqrt{n(\vect{x}, t)}e^{\I\phi(\vect{x}, t)},\\
+  \vect{\nabla}\psi(\vect{x}, t) 
+  &= e^{\I\phi(\vect{x}, t)}\Bigl(
+    \vect{\nabla}\sqrt{n(\vect{x}, t)}
+  + \sqrt{n(\vect{x}, t)}\I\vect{\nabla}\phi(\vect{x}, t)
+  \Bigr)\\
+  \psi^\dagger(\vect{x}, t)\vect{\nabla}\psi(\vect{x}, t) 
+  &= \sqrt{n(\vect{x}, t)}
+    \vect{\nabla}\sqrt{n(\vect{x}, t)}
+  + n(\vect{x}, t)\I\vect{\nabla}\phi(\vect{x}, t)\\
+  \Im\Bigl(\psi^\dagger(\vect{x}, t)\vect{\nabla}\psi(\vect{x}, t) \Bigr)
+  & = n(\vect{x}, t)\vect{\nabla}\phi(\vect{x}, t) = \frac{m}{\hbar}\vect{j}(\vect{x}, t)\\
+  \vect{v} = \frac{\vect{j}(\vect{x}, t)}{n(\vect{x}, t)} 
+  &= \frac{\hbar}{m}\vect{\nabla}\phi(\vect{x}, t).
+\end{align*}
+
++++
+
+To evolve the tracer particles, however, we need to know the velocity at a few arbitrary points, not everywhere on the lattice.
+
++++
+
+$$
+ f(x, y) = \sum_{k_x, k_y} e^{\I (k_x x + k_y y)}\tilde{f}_{k_x, k_y}\\
+ f(x, y) = \sum_{k_x, k_y} e^{\I k_x x}e^{\I k_y y}\tilde{f}_{k_x, k_y}
+$$
+
+```{code-cell} ipython3
+%matplotlib inline
+%autoreload
+from mmfutils.plot import imcontourf
+import numpy as np, matplotlib.pyplot as plt
+from super_hydro.physics.testing import HO
+
+%autoreload
+import super_hydro.physics.tracer_particles
+from super_hydro.physics.tracer_particles import TracerParticlesBase
+import warnings
+
+warnings.simplefilter("error", np.VisibleDeprecationWarning)
+
+ho = HO()
+x, y = ho.xy
+kx, ky = ho.kxy
+
+tp = TracerParticlesBase(xy=(x, y), N=500)
+psi = ho.get_psi(t=0)
+n, v = tp.get_n_v(psi=psi, kxy=(kx, ky), hbar_m=ho.hbar / ho.m)
+ixys, zs, vs = tp.init(n=n, v=v)
+zvs = np.vstack([zs, zs + 0.2 * vs / abs(vs)])
+
+fig, axs = plt.subplots(1, 2, figsize=(15, 5), gridspec_kw=dict(width_ratios=[1, 1.25]))
+plt.sca(axs[0])
+imcontourf(x, y, n, aspect=1)
+plt.plot(zs.real, zs.imag, ".k", alpha=0.2)
+plt.plot(zvs.real, zvs.imag, "-k", alpha=0.2)
+plt.sca(axs[1])
+imcontourf(x, y, abs(v), vmax=11, aspect=1)
+plt.colorbar()
+# for z, v in zip(zs, vs):
+#    plt.arrow(z.real, z.imag, 10*v.real, 10*v.imag)
+```
+
+## Optimization Case Study
+
++++
+
+To update the tracer particles, we need to compute their velocity from the wavefunction $\psi(x, y)$ using the previous formula.  Timing our `get_n_v()` routine, however, shows that it is far too slow (at least at 720p resolutions) to obtain decent frame-rates:
+
+```{code-cell} ipython3
+from super_hydro.contexts import FPS
+args = dict(kxy=(kx, ky), hbar_m=ho.hbar / ho.m)
+with FPS(frames=5) as fps:
+    for frame in fps:
+        psi = ho.get_psi(t=frame)
+        %time n, v = tp.get_n_v(psi=psi, **args)
+print(f"{fps=}")
+```
+
+While the FFT is very efficient, the whole operation is quite slow becuase we are computing the velocity at every point on the lattice.  The situation is even worse, because, we still need to interpolate these velocities to the location of the tracer particle, which may not be on lattice sites once they evolve.
+
+Can we do better?  We might be able to optimize using the PyFFTW:
+
+```{code-cell} ipython3
+from mmfutils.performance import fft
+args['fft'] = fft.get_fftn_pyfftw(psi)
+args['ifft'] = fft.get_ifftn_pyfftw(psi)
+with FPS(frames=5) as fps:
+    for frame in fps:
+        psi = ho.get_psi(t=frame)
+        %time n, v = tp.get_n_v(psi=psi, **args)
+print(f"{fps=}")
+```
+
+Still not sufficient.  Thinking a bit, however, since we actually only need the velocity at $N_z$ distinct locations where we have the $N_z$ tracer particles. Instead of doing the full FFT, we can simply evaluate the wavefunction in the Fourier basis.  For example, consider the wavefunction:
+
+$$
+  \psi(x, y) = \sum_{k_x,k_y} \underbrace{\overbrace{\frac{e^{\I (x+x_0) k_x}}{N_x}}^{Q_x}\overbrace{\frac{e^{\I (y+y_0) k_y}}{N_y}}^{Q_y}}_{Q}\tilde{\psi}_{k_x, k_y}
+  \propto \sum_{\vect{k}} e^{\I (x k_x + y k_y)}\tilde{\psi}_{\vect{k}}.
+$$
+
+(The first form includes normalization and phase factors in the numerical version of the inverse FFT implemented in NumPy and PyFFTW.)
+
+*Note: We store the tracer particle positions in an array `zs` of complex numbers $z = x+\I y$ for each tracer particle.  Hence our notation that we have $N_z$ tracers.*  
+
+```{code-cell} ipython3
+t = 0
+ix, iy = 1+ho.Nxy[0]//2, 2+ho.Nxy[1]//2
+x_, y_ = map(np.ravel, ho.xy)
+kx_, ky_ = map(np.ravel, ho.kxy)
+zs_ = np.ravel([x_[ix] + 1j*y_[iy]])
+psi = ho.get_psi(t=t)
+x0, y0 = x_[0], y_[0]
+psi_t = np.fft.fftn(psi)
+
+# Shape = (nz, nx, ny)
+zs_ = zs_[:, None, None]
+kx_ = kx_[None, :, None]
+ky_ = ky_[None, None, :]
+Qx_ = np.exp(1j*kx_ * (zs_.real + x_[0])) / ho.Nxy[0]
+Qy_ = np.exp(1j * ky_ * (zs_.imag + y_[0])) / ho.Nxy[1]
+Q_ = Qx_*Qy_
+
+%time psi_ = np.einsum("zxy,xy->z", Q_, psi_t)
+assert np.allclose(psi_, psi[ix, iy])
+Q_.shape
+```
+
+Great!  This is fairly fast, and works.  However, if you try it with a list of $N_z=500$ tracer particles... your computer may crash.  That is because the intermediate array `Q_` has shape $(N_z, N_x, N_y)$ which, for 720p video resolutions, is 6.87GB per array.
+
+```{code-cell} ipython3
+"{:.2f}GB".format(
+    (500 * 1280 * 720)  # Total array size
+    * 16  # Bytes per complex number
+    / 1024 ** 3  # Convert to GB
+)
+```
+
+The solution is to first use $Q_y$, then use $Q_x$.  This allows us to keep the intermediate sizes down:
+
+```{code-cell} ipython3
+zs_ = np.ravel(zs)[:, None]
+kx_ = kx_.ravel()[None, :] # Qx.shape = (Nz, Nx)
+ky_ = ky_.ravel()[None, :] # Qy.shape = (Nz, Ny)
+
+Qx = np.exp(1j * kx_ * (zs_.real + x_[0])) / ho.Nxy[0]
+Qy = np.exp(1j * ky_ * (zs_.imag + y_[0])) / ho.Nxy[1]
+
+tmp_ = np.einsum("zx,xy->zy", Qx, psi_t)
+# This is just tmp_ = Qx.dot(psi_t) = Qx @ psi_t
+psi_ = np.einsum("zy,zy->z", Qy, tmp_)
+# This is Qy * tmp_ summed over the last axis
+
+def ifft(yt):
+    return (Qy * (Qx @ psi_t)).sum(axis=-1)
+
+%time ifft(psi_t)
+assert np.allclose(psi_, ifft(psi_t))
+```
+
+We have implemented this in our code.  After included the current calculations, things get slow again, but we can speed this to get acceptable frame-rates by downsampling (skipping points):
+
+```{code-cell} ipython3
+vs_ = tp.get_vs(zs, psi, xy=ho.xy)
+assert np.allclose(vs_, vs, atol=1e-4)  # Not exact because of n_max regularization
+vs_ = tp.get_vs(zs, psi, xy=ho.xy, skip=2)
+assert np.allclose(vs_, vs, atol=1e-3)  # Not exact because of skipping
+vs_ = tp.get_vs(zs, psi, xy=ho.xy, skip=4)
+assert np.allclose(vs_, vs, atol=1e-3)  # Not exact because of skipping
+```
+
+```{code-cell} ipython3
+%timeit tp.get_n_v(psi, kxy=ho.kxy)
+%timeit tp.get_vs(zs, psi, xy=ho.xy)
+%timeit tp.get_vs(zs, psi, xy=ho.xy, skip=2)
+%timeit tp.get_vs(zs, psi, xy=ho.xy, skip=4)
+```
+
+```{code-cell} ipython3
+def f1(psi):
+    psi_x = np.fft.fft(psi, axis=0)
+    psi_y = np.fft.fft(psi, axis=1)    
+    psi_xy = np.fft.fftn(psi)
+    return psi_x, psi_y, psi_xy
+
+def f2(psi):
+    psi_x = np.fft.fft(psi, axis=0)
+    psi_y = np.fft.fft(psi, axis=1)
+    psi_xy = np.fft.fft(psi_x, axis=1)
+    return psi_x, psi_y, psi_xy
+
+def f3(psi):
+    psi_x = np.fft.fft(psi, axis=0)
+    psi_y = np.fft.fft(psi, axis=1)
+    psi_xy = np.fft.fft(psi_y, axis=0)
+    return psi_x, psi_y, psi_xy
+
+assert np.allclose(f1(psi), f2(psi))
+assert np.allclose(f1(psi), f3(psi))
+%timeit f1(psi)
+%timeit f2(psi)
+%timeit f3(psi)
+```
+
+Here we build a custom output with a label in which to display the frames-per-second (fps) and our custom HTML5 canvas widget.
+
+```{code-cell} ipython3
+from super_hydro.clients import canvas_widget
+from super_hydro.contexts import FPS
+from ipywidgets import Label, VBox
+from matplotlib import cm
+
+Nxy = (1280, 720)  # 720p resolution
+#canvas_widget.display_js()   # Load javascript
+canvas = canvas_widget.Canvas()
+canvas.width = 500
+canvas.height = 0
+canvas.tracer_size = "1"
+proxy = 1
+
+canvas.fg_object = {
+    "tracer": [["tracer", 1280, 720, 20, "red", 0.5, 0, 0],
+    ["tracer", 400, 50, 300, "green", 0.5, -1, 1]]
+}
+
+proxy_2 = canvas.fg_object
+
+msg = Label()
+display(VBox([canvas, msg]))
+
+def n_to_rgba(n):
+    """Convert the density n to RGBA data"""
+    return cm.viridis(n.T, bytes=True)
+
+ho = HO()
+tp = TracerParticlesBase(xy=ho.xy, N=500)
+n_max = (abs(ho.get_psi(t=0))**2).max()
+
+with FPS(timeout=5, frames=200) as fps:
+    for frame in fps:
+        t = 0.1*frame
+        psi = ho.get_psi(t=t)
+        #n, v = tp.get_n_v(psi=psi, kxy=ho.kxy, hbar_m=ho.hbar / ho.m)
+        n = abs(psi)**2
+        canvas.rgba = n_to_rgba(n/n_max)
+        #proxy_2["tracer"][0][1] -= 10
+        #proxy_2["tracer"][1][7] += 0.01
+        #canvas.fg_object = proxy_2
+        #proxy += 1
+        #canvas.tracer_size = str(proxy)
+        msg.value = f"{fps=}"
+```
+
+```{code-cell} ipython3
+N = 10
+dx = 0.2
+k = np.fft.fftfreq(N, dx)
+k[1], 1/N/dx
+```
+
+For a single vortex at the origin, $\phi = \theta = \tan^{-1}(y/x)$ is the angle, so $\vect{\nabla}\phi = \uvect{\theta}/r = (y/r^2, -x/r^2)$.  Thus, if vortices are separated by distance $d$, the whole lattice should rotate at roughly
+
+\begin{gather*}
+  \omega = \frac{2\pi \hbar }{m d}.
+\end{gather*}
+
+Here we implement a "fake" vortex lattice using these ideas to test the tracer-particle code.
+
+```{code-cell} ipython3
+%matplotlib inline
+%autoreload
+from mmfutils.plot import imcontourf
+import numpy as np, matplotlib.pyplot as plt
+from super_hydro.physics.gpe_utils import get_vortex_factor
+
+hbar = m = 1.0
+healing_length = 1.0
+n0 = 1.0  # Background density
+Lx = 50.0  # Box length
+R = 0.8 * Lx / 2  # Radius of trap
+vortex_sep = 0.5 * R
+
+# Estimate angular velocity of the vortex lattice
+w = 2 * np.pi * hbar / m / vortex_sep
+
+Nx = 256*2  # Number of points along x
+dx = Lx / Nx
+
+# Make grid
+Nxy = (Nx,) * 2
+x, y = np.meshgrid(
+    *[(np.arange(_N) - _N / 2) * dx for _N in Nxy], sparse=True, indexing="ij"
+)
+kx, ky = np.meshgrid(
+    *[2 * np.pi * np.fft.fftfreq(_N, dx) for _N in Nxy], sparse=True, indexing="ij"
+)
+
+z = x + 1j * y
+r = abs(z)
+
+# Location of vortices at time t = 0
+z0s = np.concatenate([[0j], vortex_sep * np.exp(2j * np.pi / 6 * np.arange(6))])
+
+
+def get_psi(t=0, z=z, w=1.0):
+    """Return a sample wavefunction for a rotating vortex lattice."""
+    n = n0 * np.exp(-((r / R) ** 40))
+
+    # Two time-dependent factors.  First, rotate the vortex cores.
+    z0s_ = np.exp(-1j * w * t) * z0s
+
+    return n * np.prod([get_vortex_factor(z - z0) for z0 in z0s_], axis=0)
+```
+
+```{code-cell} ipython3
+%autoreload
+import super_hydro.physics.tracer_particles
+from super_hydro.physics.tracer_particles import TracerParticlesBase
+tp = TracerParticlesBase(xy=(x, y), N=500)
+psi = get_psi()
+n, v = tp.get_n_v(psi=psi, kxy=(kx, ky), hbar_m=hbar/m)
+zs, vs = tp.init(n=n, v=v)
+zvs = np.vstack([zs, zs+vs/abs(vs)])
+
+fig, axs = plt.subplots(1, 2, figsize=(10,5))
+plt.sca(axs[0])
+imcontourf(x, y, n, aspect=1)
+plt.plot(zs.real, zs.imag, '.k')
+plt.plot(zvs.real, zvs.imag, '-k');
+plt.sca(axs[1])
+imcontourf(x, y, abs(v), vmax=1, aspect=1)
+plt.colorbar()
+#for z, v in zip(zs, vs):
+#    plt.arrow(z.real, z.imag, 10*v.real, 10*v.imag)
+```
+
+```{code-cell} ipython3
+from IPython.display import display, clear_output
+from mmfutils.contexts import NoInterrupt
+
+fig, ax = plt.subplots()
+NoInterrupt.unregister()
+with NoInterrupt() as interrupted:
+    for t in np.linspace(0, 100):
+        if interrupted:
+            break
+        psi = get_psi(t=t)
+        ax.cla()
+        imcontourf(x, y, abs(psi) ** 2, aspect=1)
+        display(fig)
+        clear_output(wait=True)
+```
 
 # Computation
 
@@ -84,6 +445,12 @@ Nxy=(64, 64)      # 535fps
 1.87 ms ± 37 µs per loop (mean ± std. dev. of 7 runs, 1,000 loops each)
 Nxy=(32, 32)     # 1297fps
 771 µs ± 21.4 µs per loop (mean ± std. dev. of 7 runs, 1,000 loops each)
+```
+
+```{code-cell} ipython3
+print(np.divide(1000, [1100., 59.5, 14.9, 4.31, 1.46]).round(0).astype(int))
+print(np.divide(1000, [606., 39.4, 8.67, 2.06, 0.602]).round(0).astype(int))
+print(np.divide(1000, [364., 23.9, 6.57, 1.87, 0.771]).round(0).astype(int))
 ```
 
 ```{code-cell} ipython3
@@ -154,75 +521,50 @@ import time
 from PIL import Image
 import numpy as np
 from matplotlib import cm
-from super_hydro.physics.testing import HO
-
 Nxy = (1280, 720)  # 720p resolution
 #Nxy = (512, 512)
-coeffs = (
-    # ((1, 0), 1),
-    ((0, 1), 1j),
-    ((2, 0), 1),
-    ((1, 1), -1j),
-    # ((0, 2), 2j),
-)
-
 
 def get_data(t=None, Nxy=Nxy, t_=[0.0], dt=0.1):
     Nx, Ny = Nxy
     if t is None:
         t_[0] += dt
         t = t_[0]
-    x = np.linspace(-2, 2, Nx)[:, None]
-    y = np.linspace(-2, 2, Ny)[None, :]
-    n = np.exp(
-        -(x ** 2) - np.cos(np.log(1 + t) * x) ** 2 * (y ** 2 - np.sin(3 * t) * x) ** 2
-    )
+    x = np.linspace(-2,2,Nx)[:, None]
+    y = np.linspace(-2,2,Ny)[None, :]
+    n = np.exp(-x**2 - np.cos(np.log(1+t)*x)**2*(y**2 - np.sin(3*t)*x)**2)
     return n
-    # data = cm.viridis(n, bytes=True)
-    # psi = np.random.random(Nxy + (2,)).view(dtype=complex).reshape(Nxy)-0.5-0.5j
-    # n = abs(psi)**2
-    return n / n.max()
-
-
-def get_data(t=None, ho=HO(Nxy=Nxy, coeffs=coeffs), t_=[0.0], dt=0.1):
-    if t is None:
-        t_[0] += dt
-        t = t_[0]
-    psi = ho.get_psi(t=t)
-    n = abs(psi) ** 2
-    return n / n.max()
-
+    #data = cm.viridis(n, bytes=True)
+    #psi = np.random.random(Nxy + (2,)).view(dtype=complex).reshape(Nxy)-0.5-0.5j
+    #n = abs(psi)**2
+    return n/n.max()
 
 def data_to_rgba(data):
     """Convert the data to RGBA data"""
     return cm.viridis(data.T, bytes=True)
-
 
 def rgba_to_png(rgba, size=None):
     b = io.BytesIO()
     img = Image.fromarray(rgba)
     if size is not None:
         img = img.resize(size)
-    img.save(b, "PNG")
+    img.save(b, 'PNG')
     return b.getvalue()
-
-
+    
 def rgba_to_jpeg(rgba, size=None):
     """JPEG formatter, but discards alpha"""
     b = io.BytesIO()
     img = Image.fromarray(rgba[..., :3])
     if size is not None:
         img = img.resize(size)
-    img.save(b, "JPEG")
+    img.save(b, 'JPEG')
     return b.getvalue()
-
 
 def fps(f, N=10):
     tic = time.time()
     for n in range(N):
         f()
     toc = time.time()
-    fps = N / (toc - tic)
+    fps = N/(toc-tic)
     print(f"{fps:.1f}fps")
     return fps
 ```
@@ -253,8 +595,8 @@ import ipywidgets as widgets
 from ipywidgets import Label, VBox, IntSlider
 from importlib import reload
 from super_hydro.clients import canvas_widget;reload(canvas_widget)
-from super_hydro.contexts import NoInterrupt, FPS
-#canvas_widget.display_js()   # Load javascript
+from super_hydro.contexts import NoInterrupt
+canvas_widget.display_js()   # Load javascript
 canvas = canvas_widget.Canvas()
 canvas.width = 500
 canvas.height = 0
@@ -271,67 +613,27 @@ proxy_2 = canvas.fg_object
 msg = Label()
 display(VBox([canvas, msg]))
 
-with FPS(timeout=5, frames=200) as fps:
-    for frame in fps:
+NoInterrupt.unregister()   # Needed for notebooks which muck with signals
+with NoInterrupt() as interrupted:
+    tic = time.time()
+    toc = 0
+    frame = 0
+    while frame < 200 and not interrupted:
         canvas.rgba = data_to_rgba(get_data())
+        toc = time.time()
+        frame += 1
         proxy_2["tracer"][0][1] -= 10
         proxy_2["tracer"][1][7] += 0.01
         canvas.fg_object = proxy_2
         proxy += 1
         canvas.tracer_size = str(proxy)
-        msg.value = f"{fps=}"
-```
-
-```{code-cell} ipython3
-import super_hydro.physics.testing;reload(super_hydro.physics.testing)
-from super_hydro.physics.testing import HO
-ho = HO(Lx=10.0)
-E, psi = ho.get_eigenstate(10,1)
-
-n = abs(psi)**2
-n.sum()*np.prod(ho.Lxy)/np.prod(ho.Nxy)
-```
-
-```{code-cell} ipython3
-import mmf_setup.set_path.hgroot
-import ipywidgets as widgets
-from ipywidgets import Label, VBox, IntSlider
-from importlib import reload
-from super_hydro.clients import canvas_widget;reload(canvas_widget)
-import super_hydro.contexts; reload(super_hydro.contexts)
-from super_hydro.contexts import NoInterrupt, FPS
-#canvas_widget.display_js()   # Load javascript
-canvas = canvas_widget.Canvas()
-canvas.width = 500
-canvas.height = 0
-canvas.tracer_size = "1"
-proxy = 1
-
-canvas.fg_object = {
-    "tracer": [["tracer", 1280, 720, 20, "red", 0.5, 0, 0],
-    ["tracer", 400, 50, 300, "green", 0.5, -1, 1]]
-}
-
-proxy_2 = canvas.fg_object
-
-msg = Label()
-display(VBox([canvas, msg]))
-
-with FPS(timeout=5, frames=200) as fps:
-    while fps:
-        canvas.rgba = data_to_rgba(get_data())
-        fps.frame += 1
-        proxy_2["tracer"][0][1] -= 10
-        proxy_2["tracer"][1][7] += 0.01
-        canvas.fg_object = proxy_2
-        proxy += 1
-        canvas.tracer_size = str(proxy)
-        msg.value = f"{fps=}"
+        msg.value = f"{frame/(toc-tic):.2f}fps"
+        
 ```
 
 ```{code-cell} ipython3
 from super_hydro.clients import canvas_widget;reload(canvas_widget)
-#canvas_widget.display_js()   # Load javascript
+canvas_widget.display_js()   # Load javascript
 canvas = canvas_widget.Canvas()
 canvas.rgba = data_to_rgba(get_data())
 display(canvas)
@@ -345,14 +647,12 @@ print(canvas.fg_object["tracer"][0][6])
 
 * https://github.com/martinRenou/ipycanvas/
 
-[Alpha fails](https://github.com/martinRenou/ipycanvas/issues/277)
-
 ```{code-cell} ipython3
 import mmf_setup.set_path.hgroot
 import ipywidgets as widgets
 from ipywidgets import Label, VBox, IntSlider
 from ipycanvas import Canvas, hold_canvas
-from super_hydro.contexts import FPS
+from super_hydro.contexts import NoInterrupt
 
 _data0 = get_data()
 canvas = Canvas(width=_data0.shape[0], height=_data0.shape[1])
@@ -361,13 +661,17 @@ canvas.layout.height = 'auto'
 msg = Label()
 display(VBox([canvas, msg]))
 
-with FPS(frames=200, timeout=5) as fps:
-    while fps:
+NoInterrupt.unregister()   # Needed for notebooks which muck with signals
+with NoInterrupt() as interrupted:
+    tic = time.time()
+    toc = 0
+    frame = 0
+    while frame < 200 and not interrupted:
         with hold_canvas(canvas):
-            canvas.put_image_data(data_to_rgba(get_data())[..., :3], 0, 0)  # Discard alpha
+            canvas.put_image_data(data_to_rgba(get_data()), 0, 0)
         toc = time.time()
-        fps.frame += 1
-        msg.value = f"{fps=}"
+        frame += 1
+        msg.value = f"{frame/(toc-tic):.2f}fps"
 ```
 
 ## Pillow
@@ -386,7 +690,7 @@ with NoInterrupt() as interrupted:
     tic = time.time()
     toc = 0
     frame = 0
-    while frame < 10 and not interrupted and time.time() < tic + 5:
+    while frame < 10 and not interrupted:
         display(Image.fromarray(data_to_rgba(get_data())))
         toc = time.time()
         frame += 1
@@ -470,22 +774,22 @@ frame = 0
 data = get_data()
 with out:
     NoInterrupt.unregister()
-    with NoInterrupt() as interrupted:       
-        while not interrupted and time.time() < tic + 5:
+    with NoInterrupt() as interrupted:        
+        while not interrupted:
             data = data_to_rgba(get_data())
             #img = Image.fromarray(data[..., :3])
             myimg = MyImage(data, fmt='JPEG')#, size=(256,)*2)
+            display(myimg)
             # The Output() widget allows you to print, but it is slightly
             # faster to use a pre-defined Label()
             # print(f"{frame/(toc-tic):.2f}fps")
             msg.value = f"{frame/(toc-tic):.2f}fps"
-            display(myimg)            
-            clear_output(wait=True)
             toc = time.time()
             frame += 1
+            clear_output(wait=True)
 ```
 
-This is a working demonstration with marginal performance characteristics.  Note: it flickers like crazy with Firefox, but works fine with Chrome.
+This is a working demonstration with marginal performance characteristics.
 
 +++
 
@@ -513,7 +817,7 @@ frame = 0
 data = get_data()
 NoInterrupt.unregister()
 with NoInterrupt() as interrupted:        
-     while not interrupted and time.time() < tic + 5:
+     while not interrupted:
         data = data_to_rgba(get_data())
         #img = Image.fromarray(data[..., :3])
         img.value = MyImage(data, fmt='JPEG')._MyImage__repr_jpeg_()[0]
@@ -639,7 +943,7 @@ display(canvas)
 ```{code-cell} ipython3
 import time
 tic = time.time()
-for n in range(100):
+for n in range(10):
     canvas.data = get_data()
 10/(time.time() - tic)
 ```
@@ -653,8 +957,8 @@ from super_hydro.contexts import NoInterrupt
 tic = time.time()
 frames = 0
 NoInterrupt.unregister()
-with NoInterrupt() as interrupted :
-    while not interrupted and time.time() < tic + 5:
+with NoInterrupt() as interrupted:
+    while not interrupted:
         canvas.data = get_data()
         frames += 1
         toc = time.time()
@@ -1108,32 +1412,6 @@ t.start()
 
 ```{code-cell} ipython3
 1+3
-```
-
-# Exact Solution
-
-+++
-
-For testing, we use the following exact solution to the time-dependent Schrödinger equation:
-
-\begin{gather*}
-  V(x, y) = \tfrac{m}{2}\omega_x^2x^2 +\tfrac{m}{2}\omega_y^2y^2\\
-  \psi(x, y) = e^{-\frac{x}{r_x}^2} e^{-\frac{x}{r_x}^2}
-\end{gather*}
-
-```{code-cell} ipython3
-%matplotlib inline
-from IPython.display import display, clear_output
-import numpy as np, matplotlib.pyplot as plt
-from super_hydro.physics.testing import HO
-ho = HO()
-with FPS() as fps:
-    for frame in fps:
-        t = frame
-        plt.imshow(abs(ho.get_psi(t)), aspect=1)
-        
-        display(plt.gcf())
-        clear_output(wait=True)
 ```
 
 ```{code-cell} ipython3

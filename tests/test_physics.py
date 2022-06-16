@@ -9,9 +9,9 @@ from super_hydro.physics import testing
 def test_HO():
     with pytest.raises(ValueError):
         ho = testing.HO(unknown_parameter=6)
-    ho = testing.HO(Nxy=(128, 256))
+    ho = testing.HO(Nxyb=(128, 256))
 
-    metric = np.prod(ho.Lxy) / np.prod(ho.Nxy)
+    metric = np.prod(ho.dxy)
 
     # Check normalization
     for nx in range(4):

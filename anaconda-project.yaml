@@ -103,6 +103,11 @@ dependencies:
 - python=3.9
 - anaconda-project>=0.10.1
 - poetry
+# Do this until the following issues are fixed
+#- conda-forge::pyfftw<0.13.0
+# https://github.com/pyFFTW/pyFFTW/issues/294
+# https://github.com/conda-forge/pyfftw-feedstock/issues/51
+# Seems resolved?
 - conda-forge::pyfftw
 #- conda-forge::pandoc>=2.7.2   # May be needed on rtd?
 
@@ -117,7 +122,7 @@ dependencies:
   # Needed to resolve a pip issue.  Pip sees anaconda-project which appears to depend
   # on the following.  It is installed as ruamel-yaml-conda, but pip expects it in this
   # form.  We install both for now.
-  - ruamel-yaml                
+  - ruamel-yaml              
 #  - .
 #  - hg+file:///Users/mforbes/current/research/super_hydro/super_hydro_hg#super_hydro
   

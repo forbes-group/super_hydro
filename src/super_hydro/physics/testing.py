@@ -4,14 +4,17 @@ Testing
 
 Various models for testing.
 """
+import math
+
+import numpy as np
+
+from scipy.special import hermite, factorial
+
 import matplotlib.font_manager
 import PIL.Image
 import PIL.ImageFont
 import PIL.ImageDraw
 
-import numpy as np
-
-from scipy.special import hermite, factorial
 
 from .. import widgets as w
 from .. import interfaces
@@ -118,7 +121,7 @@ class HO:
 
     hbar = 1
     m = 1
-    Nxy = (1024, 720)
+    Nxy = (1280, 720)
     wx = 1.0
     Lx = 10.0
 
@@ -141,10 +144,16 @@ class HO:
     def init(self):
         self.dx = self.Lx / self.Nxy[0]
         Ly = self.dx * self.Nxy[1]
+        self.dxy = (self.dx, self.dx)
         self.Lxy = (self.Lx, Ly)
         self.ws = (self.wx, (self.Lx / Ly) ** 2)
         self.xy = np.meshgrid(
             *[(np.arange(_N) - _N / 2) * self.dx for _N in self.Nxy],
+            sparse=True,
+            indexing="ij",
+        )
+        self.kxy = np.meshgrid(
+            *[2 * np.pi * np.fft.fftfreq(_N, self.dx) for _N in self.Nxy],
             sparse=True,
             indexing="ij",
         )
@@ -172,14 +181,13 @@ class HO:
         E = self.hbar * sum((_n + 0.5) * _w for _n, _w in zip((nx, ny), self.ws))
         norm = (
             1
-            / np.sqrt(np.pi * np.prod(self.rxy))
-            / np.prod([np.sqrt(2 ** _n * factorial(_n)) for _n in (nx, ny)])
+            / np.sqrt(np.pi * math.prod(self.rxy))
+            / math.prod([np.sqrt(2 ** _n * factorial(_n)) for _n in (nx, ny)])
         )
-        psi = norm * np.prod(
+        psi = norm * math.prod(
             [
                 hermite(_n)(_x / _r) * np.exp(-((_x / _r) ** 2) / 2)
                 for _n, _x, _r in zip((nx, ny), self.xy, self.rxy)
-            ],
-            axis=0,
+            ]
         )
         return E, psi
