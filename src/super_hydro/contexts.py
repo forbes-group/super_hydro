@@ -1,5 +1,6 @@
 """Various useful contexts.
 """
+from contextlib import contextmanager
 import functools
 import os
 import signal
@@ -12,6 +13,7 @@ import warnings
 __all__ = [
     "is_main_thread",
     "NoInterrupt",
+    "FPS",
     "CoroutineWrapper",
     "nointerrupt",
     "coroutine",
@@ -23,7 +25,7 @@ def is_main_thread():
     return threading.current_thread() is threading.main_thread()
 
 
-class NoInterrupt(object):
+class NoInterrupt:
     """Suspend the various signals during the execution block and a
     simple mechanism to allow threads to be interrupted.
 
@@ -247,10 +249,11 @@ class NoInterrupt(object):
     # operation of one of the functions.
     _lock = threading.RLock()
 
-    def __init__(self, ignore=True):
+    def __init__(self, ignore=True, timeout=None):
         with self._lock:
             self.ignore = ignore
             self._active = True
+            self.timeout = timeout
             self.signal_count_at_start = dict(self._signal_count)
 
     @classmethod
@@ -422,6 +425,7 @@ class NoInterrupt(object):
     def __enter__(self):
         """Enter context."""
         with self._lock:
+            self.tic = time.time()
             try:
                 import IPython
 
@@ -481,12 +485,17 @@ class NoInterrupt(object):
     def __bool__(self):
         """Return True if interrupted."""
         with self._lock:
-            return not self._active or any(
-                [
-                    self._signal_count.get(_signum, 0)
-                    > self.signal_count_at_start.get(_signum, 0)
-                    for _signum in self._signals
-                ]
+            timeout = self.timeout and time.time() - self.tic > self.timeout
+            return (
+                not self._active
+                or timeout
+                or any(
+                    [
+                        self._signal_count.get(_signum, 0)
+                        > self.signal_count_at_start.get(_signum, 0)
+                        for _signum in self._signals
+                    ]
+                )
             )
 
     __nonzero__ = __bool__  # For python 2.
@@ -640,3 +649,34 @@ def coroutine(coroutine):
         # primed_coroutine.close()
 
     return wrapper
+
+
+@contextmanager
+def FPS(timeout=5, frames=200):
+    """Context manager to measure framerate."""
+
+    class Frame:
+        def __init__(self, interrupted, frames):
+            self.interrupted = interrupted
+            self.frames = frames
+            self.frame = 0
+
+        def __bool__(self):
+            """True while running"""
+            return not bool(self.interrupted) and self.frame < frames
+
+        @property
+        def fps(self):
+            return self.frame / (time.time() - self.interrupted.tic)
+
+        def __repr__(self):
+            return "{:.2f}".format(self.fps)
+
+        def __iter__(self):
+            while self:
+                yield self.frame
+                self.frame += 1
+
+    NoInterrupt().unregister()
+    with NoInterrupt(timeout=timeout) as interrupted:
+        yield Frame(interrupted=interrupted, frames=frames)
