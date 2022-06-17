@@ -207,10 +207,10 @@ def rgba_to_png(rgba, size=None):
     return b.getvalue()
 
 
-def rgba_to_jpeg(rgba, size=None):
+def rgb_to_jpeg(rgba, size=None):
     """JPEG formatter, but discards alpha"""
     b = io.BytesIO()
-    img = Image.fromarray(rgba[..., :3])
+    img = Image.fromarray(rgba[..., :3], "RGB")
     if size is not None:
         img = img.resize(size)
     img.save(b, "JPEG")
@@ -233,7 +233,7 @@ display(Image.fromarray(data_to_rgba(get_data())))
 print("data: ", end='');fps(lambda: get_data());
 print("rgba: ", end='');fps(lambda: data_to_rgba(get_data()));
 print("png: ", end='');fps(lambda: rgba_to_png(data_to_rgba(get_data())));
-print("jpeg: ", end='');fps(lambda: rgba_to_jpeg(data_to_rgba(get_data())));
+print("jpeg: ", end='');fps(lambda: rgb_to_jpeg(data_to_rgba(get_data())));
 print("Image: ", end='');fps(lambda: Image.fromarray(data_to_rgba(get_data())));
 ```
 

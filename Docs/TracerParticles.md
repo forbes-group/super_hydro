@@ -18,6 +18,12 @@ import mmf_setup;mmf_setup.nbinit(quiet=True)
 %load_ext autoreload
 ```
 
+```{code-cell} ipython3
+%%javascript
+// This removes the scroll bars so that they do not interfere with the output
+IPython.OutputArea.prototype._should_scroll = function(lines) { return false; }
+```
+
 # Tracer Particles
 
 +++
@@ -65,13 +71,6 @@ Using the Madelung transformation, it becomes clear that the velocity is related
 
 To evolve the tracer particles, however, we need to know the velocity at a few arbitrary points, not everywhere on the lattice.
 
-+++
-
-$$
- f(x, y) = \sum_{k_x, k_y} e^{\I (k_x x + k_y y)}\tilde{f}_{k_x, k_y}\\
- f(x, y) = \sum_{k_x, k_y} e^{\I k_x x}e^{\I k_y y}\tilde{f}_{k_x, k_y}
-$$
-
 ```{code-cell} ipython3
 %matplotlib inline
 %autoreload
@@ -93,7 +92,7 @@ kx, ky = ho.kxy
 tp = TracerParticlesBase(xy=(x, y), N=500)
 psi = ho.get_psi(t=0)
 n, v = tp.get_n_v(psi=psi, kxy=(kx, ky), hbar_m=ho.hbar / ho.m)
-ixys, zs, vs = tp.init(n=n, v=v)
+zs, vs = tp.init(n=n, v=v)[:2]
 zvs = np.vstack([zs, zs + 0.2 * vs / abs(vs)])
 
 fig, axs = plt.subplots(1, 2, figsize=(15, 5), gridspec_kw=dict(width_ratios=[1, 1.25]))
@@ -148,7 +147,7 @@ $$
 
 (The first form includes normalization and phase factors in the numerical version of the inverse FFT implemented in NumPy and PyFFTW.)
 
-*Note: We store the tracer particle positions in an array `zs` of complex numbers $z = x+\I y$ for each tracer particle.  Hence our notation that we have $N_z$ tracers.*  
+*Note: We store the tracer particle positions in an array `zs` of complex numbers $z = x+\I y$ for each tracer particle.  Hence our notation that we have $N_z$ tracers.*
 
 ```{code-cell} ipython3
 t = 0
@@ -209,7 +208,7 @@ We have implemented this in our code.  After included the current calculations, 
 
 ```{code-cell} ipython3
 vs_ = tp.get_vs(zs, psi, xy=ho.xy)
-assert np.allclose(vs_, vs, atol=1e-4)  # Not exact because of n_max regularization
+assert np.allclose(vs_, vs, atol=2e-4)  # Not exact because of n_max regularization
 vs_ = tp.get_vs(zs, psi, xy=ho.xy, skip=2)
 assert np.allclose(vs_, vs, atol=1e-3)  # Not exact because of skipping
 vs_ = tp.get_vs(zs, psi, xy=ho.xy, skip=4)
@@ -222,6 +221,8 @@ assert np.allclose(vs_, vs, atol=1e-3)  # Not exact because of skipping
 %timeit tp.get_vs(zs, psi, xy=ho.xy, skip=2)
 %timeit tp.get_vs(zs, psi, xy=ho.xy, skip=4)
 ```
+
+We might be able to save some time by computing partial transforms, but since we need to interpolate, I don't currently see a way to help with this.
 
 ```{code-cell} ipython3
 def f1(psi):
@@ -249,14 +250,196 @@ assert np.allclose(f1(psi), f3(psi))
 %timeit f3(psi)
 ```
 
-Here we build a custom output with a label in which to display the frames-per-second (fps) and our custom HTML5 canvas widget.
+## Demonstration
+
++++
+
+Here we build a custom output with a label in which to display the frames-per-second (fps).
+
+We start with our custom HTML5 canvas widget.
+
+```{code-cell} ipython3
+%matplotlib inline
+import numpy as np, matplotlib.pyplot as plt
+from matplotlib import cm
+from super_hydro.physics.testing import HO
+
+%autoreload
+from super_hydro.physics.tracer_particles import TracerParticlesBase
+
+
+class Simulation:
+    Nxy = (1280, 720)  # 720p resolution
+    Nz = 500  # Number of tracer particles
+    t = 0
+    dt = 0.1
+    seed = 1
+    skip = 8  # Skip factor for getting vs
+
+    def __init__(self, **kw):
+        for _k in kw:
+            if not hasattr(self, _k):
+                raise ValueError(f"Unknown parameter {_k}")
+            setattr(self, _k, kw[_k])
+        self.init()
+
+    def init(self):
+        self.ho = ho = HO(Nxy=self.Nxy)
+        self.psi = ho.get_psi(t=self.t)
+        self.tp = TracerParticlesBase(
+            xy=self.ho.xy,
+            psi=self.psi,
+            N=self.Nz,
+            hbar_m=ho.hbar / ho.m,
+            seed=self.seed,
+            skip=self.skip,
+        )
+        self.n_max = (abs(self.psi) ** 2).max()
+
+    def evolve(self, steps=1):
+        for n in range(steps):
+            self.t += self.dt
+            self.psi = self.ho.get_psi(t=self.t)
+            self.tp.evolve(dt=self.dt, psi=self.psi)
+
+    def n_to_rgba(self, n):
+        """Convert the density n to RGBA data"""
+        # Transpose so we can use faster canvas.indexing = "xy"
+        return cm.viridis(n.T / self.n_max, bytes=True)
+```
 
 ```{code-cell} ipython3
 from super_hydro.clients import canvas_widget
 from super_hydro.contexts import FPS
 from ipywidgets import Label, VBox
-from matplotlib import cm
 
+#canvas_widget.display_js()   # Load javascript
+canvas = canvas_widget.Canvas()
+canvas.width = 500
+canvas.height = 0
+canvas.tracer_size = "1"
+proxy = 1
+
+canvas.fg_object = {
+    "tracer": [["tracer", 1280, 720, 20, "red", 0.5, 0, 0],
+    ["tracer", 400, 50, 300, "green", 0.5, -1, 1]]
+}
+
+proxy_2 = canvas.fg_object
+
+msg = Label()
+display(VBox([canvas, msg]))
+
+
+sim = Simulation()
+
+with FPS(timeout=5, frames=200) as fps:
+    for frame in fps:
+        sim.evolve(1)
+        #n, v = tp.get_n_v(psi=psi, kxy=ho.kxy, hbar_m=ho.hbar / ho.m)
+        n = abs(sim.psi)**2
+        canvas.rgba = sim.n_to_rgba(n)
+        #proxy_2["tracer"][0][1] -= 10
+        #proxy_2["tracer"][1][7] += 0.01
+        #canvas.fg_object = proxy_2
+        #proxy += 1
+        #canvas.tracer_size = str(proxy)
+        msg.value = f"{fps=}"
+```
+
+### ipycanvas
+
++++
+
+Here is the ipycanvas version.
+
+```{code-cell} ipython3
+from super_hydro.contexts import FPS
+from ipywidgets import Label, VBox
+
+import ipywidgets as widgets
+from ipywidgets import Label, VBox, IntSlider
+from ipycanvas import Canvas, hold_canvas
+from super_hydro.contexts import FPS
+
+sim = Simulation(Nxy=(2*256, 2*128), dt=0.02, Nz=500, skip=2)
+canvas = Canvas(width=sim.psi.shape[0], height=sim.psi.shape[1])
+canvas.layout.width = '100%'
+canvas.layout.height = 'auto'
+
+msg = Label()
+display(VBox([canvas, msg]))
+
+with FPS(frames=2000, timeout=200) as fps:
+    for frame in fps:
+        sim.evolve(2)
+        n = abs(sim.psi)**2
+        with hold_canvas(canvas):
+            canvas.put_image_data(sim.n_to_rgba(n)[..., :3], 0, 0)  # Discard alpha
+            ix, iy, vs = sim.tp.inds
+            rect = False
+            if rect:
+                canvas.fill_rects(ix, iy, 1)
+            else:
+                dth = 0.2
+                r0 = 0
+                r1 = 5.0
+                v0 = r1/sim.dt
+                th = np.angle(vs)
+                r = r0 + r1 * np.abs(vs)/v0
+                xi = 10*np.abs(vs)/v0
+                # dth = pi if v = 0
+                # dth = 0.2 if v = infty
+                dth = 0.2/r + (np.pi-0.2/r)/(1+xi**2)
+                canvas.fill_style = "black"
+                canvas.global_alpha = 0.5
+                canvas.fill_arcs(ix, iy, r, th-np.pi-dth, th-np.pi+dth)
+        msg.value = f"{fps=}"
+```
+
+```{code-cell} ipython3
+canvas.global_alpha
+```
+
+```{code-cell} ipython3
+from super_hydro.contexts import FPS
+from ipywidgets import Label, VBox
+
+import ipywidgets as widgets
+from ipywidgets import Label, VBox, IntSlider
+import ipycanvas.canvas
+from ipycanvas import Canvas, hold_canvas
+from super_hydro.contexts import FPS
+
+sim = Simulation()
+psi0 = sim.ho.get_psi(t=0)
+canvas = Canvas(width=psi0.shape[0], height=psi0.shape[1])
+canvas.layout.width = "500px"
+canvas.layout.height = "auto"
+
+msg = Label()
+display(VBox([canvas, msg]))
+
+with FPS(frames=200, timeout=5) as fps:
+    for frame in fps:
+        t = 0.1 * frame
+        psi = sim.ho.get_psi(t=t)
+        n = abs(psi) ** 2
+        rgba_data = sim.n_to_rgba(n)
+        with hold_canvas(canvas):
+            # canvas.put_image_data(sim.n_to_rgba(n)[..., :3], 0, 0)  # Discard alpha
+            x = y = 0
+            #image_buffer = ipycanvas.canvas.binary_image()
+            image_buffer = rgba_data.tobytes()
+            image_buffer = np.swapaxes(rgba_data, 0, 1).tobytes()
+            ipycanvas.canvas._CANVAS_MANAGER.send_draw_command(
+                canvas, ipycanvas.canvas.COMMANDS["putImageData"], [x, y], [image_buffer]
+            )
+        msg.value = f"{fps=}"
+        break
+```
+
+```{code-cell} ipython3
 Nxy = (1280, 720)  # 720p resolution
 #canvas_widget.display_js()   # Load javascript
 canvas = canvas_widget.Canvas()
@@ -296,6 +479,10 @@ with FPS(timeout=5, frames=200) as fps:
         #proxy += 1
         #canvas.tracer_size = str(proxy)
         msg.value = f"{fps=}"
+```
+
+```{code-cell} ipython3
+
 ```
 
 ```{code-cell} ipython3
@@ -366,7 +553,7 @@ from super_hydro.physics.tracer_particles import TracerParticlesBase
 tp = TracerParticlesBase(xy=(x, y), N=500)
 psi = get_psi()
 n, v = tp.get_n_v(psi=psi, kxy=(kx, ky), hbar_m=hbar/m)
-zs, vs = tp.init(n=n, v=v)
+zs, vs = tp.init(n=n, v=v)[:3]
 zvs = np.vstack([zs, zs+vs/abs(vs)])
 
 fig, axs = plt.subplots(1, 2, figsize=(10,5))

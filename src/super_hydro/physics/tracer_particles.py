@@ -8,26 +8,61 @@ import numpy as np
 
 
 class TracerParticlesBase:
-    def __init__(self, xy, N=100):
-        self.xy = xy
-        self.N = N
+    """
 
-    def init(self, n, v, seed=None):
-        """Return lists `(zs, vs)` with positions and velocities of N particles sampling
+    Attributes
+    ----------
+    hbar_m : float
+        Constant `hbar/m`.
+    seed : int
+        Seed for random number generator.
+    skip : int
+        Used to downsample the FFT for speed.
+    eps : float
+        If the density vanishes, then the velocity can diverge.  To prevent this, we
+        use `n + eps*n.max()` as the denominator.
+    """
+
+    def __init__(self, xy, psi, N=100, hbar_m=1.0, eps=1e-4, seed=1, skip=1):
+        self.N = N
+        self.xy = x, y = xy
+        self.z0 = x.ravel()[0] + 1j * y.ravel()[0]
+        self.dxy = tuple(_x.ravel()[1] - _x.ravel()[0] for _x in xy)
+        self.Nxy = tuple(len(_x.ravel()) for _x in xy)
+        self.Lxy = tuple(_d * _N for _d, _N in zip(self.dxy, self.Nxy))
+        self.kxy = np.meshgrid(
+            *[2 * np.pi * np.fft.fftfreq(_N, _d) for _N, _d in zip(self.Nxy, self.dxy)],
+            indexing="ij",
+            sparse=True
+        )
+        self.hbar_m = hbar_m
+        self.seed = seed
+        self.eps = eps
+        self.zs, self.vs = self.get_zs_vs(psi=psi)[:2]
+        self.skip = skip
+
+    def get_zs_vs(self, psi):
+        """Return lists `(zs, vs, ixys)` with positions and velocities of N particles sampling
         the density.
 
         Arguments
         ---------
-        n : array-like
-            Array of densities.
-        v : array-like
-            Complex array of velocities.
-        seed : int
-            Seed for random number generator.
+        psi : complex array
+            Wavefunction
+
+        Returns
+        -------
+        zs : complex array
+            Locations of the tracer particles
+        vs : complex array
+            Velocities of the tracer particles
+        ixys : List((int, int))
+            Indexes of the corresponding particles in the array.
         """
-        rng = np.random.default_rng(seed=seed)
+        rng = np.random.default_rng(seed=self.seed)
         x, y = map(np.ravel, self.xy)
-        Nx, Ny = len(x), len(y)
+        Nx, Ny = self.Nxy
+        n, v = self.get_n_v(psi=psi)
         n_max = n.max()
 
         ixys = []
@@ -41,9 +76,9 @@ class TracerParticlesBase:
                 zs.append(x[ix] + 1j * y[iy])
                 vs.append(v[ix, iy])
         zs, vs = map(np.asarray, [zs, vs])
-        return ixys, zs, vs
+        return zs, vs, ixys
 
-    def get_n_v(self, psi, kxy, hbar_m=1.0, eps=1e-4, fft=None, ifft=None):
+    def get_n_v(self, psi, fft=None, ifft=None):
         """Return `(n, v)`, the density and velocity from `psi`.
 
         Arguments
@@ -53,51 +88,41 @@ class TracerParticlesBase:
             the phase.
         kxy : (array-like, array-like)
             Wave-vectors `kx` and `ky`.
-        hbar_m : float
-            Constant `hbar/m`.
-        eps : float
-            If the density vanishes, then the velocity can diverge.  To prevent this, we
-            use `n + eps*n.max()` as the denominator.
         """
         if fft is None:
             fft, ifft = np.fft.fftn, np.fft.ifftn
-        kx, ky = kxy
+
+        kx, ky = self.kxy
 
         psi_c = psi.conj()
         n = (psi_c * psi).real
         psi_t = fft(psi)
         j = (psi_c * ifft(kx * psi_t)).real + 1j * (psi_c * ifft(ky * psi_t)).real
-        v = hbar_m * j / (n + eps * n.max())
+        v = self.hbar_m * j / (n + self.eps * n.max())
         return (n, v)
 
-    def get_vs(self, zs, psi, xy, hbar_m=1.0, eps=1e-4, skip=1):
+    def get_vs(self, zs, psi, fftn=None):
         """Return the velocities at the points `zs`.
 
         Arguments
         ---------
-        psis : array-like
+        psi : array-like
             Complex array of wavefunctions.  Velocities are extracted as the gradient of
             the phase.
-        xy : (array-like, array-like)
-            Lattice.
-        hbar_m : float
-            Constant `hbar/m`.
-        eps : float
-            If the density vanishes, then the velocity can diverge.  To prevent this, we
-            use `n + eps*n.max()` as the denominator.
-        skip : int
-            Used to downsample the FFT for speed.
         """
-        psi = psi[::skip, ::skip]
-        x, y = map(np.ravel, xy)
+        psi = psi[:: self.skip, :: self.skip]
+        x, y = map(np.ravel, self.xy)
         x0, y0 = x[0], y[0]
-        dxy = (skip * (x[1] - x0), skip * (y[1] - y0))
+        dxy = (self.skip * (x[1] - x0), self.skip * (y[1] - y0))
         Nxy = psi.shape
         kx, ky = np.meshgrid(
             *[2 * np.pi * np.fft.fftfreq(_N, _d) for _N, _d in zip(Nxy, dxy)],
             indexing="ij",
             sparse=True
         )
+
+        if fftn is None:
+            fftn = np.fft.fftn
 
         psi_t = fftn(psi)
 
@@ -114,8 +139,30 @@ class TracerParticlesBase:
         psis_c = psis.conj()
         js = (psis_c * ifftn(kx * psi_t)).real + 1j * (psis_c * ifftn(ky * psi_t)).real
         ns = (psis_c * psis).real
-        vs = hbar_m * js / (ns + eps * ns.max())
+        vs = self.hbar_m * js / (ns + self.eps * ns.max())
         return vs
+
+    @property
+    def inds(self):
+        """Return the indices and angles `(ix, iy, vs)` on the grid.
+
+        Note: these are floating point values.  We keep them as floats
+        so that the clients can display with higher accuracy if desired.
+        """
+        Lx, Ly = self.Lxy
+        Nx, Ny = self.Nxy
+        zs = self.zs - self.z0
+        ix = (zs.real % Lx) / Lx * (Nx - 1)
+        iy = (zs.imag % Ly) / Ly * (Ny - 1)
+        vs = self.vs / Lx * (Nx - 1)
+        return (ix, iy, vs)
+
+    def evolve(self, psi, dt):
+        """Update the `zs` and `vs` from psi."""
+        # Use a leapfrog integrator - evaluate vs halfway through
+        zs = self.zs + self.vs * dt / 2
+        self.vs = self.get_vs(zs, psi=psi)
+        self.zs += self.vs * dt
 
 
 class TracerParticles(TracerParticlesBase):
@@ -125,7 +172,7 @@ class TracerParticles(TracerParticlesBase):
         self._par_pos = self.tracer_particles_create(self.model)
 
     def tracer_particles_create(self, model):
-        zs, vs = self.init(density=model.get_density())
+        zs, vs = self.init(density=model.get_density())[:2]
         return zs
 
     def update_tracer_velocity(self, model):

@@ -2339,7 +2339,7 @@ tests = ["flake8", "pytest-cov", "pytest-flake8", "pytest-xdist", "pytest-html"]
 [metadata]
 lock-version = "1.1"
 python-versions = ">=3.9,<3.10"
-content-hash = "1b142ea210db75aa76bfd3f3ec8fe974586bd6dbdb120d8b4ef343b19f9eefbd"
+content-hash = "3dd12caf6771b0faec96d08569a1b509f45d26583d8684c9ccfab13a8461c024"
 
 [metadata.files]
 alabaster = [
