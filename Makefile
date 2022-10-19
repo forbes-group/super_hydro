@@ -13,23 +13,45 @@ CONDA_ACTIVATE=source $$(conda info --base)/etc/profile.d/conda.sh ; conda activ
 CONDA_ENVS = ./envs
 CONDA_FLAGS = --prefix $(CONDA_ENVS)/$(ENV)
 
-ANACONDA_PROJECT = anaconda-project
 #RUN = $(CONDA_EXE) run $(CONDA_FLAGS)
 RUN = $(ANACONDA_PROJECT) run
+
+ACTIVATE ?= eval "$$(conda shell.bash hook)" && conda activate
+AP_PRE ?= CONDA_EXE=$(CONDA_EXE)
+
+ENV_PATH ?= $(abspath envs/$(ENV))
+ACTIVATE_PROJECT ?= $(ACTIVATE) $(ENV_PATH)
+ANACONDA_PROJECT ?= anaconda-project
+
+# We have some build issues on the ARM environment, use Rosetta to emulate the osc-64 platform.
+USE_ARM ?= false
+
+ifneq ($(USE_ARM), true)
+ifeq ($(shell uname -p),arm)
+  CONDA_SUBDIR = osx-64
+endif
+endif
+
+ifdef CONDA_SUBDIR
+  AP_PRE += CONDA_SUBDIR=$(CONDA_SUBDIR)
+endif
 
 USE_CONDA = true
 ######################################################################
 # Default target runs init and then echos commands to activate
 go: init
-	echo "conda deactivate 
+	echo "conda deactivate"
+
 ######################################################################
 # Installation
 init: Docs/sphinx-source/_static/mathjax
 ifeq ($(USE_CONDA), true)
-	anaconda-project run init
-	anaconda-project prepare --refresh --env-spec $(ENV)
-	$(CONDA_ACTIVATE) $(CONDA_ENVS)/$(ENV) &&           \
-        poetry install -E docs -E tests -E fftw
+	$(AP_PRE) $(ANACONDA_PROJECT) prepare --refresh --env-spec $(ENV)
+ifdef CONDA_SUBDIR
+	$(ACTIVATE_PROJECT) && conda config --env --set subdir $(CONDA_SUBDIR)
+endif
+	$(AP_PRE) $(ANACONDA_PROJECT) run init
+	$(ACTIVATE_PROJECT) && poetry install -E docs -E tests -E fftw
 else
 	$(PYTHON) -m venv .venv
 	poetry install -E docs -E tests -E fftw
@@ -181,6 +203,11 @@ Variables:
    ACTIVATE_PROJECT: (= "$(ACTIVATE_PROJECT)")
                      Command to activate the project environment in the shell.
                      Defaults to `$$(ACTIVATE)  $$(ENV)`.
+   USE_ARM: (= "$(USE_ARM)")
+                     If on an ARM processor, like the Mac M1 or M2, then use this environment.
+                     Otherwise, we set CONDA_SUBDIR=osx-64 so that we install the x64 binaries
+                     and use rosetta.  This overcomes some limitations with libraries that are
+                     not yet ready for the ARM platform.
 
 Initialization:
    make init         Initialize the environment and kernel.  On CoCalc we do specific things

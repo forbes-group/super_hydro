@@ -46,6 +46,7 @@ If you are working from a source distribution, then all of this can be automated
 [Anaconda Project]:
 
 ```bash
+git clone https://gitlab.com/coldatoms/super_hydro.git 
 anaconda-project run init      # No GPU support (use for client)
 # OR
 anaconda-project run init_gpu  # If you have an NVIDA GPU

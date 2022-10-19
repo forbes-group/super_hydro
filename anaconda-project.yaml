@@ -155,6 +155,18 @@ env_specs:
     - conda-forge::cupy
     channels: []
 
+  super_hydro_arm:
+    description: Environment for ARM processors
+    variables:
+      CONDA_SUBDIR: osx-64
+
+  super_hydro_x86:
+    description: Environment for ARM processors
+    variables:
+      CONDA_SUBDIR: osx-64
+
+#conda env config vars set CONDA_SUBDIR=osx-arm64
+
 # Silence warnings about about notebooks without run commands
 # See https://github.com/Anaconda-Platform/anaconda-project/issues/263#issuecomment-870004641
 skip_imports:

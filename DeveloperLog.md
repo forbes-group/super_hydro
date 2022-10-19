@@ -6,8 +6,70 @@ To Do:
       `module.rst`.
 * [ ] Another interface for tracer particles with `Lxy` and `xy`?
 
-12 June 2022
-============
+18 Oct 2022
+===========
+There is a serious install issue on Mac OS X ARM processors.  Somehow `apr shell` subs
+out the correct openssl library (osx-64) and replaces it with the arm library, which
+fails (since we are using rosetta).  Not sure how to fix.  Manually replacing works:
+`conda install pkgs/main/osx-64::openssl`
+
+The key feature of our Canvas widget is that at the end of updating the rgba data in the
+Javascript function `update_rgba()`, we process hooks allowing us to callback to
+python.  To use the IPyCanvas widget, we need a similar hook.
+
+Here is the current notebook client event loop.  There are three files involved:
+* canvas_widget.js: Defines the javascript for the widget.  This calls the python code
+  by sending an "update" message.
+* canvas_widget.py: Python side of the widget. This allows the notebook client to
+  register various handlers.
+* notebook.py: The notebook client.  Everything starts with a call to `run()` which
+  starts one of two event loops:
+  * `browser_control == False`:  Here we just repeatedly call NotebookApp.on_update().
+    This will get the data and draw the updates, but locks up the Jupyter Notebook UI so
+        there is no way for the use to control things with the widgets.
+  * `browser_control == True`: Here we register a callback to Canvas.on_update() with
+    the Canvas._density widget.  Then we call Canvas.on_update() which gets the density,
+    updating the _density widget, calling NotebookApp.on_update() etc. until done.  We then
+    just run a loop that runs kernel.do_one_iteration() until interrupted.
+    * MMF: should we unregister Canvas.on_update from Canvas._density when done?
+
+The client is driven by calls to Canvas.on_update() which gets the density array from
+the server
+  
+  
+
+
+Initialization:
+* Canvas.on_msg() -> Canvas._handle_update_request
+
+* Canvas.on_displayed -> Canvas._display_js_callback -> display(canvas_widget.js)  ->
+* render() -> start() -> requestAnimationFrame -> send_update_request -> 
+* Canvas._handle_update_request -> Canvas.update() -> Canvas._update_handlers()
+
+
+canvas_widget.js: (js)
+canvas_widget.py:
+
+
+* Canvas._handle_update_request
+
+Comments:
+* The key callback in our current loop that enables browser control is the `on_update`
+  event on the widget which triggers the callback to Python.  Is there a similar event
+  in the IPyCanvas widget?
+
+Recommended changes:
+* Since getting the density is a big thing, this should not be hidden in a property.
+  Replace with a call get_density().
+
+
+
+
+7 July 2022
+===========
+* [ ] IPyCanvas is a little slow, but not bad, and very flixible.  Replace our canvas
+      widget with something that can use this.  We will need a separate bit of js to do
+      the updates.
 
 27 May 2022
 ===========
