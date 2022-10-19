@@ -49,8 +49,7 @@ class App(object):
         if self._running:
             return self.server.comm
 
-    @property
-    def density(self):
+    def get_density(self):
         """Return the density data to plot: initiates call to server."""
         with log_task("Get density from server."):
             return self.server.get_array("density")
@@ -80,6 +79,20 @@ class _Interrupted(object):
 
 
 class NotebookApp(ClientDensityMixin, App):
+    """Application for the notebook client.
+
+    Attributes
+    ----------
+    browser_control : bool
+        If `True`, then register a callback with the browse (through Javascript) to
+        initiate the frame updates.  This repeatedly switches control from python to the
+        browser, and allows the ipwidgets to update, but is more complicated.  Sometimes
+        when canceling, this can hang the client.
+
+        If `False`, then control is maintained by a loop in python which is simple, but
+        locks up the interface and is only good for running non-interactive demos.
+    """
+
     fmt = "PNG"
     browser_control = True
     server = None
@@ -119,15 +132,15 @@ class NotebookApp(ClientDensityMixin, App):
         else:
             self.server.do(button.name)
 
-    def on_update(self):
+    def update_frame(self):
         """Callback to update frame when browser is ready."""
         if not self._running:
             return
         with self.sync():
             self._frame += 1
-            density = self.density
+            density = self.get_density()
             self._density.rgba = self.get_rgba_from_density(density)
-            self._density.fg_objects = self._update_fg_objects()
+            # self._density.fg_objects = self._update_fg_objects()
 
     ######################################################################
     # Server Communication
@@ -224,8 +237,8 @@ class NotebookApp(ClientDensityMixin, App):
 
         self._frame = 0
         if self.browser_control:
-            self._density.on_update(callback=self.on_update)
-            self.on_update()
+            self._density.on_update(callback=self.update_frame)
+            self.update_frame()
             kernel = IPython.get_ipython().kernel
             while not interrupted and self._running:
                 # This should not strictly be needed since the
@@ -238,7 +251,7 @@ class NotebookApp(ClientDensityMixin, App):
         else:
             while not interrupted and self._running:
                 tic0 = time.time()
-                self.on_update()
+                self.update_frame()
                 toc = time.time()
                 self._msg.value = "{:.2f}fps".format(self._frame / (toc - tic0))
         if self._running:
@@ -315,7 +328,7 @@ def get_app(run_server=True, network_server=False, notebook=True, **kwargs):
     return app
 
 
-def run(run_server=True, network_server=True, **kwargs):
+def run(run_server=True, network_server=True, browser_control=True, **kwargs):
     """Start the notebook client.
 
     Parameters
@@ -330,4 +343,5 @@ def run(run_server=True, network_server=True, **kwargs):
        server.
     """
     app = get_app(run_server=run_server, network_server=network_server, **kwargs)
+    app.browser_control = browser_control
     return app.run()

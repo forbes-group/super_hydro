@@ -1,5 +1,6 @@
 """Various useful contexts.
 """
+import collections
 from contextlib import contextmanager
 import functools
 import os
@@ -652,31 +653,62 @@ def coroutine(coroutine):
 
 
 @contextmanager
-def FPS(timeout=5, frames=200):
-    """Context manager to measure framerate."""
+def FPS(frames=200, timeout=5):
+    """Context manager to measure framerate.
+
+    Arguments
+    ---------
+    frames : int | iterable
+        Yields iterator or range.
+    timeout : float
+
+    Examples
+    --------
+    >>> from time import sleep
+    >>> with FPS(frames=0.1*np.arange(10), timeout=10) as fps:
+    ...     for t in fps:
+    ...         print(f"{t=}: {fps=}")
+    ...         sleep(0.1)
+    """
 
     class Frame:
         def __init__(self, interrupted, frames):
             self.interrupted = interrupted
-            self.frames = frames
+            try:
+                self.the_frames = iter(frames)
+                try:
+                    self.frames = len(frames)
+                except TypeError:
+                    self.frames = None
+
+            except TypeError:
+                self.the_frames = range(frames)
+                self.frames = frames
             self.frame = 0
+            self.tic = time.time()
 
         def __bool__(self):
             """True while running"""
-            return not bool(self.interrupted) and self.frame < frames
+            return not bool(self.interrupted) and (
+                self.frames is None or self.frame < self.frames
+            )
 
         @property
         def fps(self):
-            return self.frame / (time.time() - self.interrupted.tic)
+            return getattr(self, "_fps", self.frame / (time.time() - self.tic))
 
         def __repr__(self):
             return "{:.2f}".format(self.fps)
 
         def __iter__(self):
-            while self:
-                yield self.frame
+            for frame in self.the_frames:
+                if not self:
+                    break
+                yield frame
                 self.frame += 1
 
     NoInterrupt().unregister()
     with NoInterrupt(timeout=timeout) as interrupted:
-        yield Frame(interrupted=interrupted, frames=frames)
+        fps = Frame(interrupted=interrupted, frames=frames)
+        yield fps
+        fps._fps = fps.fps

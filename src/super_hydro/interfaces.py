@@ -168,6 +168,36 @@ class IServer(Interface):
         """Quit the server."""
 
 
+class ICanvas(Interface):
+    """Public interface for a notebook canvas."""
+
+    rgba = Attribute(
+        """RGBA bytes array.
+        
+        Note: This should should be in ij imaging with axis 0
+        corresponding to x (wide) and axis 1 corresponding to y
+        (height).
+
+        For example:
+
+            canvas.rgba = cm.viridis(data, bytes=True)
+        """
+    )
+    width = Attribute("Settable width in pixels")
+    height = Attribute("Settable height in pixels")
+    fps = Attribute("Maximum fps for update requests.")
+
+    def on_update(callback, remove=False):
+        """Register a callback to execute when the browser is ready
+        for an update.
+
+        Parameters
+        ----------
+        remove: bool (optional)
+            Set to true to remove the callback from the list of callbacks.
+        """
+
+
 class IConfiguration(Interface):
     """Public interface of the configuration object."""
 

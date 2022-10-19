@@ -16,6 +16,149 @@ kernelspec:
 ```{code-cell} ipython3
 import mmf_setup;mmf_setup.nbinit(quiet=True)
 %load_ext autoreload
+
+%matplotlib inline
+import numpy as np, matplotlib.pyplot as plt
+from matplotlib import cm
+from super_hydro.physics.testing import HO
+
+%autoreload
+from super_hydro.physics.tracer_particles import TracerParticlesBase
+
+
+class Simulation:
+    Nxy = (1280, 720)  # 720p resolution
+    Nz = 500  # Number of tracer particles
+    t = 0
+    dt = 0.1
+    seed = 1
+    skip = 8  # Skip factor for getting vs
+
+    def __init__(self, **kw):
+        for _k in kw:
+            if not hasattr(self, _k):
+                raise ValueError(f"Unknown parameter {_k}")
+            setattr(self, _k, kw[_k])
+        self.init()
+
+    def init(self):
+        self.ho = ho = HO(Nxy=self.Nxy)
+        self.psi = ho.get_psi(t=self.t)
+        self.tp = TracerParticlesBase(
+            xy=self.ho.xy,
+            psi=self.psi,
+            N=self.Nz,
+            hbar_m=ho.hbar / ho.m,
+            seed=self.seed,
+            skip=self.skip,
+        )
+        self.n_max = (abs(self.psi) ** 2).max()
+
+    def evolve(self, steps=1):
+        for n in range(steps):
+            self.t += self.dt
+            self.psi = self.ho.get_psi(t=self.t)
+            self.tp.evolve(dt=self.dt, psi=self.psi)
+
+    def n_to_rgba(self, n):
+        """Convert the density n to RGBA data"""
+        # Transpose so we can use faster canvas.indexing = "xy"
+        return cm.viridis(n.T / self.n_max, bytes=True)
+
+import IPython
+import time
+from super_hydro.contexts import FPS
+from traitlets import All
+
+from ipywidgets import Label, VBox, Output
+import ipywidgets as widgets
+from ipywidgets import Label, VBox, IntSlider
+from ipycanvas import Canvas, hold_canvas
+from super_hydro.contexts import FPS
+
+sim = Simulation(Nxy=(2*256, 2*128), dt=0.02, Nz=500, skip=2)
+canvas = Canvas(width=sim.psi.shape[0], height=sim.psi.shape[1])
+canvas.layout.width = '100%'
+canvas.layout.height = 'auto'
+    
+slider = widgets.IntSlider()
+
+msg = Label()
+display(VBox([canvas, slider, msg]))
+
+def do_update(fps):
+    global sim, canvas, msg, slider
+    sim.evolve(2)
+    n = abs(sim.psi)**2
+    with hold_canvas(canvas):
+        canvas.put_image_data(sim.n_to_rgba(n)[..., :3], 0, 0)  # Discard alpha
+        ix, iy, vs = sim.tp.inds
+        rect = False
+        if rect:
+            canvas.fill_rects(ix, iy, 1)
+        else:
+            dth = 0.2
+            r0 = 0
+            r1 = 5.0
+            v0 = r1/sim.dt
+            th = np.angle(vs)
+            r = r0 + r1 * np.abs(vs)/v0
+            xi = 10*np.abs(vs)/v0
+            # dth = pi if v = 0
+            # dth = 0.2 if v = infty
+            dth = 0.2/r + (np.pi-0.2/r)/(1+xi**2)
+            canvas.fill_style = "black"
+            canvas.global_alpha = 0.5
+            canvas.fill_arcs(ix, iy, r, th-np.pi-dth, th-np.pi+dth)
+
+            msg.value = f"{fps=}, {slider.value=}"
+```
+
+```{code-cell} ipython3
+# No interactions, but fast
+with FPS(frames=2000, timeout=200) as fps:
+    for frame in fps:
+        do_update(fps=fps)
+```
+
+```{code-cell} ipython3
+# Interactions: works with original ipycanvas code.  Slower.
+with FPS(frames=2000, timeout=200) as fps:
+    kernel = IPython.get_ipython().kernel
+    for frame in fps:
+        do_update(fps=fps)
+        for n in range(int(np.ceil(1/max(1, fps.fps)/kernel._poll_interval))):
+            kernel.do_one_iteration()
+```
+
+```{code-cell} ipython3
+# Interactions with callback.  Needs my ipycanvas
+canvas._use_requestAnimationFrame = False
+canvas._use_requestAnimationFrame = True
+with FPS(frames=2000, timeout=200) as fps:
+    def image_updated(fps=fps):
+        if fps:
+            do_update(fps=fps)
+            fps.frame += 1
+        else:
+            canvas.on_image_updated(image_updated, remove=True)
+    canvas.on_image_updated(image_updated)
+    do_update(fps=fps)
+    kernel = IPython.get_ipython().kernel
+    while fps:
+        kernel.do_one_iteration()
+```
+
+```{code-cell} ipython3
+import mmf_setup;mmf_setup.nbinit(quiet=True)
+%load_ext autoreload
+```
+
+```{code-cell} ipython3
+from ipycanvas import Canvas
+
+canvas = Canvas(width=200, height=200)
+canvas
 ```
 
 ```{code-cell} ipython3
@@ -89,9 +232,10 @@ ho = HO()
 x, y = ho.xy
 kx, ky = ho.kxy
 
-tp = TracerParticlesBase(xy=(x, y), N=500)
+tp = TracerParticlesBase(xy=(x, y), psi=ho.get_psi(t=0), N=500)
 psi = ho.get_psi(t=0)
-n, v = tp.get_n_v(psi=psi, kxy=(kx, ky), hbar_m=ho.hbar / ho.m)
+#n, v = tp.get_n_v(psi=psi, kxy=(kx, ky), hbar_m=ho.hbar / ho.m)
+n, v = tp.get_n_v(psi=psi)
 zs, vs = tp.init(n=n, v=v)[:2]
 zvs = np.vstack([zs, zs + 0.2 * vs / abs(vs)])
 
@@ -309,41 +453,26 @@ class Simulation:
 ```
 
 ```{code-cell} ipython3
-from super_hydro.clients import canvas_widget
+from importlib import reload
+from super_hydro.clients import canvas_widget;reload(canvas_widget)
 from super_hydro.contexts import FPS
 from ipywidgets import Label, VBox
 
-#canvas_widget.display_js()   # Load javascript
+sim = Simulation(Nxy=(2*256, 2*128), dt=0.02, Nz=500, skip=2)
+#canvas = canvas_widget.CanvasIPy()
 canvas = canvas_widget.Canvas()
-canvas.width = 500
-canvas.height = 0
-canvas.tracer_size = "1"
-proxy = 1
-
-canvas.fg_object = {
-    "tracer": [["tracer", 1280, 720, 20, "red", 0.5, 0, 0],
-    ["tracer", 400, 50, 300, "green", 0.5, -1, 1]]
-}
-
-proxy_2 = canvas.fg_object
+canvas.layout = dict(width="100%", height="auto")
+canvas.width, canvas.height = sim.psi.shape
 
 msg = Label()
 display(VBox([canvas, msg]))
 
 
-sim = Simulation()
-
 with FPS(timeout=5, frames=200) as fps:
     for frame in fps:
         sim.evolve(1)
-        #n, v = tp.get_n_v(psi=psi, kxy=ho.kxy, hbar_m=ho.hbar / ho.m)
         n = abs(sim.psi)**2
         canvas.rgba = sim.n_to_rgba(n)
-        #proxy_2["tracer"][0][1] -= 10
-        #proxy_2["tracer"][1][7] += 0.01
-        #canvas.fg_object = proxy_2
-        #proxy += 1
-        #canvas.tracer_size = str(proxy)
         msg.value = f"{fps=}"
 ```
 
@@ -355,46 +484,64 @@ Here is the ipycanvas version.
 
 ```{code-cell} ipython3
 from super_hydro.contexts import FPS
-from ipywidgets import Label, VBox
+from traitlets import All
 
+from ipywidgets import Label, VBox
 import ipywidgets as widgets
 from ipywidgets import Label, VBox, IntSlider
 from ipycanvas import Canvas, hold_canvas
 from super_hydro.contexts import FPS
 
 sim = Simulation(Nxy=(2*256, 2*128), dt=0.02, Nz=500, skip=2)
-canvas = Canvas(width=sim.psi.shape[0], height=sim.psi.shape[1])
+canvas = Canvas(name="MyCanvas", width=sim.psi.shape[0], height=sim.psi.shape[1])
 canvas.layout.width = '100%'
 canvas.layout.height = 'auto'
 
+events = {}
+'''
+canvas.sync_image_data = True
+events_ = []
+def save_changes(change):
+    global events, events_
+    events_.append(change)
+    key = change['name']
+    events.setdefault(key, 0)
+    events[key] += 1
+    
+canvas.observe(save_changes, All, All)
+'''
 msg = Label()
 display(VBox([canvas, msg]))
 
+def do_update(fps):
+    global sim, canvas, msg
+    sim.evolve(2)
+    n = abs(sim.psi)**2
+    with hold_canvas(canvas):
+        canvas.put_image_data(sim.n_to_rgba(n)[..., :3], 0, 0)  # Discard alpha
+        ix, iy, vs = sim.tp.inds
+        rect = False
+        if rect:
+            canvas.fill_rects(ix, iy, 1)
+        else:
+            dth = 0.2
+            r0 = 0
+            r1 = 5.0
+            v0 = r1/sim.dt
+            th = np.angle(vs)
+            r = r0 + r1 * np.abs(vs)/v0
+            xi = 10*np.abs(vs)/v0
+            # dth = pi if v = 0
+            # dth = 0.2 if v = infty
+            dth = 0.2/r + (np.pi-0.2/r)/(1+xi**2)
+            canvas.fill_style = "black"
+            canvas.global_alpha = 0.5
+            canvas.fill_arcs(ix, iy, r, th-np.pi-dth, th-np.pi+dth)
+    msg.value = f"{fps=}, {events=}"
+
 with FPS(frames=2000, timeout=200) as fps:
     for frame in fps:
-        sim.evolve(2)
-        n = abs(sim.psi)**2
-        with hold_canvas(canvas):
-            canvas.put_image_data(sim.n_to_rgba(n)[..., :3], 0, 0)  # Discard alpha
-            ix, iy, vs = sim.tp.inds
-            rect = False
-            if rect:
-                canvas.fill_rects(ix, iy, 1)
-            else:
-                dth = 0.2
-                r0 = 0
-                r1 = 5.0
-                v0 = r1/sim.dt
-                th = np.angle(vs)
-                r = r0 + r1 * np.abs(vs)/v0
-                xi = 10*np.abs(vs)/v0
-                # dth = pi if v = 0
-                # dth = 0.2 if v = infty
-                dth = 0.2/r + (np.pi-0.2/r)/(1+xi**2)
-                canvas.fill_style = "black"
-                canvas.global_alpha = 0.5
-                canvas.fill_arcs(ix, iy, r, th-np.pi-dth, th-np.pi+dth)
-        msg.value = f"{fps=}"
+        do_update(fps)
 ```
 
 ```{code-cell} ipython3
@@ -481,8 +628,127 @@ with FPS(timeout=5, frames=200) as fps:
         msg.value = f"{fps=}"
 ```
 
+## Interactions
+
+```{code-cell} ipython3
+from super_hydro.contexts import FPS
+from traitlets import All
+
+from ipywidgets import Label, VBox, Output
+import ipywidgets as widgets
+from ipywidgets import Label, VBox, IntSlider
+from ipycanvas import Canvas, hold_canvas
+from super_hydro.contexts import FPS
+
+sim = Simulation(Nxy=(2*256, 2*128), dt=0.02, Nz=500, skip=2)
+canvas = Canvas(width=sim.psi.shape[0], height=sim.psi.shape[1])
+canvas.layout.width = '100%'
+canvas.layout.height = 'auto'
+    
+slider = widgets.IntSlider()
+
+msg = Label()
+display(VBox([canvas, slider, msg]))
+
+def do_update(fps):
+    global sim, canvas, msg, slider
+    sim.evolve(2)
+    n = abs(sim.psi)**2
+    with hold_canvas(canvas):
+        canvas.put_image_data(sim.n_to_rgba(n)[..., :3], 0, 0)  # Discard alpha
+        ix, iy, vs = sim.tp.inds
+        rect = False
+        if rect:
+            canvas.fill_rects(ix, iy, 1)
+        else:
+            dth = 0.2
+            r0 = 0
+            r1 = 5.0
+            v0 = r1/sim.dt
+            th = np.angle(vs)
+            r = r0 + r1 * np.abs(vs)/v0
+            xi = 10*np.abs(vs)/v0
+            # dth = pi if v = 0
+            # dth = 0.2 if v = infty
+            dth = 0.2/r + (np.pi-0.2/r)/(1+xi**2)
+            canvas.fill_style = "black"
+            canvas.global_alpha = 0.5
+            canvas.fill_arcs(ix, iy, r, th-np.pi-dth, th-np.pi+dth)
+    msg.value = f"{fps=}, {slider.value=}"
+
+with FPS(frames=2000, timeout=200) as fps:
+    for frame in fps:
+        do_update(fps)
+        for n in range(int(np.ceil(1/max(1, fps.fps)/kernel._poll_interval))):
+            kernel.do_one_iteration()
+```
+
 ```{code-cell} ipython3
 
+```
+
+```{code-cell} ipython3
+#display(VBox([canvas, msg]))
+
+
+    
+with FPS(frames=2000, timeout=200) as fps:
+    for frame in fps:
+        do_update(fps)
+        kernel.do_one_iteration()
+```
+
+```{code-cell} ipython3
+
+```
+
+```{code-cell} ipython3
+# This does not work:  The slider never updates in Python
+from super_hydro.contexts import FPS
+from traitlets import All
+
+from ipywidgets import Label, VBox
+import ipywidgets as widgets
+from ipywidgets import Label, VBox, IntSlider
+from ipycanvas import Canvas, hold_canvas
+from super_hydro.contexts import FPS
+
+sim = Simulation(Nxy=(2*256, 2*128), dt=0.02, Nz=500, skip=2)
+canvas = Canvas(width=sim.psi.shape[0], height=sim.psi.shape[1])
+canvas.layout.width = '100%'
+canvas.layout.height = 'auto'
+
+int_slider = widgets.IntSlider()
+
+msg = Label()
+display(VBox([canvas, int_slider, msg]))
+#display(VBox([canvas, msg]))
+
+with FPS(frames=2000, timeout=200) as fps:
+    for frame in fps:
+        sim.evolve(2)
+        n = abs(sim.psi)**2
+        with hold_canvas(canvas):
+            canvas.put_image_data(sim.n_to_rgba(n)[..., :3], 0, 0)  # Discard alpha
+            ix, iy, vs = sim.tp.inds
+            rect = False
+            if rect:
+                canvas.fill_rects(ix, iy, 1)
+            else:
+                dth = 0.2
+                r0 = 0
+                r1 = 5.0
+                v0 = r1/sim.dt
+                th = np.angle(vs)
+                r = r0 + r1 * np.abs(vs)/v0
+                xi = 10*np.abs(vs)/v0
+                # dth = pi if v = 0
+                # dth = 0.2 if v = infty
+                dth = 0.2/r + (np.pi-0.2/r)/(1+xi**2)
+                canvas.fill_style = "black"
+                canvas.global_alpha = 0.5
+                canvas.fill_arcs(ix, iy, r, th-np.pi-dth, th-np.pi+dth)
+        msg.value = f"{fps=}, {int_slider.value=}"
 ```
 
 ```{code-cell} ipython3

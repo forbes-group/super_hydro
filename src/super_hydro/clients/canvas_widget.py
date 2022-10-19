@@ -14,6 +14,7 @@ from ipywidgets.widgets.widget import CallbackDispatcher
 
 import json
 
+# Corresponding javascript file should have the same name.
 _JS_FILE = __file__[:-3] + ".js"
 
 
@@ -101,6 +102,69 @@ class Canvas(DOMWidget):
     def fg_objects(self, value):
         self._fg_objects_data = value
         self._view_fg_objects = json.dumps(self._fg_objects_data)
+
+    def on_update(self, callback, remove=False):
+        """Register a callback to execute when the browser is ready
+        for an update.
+
+        Parameters
+        ----------
+        remove: bool (optional)
+            Set to true to remove the callback from the list of callbacks.
+        """
+        self._update_handlers.register_callback(callback, remove=remove)
+
+    def update(self):
+        self._update_handlers()
+
+    def _handle_update_request(self, canvas, content, buffers):
+        if content.get("request", "") == "update":
+            self.update()
+
+
+import ipycanvas
+
+
+@register
+class CanvasIPy(ipycanvas.Canvas):
+    """Wrapper for the ipycanvas widget."""
+
+    indexing = "xy"
+
+    name = traitlets.ObjectName("_").tag(sync=True)
+    fps = Int(20, help="Maximum fps for update requests.").tag(sync=True)
+
+    def __init__(self, **kw):
+        super().__init__(**kw)
+        self._update_handlers = CallbackDispatcher()
+        self.on_msg(self._handle_update_request)
+
+    @property
+    def rgba(self):
+        """RGBA bytes array from a colormap.
+
+        Note: This should should be in ij imaging with axis 0
+        corresponding to x (wide) and axis 1 corresponding to y
+        (height).
+
+        For example:
+
+            canvas.rgba = cm.viridis(data, bytes=True)
+        """
+        rgba_data = np.empty(self._rgb_data.shape[:2] + (4,), dtype=np.uint8)
+        rgba_data[..., :3] = self._rgb_data
+        rgba_data[..., 3] = 255
+        return rgba_data
+
+    @rgba.setter
+    def rgba(self, rgba_data):
+        self._rgb_data = rgba_data[..., :3]
+        if self.indexing == "ij":
+            self.width, self.height = self._rgb_data.shape[:2]
+            self.put_image_data(np.swapaxes(self._rgb_data, 0, 1), 0, 0)
+        else:
+            self.height, self.width = self._rgb_data.shape[:2]
+            self.put_image_data(self._rgb_data, 0, 0)
 
     def on_update(self, callback, remove=False):
         """Register a callback to execute when the browser is ready
