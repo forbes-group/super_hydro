@@ -5,14 +5,25 @@ jupytext:
     extension: .md
     format_name: myst
     format_version: 0.13
-    jupytext_version: 1.13.5
+    jupytext_version: 1.13.8
 kernelspec:
-  display_name: Python 3
+  display_name: Python 3 (super_hydro)
   language: python
-  name: python3
+  name: super_hydro
 ---
 
 # Notebook Client
+
++++
+
+*(Status: This notebook is quite out of date... needs major updates.  It should demonstrate the Notebook Client and then discuss implementation.)*
+
++++
+
+Writing a notebook client requires a few important pieces:
+
+1. **Drawing fast enough:**  Matplotlib is too slow, but we can achieve reasonable performance using HTML canvases, either with [ipycanvas](https://github.com/martinRenou/ipycanvas/) (slightly slower, but very flexible) or our custom canvas (see [Performance.md](Performance.md) for details.).
+2. **Event loop:**  This is a little more difficult: we need to have the client refresh the display, and the request data at regular intervals.  This part is easy.  What is hard, is allowing the user to manipulate the controls while the event loop is running.  The complication is that the Notebook interface has its own event loop which we need to integrate with.  [Jupyter Widgets](https://ipywidgets.readthedocs.io/en/latest/) have already solved this, so it is attractive to try to us this, but still tricky.
 
 +++
 
@@ -28,7 +39,6 @@ IPython.OutputArea.prototype._should_scroll = function(lines) { return false; }
 ```
 
 ```{code-cell} ipython3
-%pylab inline
 from mmf_setup.set_path import hgroot
 from super_hydro.clients import notebook
 notebook.run(network_server=True, run_server=False, tracer_particles=0)
@@ -66,7 +76,7 @@ import numpy as np
 import time
 from matplotlib import cm
 from super_hydro.clients import canvas_widget
-canvas_widget.display_js()
+#canvas_widget.display_js()
 canvas = canvas_widget.Canvas(width=521, height=100)
 display(canvas)
 tic = time.time()
@@ -146,7 +156,8 @@ support on [Google's CoLaboratory]()
 This notebook provides a web-based client using matplotlib.
 
 ```{code-cell} ipython3
-%pylab inline
+%matplotlib inline
+import numpy as np, matplotlib.pyplot as plt
 from mmf_setup.set_path import hgroot
 from importlib import reload
 from super_hydro.clients import notebook; reload(notebook);
@@ -281,16 +292,15 @@ I have been having an issue with figuring out how to update the display with dat
 ```{code-cell} ipython3
 import ipywidgets
 import time
-from super_hydro.contexts import NoInterrupt
+from super_hydro.contexts import FPS
 frame = 0
 _int = ipywidgets.IntSlider()
 _txt = ipywidgets.Label()
 _wid = ipywidgets.VBox([_int, _txt])
 display(_wid)
-with NoInterrupt() as interrupted:
-    while not interrupted:
-        frame += 1
-        _txt.value = str(f"frame: {frame}, slider: {_int.value}")
+with FPS() as fps:
+    for frame in fps:
+        _txt.value = str(f"frame: {fps.frame}, slider: {_int.value}")
         time.sleep(0.5)
 ```
 
@@ -299,6 +309,9 @@ with NoInterrupt() as interrupted:
 +++
 
 We can implement a custom event loop as long as we ensure that we call `kernel.do_one_iteration()` enough times.  This will allow the widgets to work.
+
+**Problems**:
+* What is "enough times"?
 
 ```{code-cell} ipython3
 ip.kernel._poll_interval
@@ -310,18 +323,16 @@ ip = IPython.get_ipython()
 import ipywidgets
 import time
 from mmf_setup.set_path import hgroot
-from super_hydro.contexts import NoInterrupt
+from super_hydro.contexts import FPS
 
 _int = ipywidgets.IntSlider()
 _txt = ipywidgets.Label()
 _wid = ipywidgets.VBox([_int, _txt])
 display(_wid)
 
-with NoInterrupt() as interrupted:
-    frame = 0
-    while not interrupted:
-        frame += 1
-        _txt.value = str(f"frame: {frame}, slider: {_int.value}")
+with FPS(frames=1000000) as fps:
+    for frame in fps:
+        _txt.value = str(f"frame: {fps.frame}, slider: {_int.value}")
         for n in range(10):
             ip.kernel.do_one_iteration()
 ```
@@ -377,6 +388,101 @@ def update(change):
     _txt.value = str(f"frame: {frame}, slider: {_int.value}")
 
 _play.observe(update, names="value")
+```
+
+## Custom Animation Widget
+
++++
+
+Following the example of the `Play` widget, we make our own custom `animation_widget`.  This is very simple, and also serves as a fairly minimal example of how to make a new widget, following the documentation [Building a Custom Widget](https://ipywidgets.readthedocs.io/en/stable/examples/Widget%20Custom.html).
+
+
+There are two files with the same name (different extensions):
+
+* `animation_widget.py`: Python code.
+* `animation_widget.js`: Javascript.
+
+Here we do it manually:
+
+```{code-cell} ipython3
+%%javascript
+require.undef('email_widget');
+
+define('email_widget', ["@jupyter-widgets/base"], function(widgets) {
+
+    var EmailView = widgets.DOMWidgetView.extend({
+
+        // Render the view.
+        render: function() {
+            this.email_input = document.createElement('input');
+            this.email_input.type = 'email';
+            this.email_input.value = 'example@example.com';
+            this.email_input.disabled = true;
+
+            this.el.appendChild(this.email_input);
+        },
+    });
+
+    return {
+        EmailView: EmailView
+    };
+});
+```
+
+```{code-cell} ipython3
+from traitlets import Unicode, Bool, validate, TraitError
+from ipywidgets import DOMWidget, register
+
+
+@register
+class Email(DOMWidget):
+    _view_name = Unicode('EmailView').tag(sync=True)
+    _view_module = Unicode('email_widget').tag(sync=True)
+    _view_module_version = Unicode('0.1.0').tag(sync=True)
+```
+
+```{code-cell} ipython3
+Email()
+```
+
+```{code-cell} ipython3
+%%javascript
+// -*- mode: js; js-indent-level: 2; -*-
+require.undef('animation_widget');
+
+define('animation_widget', ["@jupyter-widgets/base"], function(widgets) {
+  var AnimationView = widgets.DOMWidgetView.extend({
+    // Render the view.
+    render: function() {
+      this.animation_text = document.createElement('text');
+      this.animation_text.value = "Hi";
+    },
+  });
+  
+  return {
+    AnimationView: AnimationView
+  };
+  
+});
+```
+
+```{code-cell} ipython3
+import traitlets
+from traitlets import Bytes, Dict, Int, Unicode
+
+from ipywidgets import DOMWidget, register
+
+@register
+class Animation(DOMWidget):  # DOMWidget for use in Notebooks
+    """Animation Widget Object."""
+
+    _view_name = Unicode("AnimationView").tag(sync=True)
+    _view_module = Unicode("animation_widget").tag(sync=True)
+    _view_module_version = Unicode("0.1.0").tag(sync=True)
+```
+
+```{code-cell} ipython3
+Animation()
 ```
 
 ## Threads

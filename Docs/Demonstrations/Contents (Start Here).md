@@ -33,6 +33,7 @@ from mmf_setup.set_path import hgroot
 from importlib import reload
 from super_hydro.physics import gpe
 from super_hydro.clients import notebook
+from importlib import reload;reload(notebook)
 
 notebook.run(
     model="gpe.BECBreather",
@@ -43,7 +44,7 @@ notebook.run(
     Ny=32 * 8,
     Nshape=3,
     cooling=1e-10,
-    tracer_particles=0,
+    tracer_particles=100,
     network_server=False,
 )
 ```

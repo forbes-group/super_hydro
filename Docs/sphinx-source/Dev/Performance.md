@@ -353,6 +353,41 @@ import ipywidgets as widgets
 from ipywidgets import Label, VBox, IntSlider
 from ipycanvas import Canvas, hold_canvas
 from super_hydro.contexts import FPS
+from super_hydro.physics.testing import HO
+from matplotlib import cm
+import numpy as np
+
+import sys
+from io import BytesIO
+
+from PIL import Image as PILImage
+
+def binary_image(ar, quality=75):
+    #return ar.astype(np.uint8).tobytes()
+    f = BytesIO()
+    PILImage.fromarray(ar.astype(np.uint8), "RGB" if ar.shape[2] == 3 else "RGBA").save(
+        f, "JPEG", quality=quality
+    )
+    return f.getvalue()
+
+sys.binary_image = binary_image
+
+
+Nxy = (1280, 720)  # 720p resolution
+coeffs = (((0, 1), 1j), ((2, 0), 1), ((1, 1), -1j))
+
+def data_to_rgba(data):
+    """Convert the data to RGBA data"""
+    return cm.viridis(data.T, bytes=True)
+
+
+def get_data(t=None, ho=HO(Nxy=Nxy, coeffs=coeffs), t_=[0.0], dt=0.1):
+    if t is None:
+        t_[0] += dt
+        t = t_[0]
+    psi = ho.get_psi(t=t)
+    n = abs(psi) ** 2
+    return n / n.max()
 
 _data0 = get_data()
 canvas = Canvas(width=_data0.shape[0], height=_data0.shape[1])
@@ -362,11 +397,9 @@ msg = Label()
 display(VBox([canvas, msg]))
 
 with FPS(frames=200, timeout=5) as fps:
-    while fps:
+    for frame in fps:
         with hold_canvas(canvas):
             canvas.put_image_data(data_to_rgba(get_data())[..., :3], 0, 0)  # Discard alpha
-        toc = time.time()
-        fps.frame += 1
         msg.value = f"{fps=}"
 ```
 
@@ -379,19 +412,14 @@ Here is a straightfoward attempt with the pillow (PIL) library:
 ```{code-cell} ipython3
 import time
 from mmf_setup.set_path import hgroot
-from super_hydro.contexts import NoInterrupt
+from super_hydro.contexts import FPS
 from PIL import Image
 from IPython.display import display, clear_output
-with NoInterrupt() as interrupted:
-    tic = time.time()
-    toc = 0
-    frame = 0
-    while frame < 10 and not interrupted and time.time() < tic + 5:
+with FPS(timeout=5, frames=10) as fps:
+    for frame in fps:
         display(Image.fromarray(data_to_rgba(get_data())))
-        toc = time.time()
-        frame += 1
         clear_output(wait=True)
-    print("{:.2f}fps".format(frame/(toc-tic)))
+        print(f"{fps=}")        
 ```
 
 Clearly this is too slow.
@@ -429,6 +457,7 @@ class MyImage(object):
         img = img.resize(self.size)
         img.save(b, 'PNG')
         return (b.getvalue(), self._metadata)
+    
     def __repr_jpeg_(self):
         """JPEG formatter, but discards alpha"""
         b = io.BytesIO()
@@ -447,13 +476,12 @@ Converting to PNG is too slow, converting to JPEG is marginally acceptable.
 
 +++
 
-Here we use the `Output` widget to capture the results of display.  This provides a marginally acceptable solution with a reasonable ~10fps framerate.
+Here we use the `Output` widget to capture the results of display.  This provides a marginally acceptable solution with a reasonable ~10fps framerate.  (Update: on my M1 MacBook Pro, I get 20fps now, which is reasonable).
 
 ```{code-cell} ipython3
-import time
 import ipywidgets
 from ipywidgets import interact
-from super_hydro.contexts import NoInterrupt
+from super_hydro.contexts import FPS
 from IPython.display import display, clear_output
 from PIL import Image
 #frame = ipywidgets.
@@ -464,28 +492,23 @@ inp = ipywidgets.IntSlider()
 msg = ipywidgets.Label()
 wid = ipywidgets.VBox([inp, out, msg])
 display(wid)
-tic = time.time()
-toc = 0
-frame = 0
 data = get_data()
 with out:
-    NoInterrupt.unregister()
-    with NoInterrupt() as interrupted:       
-        while not interrupted and time.time() < tic + 5:
+    with FPS() as fps:
+        for frame in fps:
             data = data_to_rgba(get_data())
             #img = Image.fromarray(data[..., :3])
             myimg = MyImage(data, fmt='JPEG')#, size=(256,)*2)
+            #myimg = MyImage(data, fmt='PNG')#, size=(256,)*2)
             # The Output() widget allows you to print, but it is slightly
             # faster to use a pre-defined Label()
             # print(f"{frame/(toc-tic):.2f}fps")
-            msg.value = f"{frame/(toc-tic):.2f}fps"
-            display(myimg)            
+            msg.value = f"{fps=}, {inp=}"
+            display(myimg)     
             clear_output(wait=True)
-            toc = time.time()
-            frame += 1
 ```
 
-This is a working demonstration with marginal performance characteristics.  Note: it flickers like crazy with Firefox, but works fine with Chrome.
+This is a working demonstration with marginal/reasonable performance characteristics.  Note: it flickers like crazy with Firefox, but works fine with Chrome.  We have included a slider here, but note that it is not functional.  This is because of the event-loop issue.
 
 +++
 
@@ -493,13 +516,12 @@ This is a working demonstration with marginal performance characteristics.  Note
 
 +++
 
-Here we try using the `Image` widget.
+Here we try using the `Image` widget.  This avoids the flickering on Firefox.
 
 ```{code-cell} ipython3
-import time
 import ipywidgets
 from ipywidgets import interact
-from super_hydro.contexts import NoInterrupt
+from super_hydro.contexts import FPS
 from IPython.display import display, clear_output
 from PIL import Image
 img = ipywidgets.Image(format='jpeg')#, width=2*256)
@@ -507,21 +529,12 @@ inp = ipywidgets.IntSlider()
 msg = ipywidgets.Label()
 wid = ipywidgets.VBox([inp, img, msg])
 display(wid)
-tic = time.time()
-toc = 0
-frame = 0
 data = get_data()
-NoInterrupt.unregister()
-with NoInterrupt() as interrupted:        
-     while not interrupted and time.time() < tic + 5:
+with FPS() as fps:
+    for frame in fps:
         data = data_to_rgba(get_data())
-        #img = Image.fromarray(data[..., :3])
         img.value = MyImage(data, fmt='JPEG')._MyImage__repr_jpeg_()[0]
-        #display(myimg)
-        msg.value = "{:.2f}fps".format(frame/(toc-tic))
-        toc = time.time()
-        frame += 1
-        # clear_output(wait=True)
+        msg.value = f"{fps=}, {inp=}"
 ```
 
 # HTML5 Canvas
@@ -644,21 +657,16 @@ for n in range(100):
 10/(time.time() - tic)
 ```
 
-With this I can get 15+fps on Chrome (but it stalls on Safari).
+With this I can get 15+fps on Chrome (but it does not work on Safari).
 
 ```{code-cell} ipython3
 import mmf_setup.set_path.hgroot
 from IPython.display import clear_output
-from super_hydro.contexts import NoInterrupt
-tic = time.time()
-frames = 0
-NoInterrupt.unregister()
-with NoInterrupt() as interrupted :
-    while not interrupted and time.time() < tic + 5:
+from super_hydro.contexts import FPS
+with FPS() as fps:
+    for frame in fps:
         canvas.data = get_data()
-        frames += 1
-        toc = time.time()
-        display(frames/(toc-tic))
+        display(fps)
         clear_output(wait=True)
 ```
 
@@ -775,39 +783,29 @@ On my computer, this takes 64ms, meaning we should be able to get a 15fps frame-
 
 ```{code-cell} ipython3
 import time
-from mmfutils.contexts import NoInterrupt
+from super_hydro.contexts import FPS
 from IPython.display import display, clear_output
-NoInterrupt.unregister()
-with NoInterrupt() as interrupted:
+with FPS() as fps:
     fig = plt.figure(figsize=(5, 5))
     img = plt.imshow(get_data())
     fig.canvas.draw()
-    tic = time.time()
-    toc = 0
-    frame = 0
     #display(fig)
     time.sleep(1)
-    while not interrupted:
+    for frame in fps:
         img.set_data(get_data())
         fig.canvas.draw()
         #print("{:.2f}fps".format(frame/(toc-tic)))
         #clear_output(wait=True)
-        toc = time.time()
-        frame += 1
+print(fps)
 ```
 
 ```{code-cell} ipython3
-with NoInterrupt() as interrupted:
-    tic = time.time()
-    toc = 0
-    frame = 0
-    while not interrupted:
+with FPS() as fps:
+    for frame in fps:
         img.set_data(get_data())
         fig.canvas.draw()
-        print("{:.2f}fps".format(frame/(toc-tic)))
+        print(f"{fps=}")
         clear_output(wait=True)
-        toc = time.time()
-        frame += 1
 ```
 
 # FFT
