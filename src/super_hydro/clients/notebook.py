@@ -101,6 +101,7 @@ class NotebookApp(ClientDensityMixin, App):
     frames = 10000
     timeout = 30 * 60
     _fps = None
+    _mouse_down = False
 
     def _get_widget(self):
         layout = self.get_layout()
@@ -110,14 +111,16 @@ class NotebookApp(ClientDensityMixin, App):
         ) = widgets.get_interactive_and_special_widgets(layout)
 
         self._w_density = special_widgets["density"]
-        self._txt = ipywidgets.Label()
-        self._inp = ipywidgets.FloatLogSlider(
+        self._w_txt = ipywidgets.Label()
+        self._w_inp = ipywidgets.FloatLogSlider(
             value=0.01, base=10, min=-10, max=1, step=0.2, description="Cooling"
         )
-        self._inp.observe(self.on_value_change, names="value")
-        self._msg = ipywidgets.Label()
-        self._wid = ipywidgets.VBox([self._inp, self._txt, self._img, self._msg])
-        return self._wid
+        self._w_inp.observe(self.on_value_change, names="value")
+        self._w_msg = ipywidgets.Label()
+        self._w_wid = ipywidgets.VBox(
+            [self._w_inp, self._w_txt, self._w_img, self._w_msg]
+        )
+        return self._w_wid
 
     ######################################################################
     # Event Handlers and Callbacks.
@@ -137,16 +140,37 @@ class NotebookApp(ClientDensityMixin, App):
         else:
             self.server.do(button.name)
 
+    def _handle_mouse_move(self, x, y):
+        if self._mouse_down:
+            self._set_finger(x, y)
+
+    def _handle_mouse_down(self, x, y):
+        self._mouse_down = True
+        self._set_finger(x, y)
+
+    def _handle_mouse_up(self, x, y):
+        self._mouse_down = False
+
+    def _handle_mouse_out(self, x, y):
+        self._mouse_down = False
+
+    _xy = []
+
+    def _set_finger(self, x, y):
+        self._w_finger_x.value = x / self._w_density.width
+        self._w_finger_y.value = 1 - y / self._w_density.height
+        self._xy.append((finger_x, finger_y))
+
     def update_frame(self):
         """Callback to update frame when browser is ready."""
         if not self._fps or not self._running:
             return
         with self.sync():
-            self._w_msg.value = f"{self._fps}fps"
-            self._fps.frame += 1
             density = self.get_density()
             self._w_density.rgba = self.get_rgba_from_density(density)
             # self._w_density.fg_objects = self._update_fg_objects()
+            self._fps.frame += 1
+            self._w_msg.value = f"{self._fps}fps"
 
     ######################################################################
     # Server Communication
@@ -189,13 +213,20 @@ class NotebookApp(ClientDensityMixin, App):
         self._w_quit.on_click(self.on_click)
         self._w_fps = special_widgets["fps"]
         self._w_msg = special_widgets["messages"]
+        self._w_finger_x = self._interactive_widgets["finger_x"]
+        self._w_finger_y = self._interactive_widgets["finger_y"]
 
         # Link fps slider and density fps value.
         _l = ipywidgets.jslink((self._w_fps, "value"), (self._w_density, "fps"))
 
-        for w in self._interactive_widgets:
+        for w in self._interactive_widgets.values():
             w.observe(self.on_value_change, names="value")
 
+        # Connect mouse events to control sliders
+        self._w_density.on_mouse_down(self._handle_mouse_down)
+        # self._w_density.on_mouse_up(self._handle_mouse_up)
+        # self._w_density.on_mouse_move(self._handle_mouse_move)
+        # self._w_density.on_mouse_out(self._handle_mouse_out)
         return layout
 
     def get_image(self, rgba):
@@ -237,6 +268,7 @@ class NotebookApp(ClientDensityMixin, App):
         Ny = int(self.Ny / self.Nx * Nx)
         self._w_density.width = Nx
         # self._w_density.height = Ny
+        self._w_fps.value = self.opts.fps
 
         kernel = IPython.get_ipython().kernel
         with FPS(frames=self.frames, timeout=self.timeout) as fps:
@@ -300,10 +332,17 @@ class NotebookApp(ClientDensityMixin, App):
         try:
             yield
         finally:
-            dt = time.perf_counter() - tic
-            t_sleep = 1.0 / self.opts.fps - dt
-            if t_sleep > 0:
-                time.sleep(t_sleep)
+            kernel = IPython.get_ipython().kernel
+            kernel.do_one_iteration()
+            t_continue = tic + 1.0 / max(self._w_fps.value, 1)
+            tok = time.perf_counter()
+            while tok < t_continue:
+                kernel.do_one_iteration()
+                tok = time.perf_counter()
+                dt = min(kernel._poll_interval, t_continue - tok)
+                if dt > 0:
+                    time.sleep(dt)
+                tok = time.perf_counter()
         return
 
 
@@ -337,6 +376,9 @@ def get_app(run_server=True, network_server=False, notebook=True, **kwargs):
     return app
 
 
+global _APP
+
+
 def run(run_server=True, network_server=True, browser_control=True, **kwargs):
     """Start the notebook client.
 
@@ -351,6 +393,7 @@ def run(run_server=True, network_server=True, browser_control=True, **kwargs):
        communicate through sockets, otherwise, directly connect to a
        server.
     """
-    app = get_app(run_server=run_server, network_server=network_server, **kwargs)
+    global _APP
+    _APP = app = get_app(run_server=run_server, network_server=network_server, **kwargs)
     app.browser_control = browser_control
     return app.run()

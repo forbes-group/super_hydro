@@ -66,8 +66,12 @@ notebook.run(
     run_server=True,
     network_server=False,
     random_phase=True,
-    browser_control=True,
+    browser_control=False,
 )
+```
+
+```{code-cell} ipython3
+notebook._APP._xy
 ```
 
 ```{code-cell} ipython3

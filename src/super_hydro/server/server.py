@@ -454,7 +454,7 @@ class Server(ThreadMixin):
         """Return the widget layout."""
         layout = self.model.layout
         interactive_widgets = widgets.get_interactive_widgets(layout)
-        for w in interactive_widgets:
+        for w in interactive_widgets.values():
             w.value = self.model.params[w.name]
         return repr(layout)
 

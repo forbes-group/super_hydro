@@ -7,9 +7,9 @@ jupytext:
     format_version: 0.13
     jupytext_version: 1.13.8
 kernelspec:
-  display_name: Python [conda env:gpe-explorer-super_hydro]
+  display_name: Python 3 (super_hydro)
   language: python
-  name: conda-env-gpe-explorer-super_hydro-py
+  name: super_hydro
 ---
 
 ```{code-cell} ipython3
@@ -31,8 +31,8 @@ from super_hydro.clients import notebook
 
 notebook.run(
     model="gpe.BEC",
-    Nx=128,
-    Ny=128,
+    Nx=128*2,
+    Ny=128*2,
     cooling=0.005,
     cooling_steps=100,
     finger_r0=2.0,
@@ -41,11 +41,17 @@ notebook.run(
     finger_x=0.7,
     winding=40,
     tracer_particles=100,
-    #network_server=False,
+    browser_control=False,
+    run_server=True,
+    network_server=False,
 )
 ```
 
 ## Flow
+
+```{code-cell} ipython3
+%timeit if -0.4 < 4: pass
+```
 
 ```{code-cell} ipython3
 from mmf_setup.set_path import hgroot

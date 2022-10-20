@@ -250,7 +250,7 @@ reset = Button(name="reset", description="Reset", layout=dict(width="5em"))
 reset_tracers = Button(
     name="reset_tracers", description="Reset Tracers", layout=dict(width="8em")
 )
-fps = IntSlider(20, 0, 60, name="fps")
+fps = IntSlider(20, 1, 60, name="fps")
 quit = Button(name="quit", description="Quit", layout=dict(width="4em"))
 messages = Label("Messages", name="messages")
 controls = HBox([quit, reset, reset_tracers, fps, messages], name="controls")
@@ -280,14 +280,14 @@ def get_interactive_and_special_widgets(layout):
 
     # Walk through layout and gather widgets with names so we can
     # set those default values.
-    interactive_widgets = set()
+    interactive_widgets = {}
     special_widgets = {}
 
     def walk(root):
         if root.name in special_widget_names:
             special_widgets[root.name] = root
         elif root.name != "_":
-            interactive_widgets.add(root)
+            interactive_widgets[root.name] = root
         list(map(walk, getattr(root, "children", [])))
 
     walk(layout)

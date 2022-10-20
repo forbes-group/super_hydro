@@ -6,6 +6,12 @@ To Do:
       `module.rst`.
 * [ ] Another interface for tracer particles with `Lxy` and `xy`?
 
+19 Oct 2022
+===========
+The FPS counter is about a factor of 2 off of the sync() value.  Need to check.  Mouse
+works, but really slows down the interface.
+
+
 18 Oct 2022
 ===========
 There is a serious install issue on Mac OS X ARM processors.  Somehow `apr shell` subs
