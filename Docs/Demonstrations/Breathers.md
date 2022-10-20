@@ -66,7 +66,7 @@ notebook.run(
     run_server=True,
     network_server=False,
     random_phase=True,
-    browser_control=False,
+    browser_control=True,
 )
 ```
 

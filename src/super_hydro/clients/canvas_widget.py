@@ -180,7 +180,7 @@ class CanvasIPy(ipycanvas.Canvas):
                 + "https://github.com/mforbes/ipycanvas/tree/image_updated"
             )
 
-        canvas.on_image_updated(callback, remove=remove)
+        self.on_image_updated(callback, remove=remove)
 
     def update(self):
         self._update_handlers()

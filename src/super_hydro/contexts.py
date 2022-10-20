@@ -653,14 +653,23 @@ def coroutine(coroutine):
 
 
 @contextmanager
-def FPS(frames=200, timeout=5):
-    """Context manager to measure framerate.
+def FPS(frames=200, timeout=5, tics=20):
+    """Context manager to measure framerate and provide interrupt control.
+
+    This can be used in two ways:
+    1. As an iterator, which will run for the specified number of frames or until the
+       timeout is exceeded;
+    2. As flag that can be run while `bool(fps)`.  In this second usage, you must
+       manually update `fps.frame` to get a proper fps computation.
 
     Arguments
     ---------
     frames : int | iterable
         Yields iterator or range.
     timeout : float
+        Timeout in seconds.
+    tics : int
+        How many of the last updates will be used to calculate the fps.
 
     Examples
     --------
@@ -672,7 +681,7 @@ def FPS(frames=200, timeout=5):
     """
 
     class Frame:
-        def __init__(self, interrupted, frames):
+        def __init__(self, interrupted, frames, tics=10):
             self.interrupted = interrupted
             try:
                 self.the_frames = iter(frames)
@@ -684,8 +693,9 @@ def FPS(frames=200, timeout=5):
             except TypeError:
                 self.the_frames = range(frames)
                 self.frames = frames
-            self.frame = 0
+            self._frame = 0
             self.tic = time.time()
+            self.tics = collections.deque([self.tic], maxlen=tics)
 
         def __bool__(self):
             """True while running"""
@@ -694,8 +704,23 @@ def FPS(frames=200, timeout=5):
             )
 
         @property
+        def frame(self):
+            return self._frame
+
+        @frame.setter
+        def frame(self, frame):
+            if frame == self._frame + 1:
+                self.tics.append(time.time())
+            self._frame = frame
+
+        @property
         def fps(self):
-            return getattr(self, "_fps", self.frame / (time.time() - self.tic))
+            if len(self.tics) == 0:
+                return 0
+            elif len(self.tics) == 1:
+                return 1.0 / (time.time() - self.tics[0])
+            else:
+                return len(self.tics) / (self.tics[-1] - self.tics[0])
 
         def __repr__(self):
             return "{:.2f}".format(self.fps)
@@ -711,4 +736,3 @@ def FPS(frames=200, timeout=5):
     with NoInterrupt(timeout=timeout) as interrupted:
         fps = Frame(interrupted=interrupted, frames=frames)
         yield fps
-        fps._fps = fps.fps

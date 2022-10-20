@@ -96,10 +96,11 @@ class NotebookApp(ClientDensityMixin, App):
     """
 
     fmt = "PNG"
-    browser_control = True
+    browser_control = False
     server = None
     frames = 10000
     timeout = 30 * 60
+    _fps = None
 
     def _get_widget(self):
         layout = self.get_layout()
@@ -108,7 +109,7 @@ class NotebookApp(ClientDensityMixin, App):
             special_widgets,
         ) = widgets.get_interactive_and_special_widgets(layout)
 
-        self._density = special_widgets["density"]
+        self._w_density = special_widgets["density"]
         self._txt = ipywidgets.Label()
         self._inp = ipywidgets.FloatLogSlider(
             value=0.01, base=10, min=-10, max=1, step=0.2, description="Cooling"
@@ -138,13 +139,14 @@ class NotebookApp(ClientDensityMixin, App):
 
     def update_frame(self):
         """Callback to update frame when browser is ready."""
-        if not self._running:
+        if not self._fps or not self._running:
             return
         with self.sync():
-            self._frame += 1
+            self._w_msg.value = f"{self._fps}fps"
+            self._fps.frame += 1
             density = self.get_density()
-            self._density.rgba = self.get_rgba_from_density(density)
-            # self._density.fg_objects = self._update_fg_objects()
+            self._w_density.rgba = self.get_rgba_from_density(density)
+            # self._w_density.fg_objects = self._update_fg_objects()
 
     ######################################################################
     # Server Communication
@@ -177,19 +179,19 @@ class NotebookApp(ClientDensityMixin, App):
             special_widgets,
         ) = widgets.get_interactive_and_special_widgets(layout)
 
-        self._density = special_widgets["density"]
-        self._density.width = 500  # self.width
-        self._reset = special_widgets["reset"]
-        self._reset.on_click(self.on_click)
-        self._reset_tracers = special_widgets["reset_tracers"]
-        self._reset_tracers.on_click(self.on_click)
-        self._quit = special_widgets["quit"]
-        self._quit.on_click(self.on_click)
-        self._fps = special_widgets["fps"]
-        self._msg = special_widgets["messages"]
+        self._w_density = special_widgets["density"]
+        self._w_density.width = 500  # self.width
+        self._w_reset = special_widgets["reset"]
+        self._w_reset.on_click(self.on_click)
+        self._w_reset_tracers = special_widgets["reset_tracers"]
+        self._w_reset_tracers.on_click(self.on_click)
+        self._w_quit = special_widgets["quit"]
+        self._w_quit.on_click(self.on_click)
+        self._w_fps = special_widgets["fps"]
+        self._w_msg = special_widgets["messages"]
 
         # Link fps slider and density fps value.
-        _l = ipywidgets.jslink((self._fps, "value"), (self._density, "fps"))
+        _l = ipywidgets.jslink((self._w_fps, "value"), (self._w_density, "fps"))
 
         for w in self._interactive_widgets:
             w.observe(self.on_value_change, names="value")
@@ -227,24 +229,22 @@ class NotebookApp(ClientDensityMixin, App):
 
         _res = self.server.get(["Nx", "Ny"])
         self.Nx, self.Ny = _res["Nx"], _res["Ny"]
-        self._frame = 0
-        self._tic0 = time.time()
 
         display(self.get_widget())
 
         # Broken!  Fix aspect ratio better with reasonable sliders.
         Nx = max(500, self.Nx)
         Ny = int(self.Ny / self.Nx * Nx)
-        self._density.width = Nx
-        # self._density.height = Ny
+        self._w_density.width = Nx
+        # self._w_density.height = Ny
 
-        self._frame = 0
         kernel = IPython.get_ipython().kernel
-        if self.browser_control:
-            self._density.on_update(callback=self.update_frame)
-            self.update_frame()
-            with NoInterrupt(timeout=self.timeout) as interrupted:
-                while not interrupted and self._running:
+        with FPS(frames=self.frames, timeout=self.timeout) as fps:
+            self._fps = fps
+            if self.browser_control:
+                self._w_density.on_update(callback=self.update_frame)
+                self.update_frame()
+                while fps and self._running:
                     # This should not strictly be needed since the
                     # javascript will drive the handlers, but due to
                     # issues with interrupts etc. we can't seem to rely on
@@ -252,17 +252,17 @@ class NotebookApp(ClientDensityMixin, App):
                     # we do a dummy event loop here.
                     kernel.do_one_iteration()
                     time.sleep(kernel._poll_interval)
-        else:
-            with FPS(frames=self.frames, timeout=self.timeout) as fps:
+                self._w_density.on_update(callback=self.update_frame, remove=True)
+            else:
                 for frame in fps:
                     if not self._running:
                         break
                     self.update_frame()
-                    self._msg.value = f"{fps}fps"
                     for n in range(
                         int(math.ceil(1 / max(1, fps.fps) / kernel._poll_interval))
                     ):
                         kernel.do_one_iteration()
+        self._fps = None
         if self._running:
             self.quit()
 
