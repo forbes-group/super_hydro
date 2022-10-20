@@ -14,6 +14,8 @@ browser is finished displaying the last frame.
 from contextlib import contextmanager
 import io
 import time
+import math
+
 import IPython
 
 from matplotlib import cm
@@ -23,7 +25,7 @@ import numpy as np
 import ipywidgets
 
 # from mmfutils.contexts import nointerrupt, NoInterrupt
-from ..contexts import nointerrupt, NoInterrupt
+from ..contexts import nointerrupt, NoInterrupt, FPS
 
 from .. import config, communication, utils, widgets
 
@@ -96,6 +98,8 @@ class NotebookApp(ClientDensityMixin, App):
     fmt = "PNG"
     browser_control = True
     server = None
+    frames = 10000
+    timeout = 30 * 60
 
     def _get_widget(self):
         layout = self.get_layout()
@@ -216,8 +220,7 @@ class NotebookApp(ClientDensityMixin, App):
 
     ######################################################################
     # Client Application
-    @nointerrupt
-    def run(self, interrupted=False):
+    def run(self):
         if self.server is None:
             self.server = communication.LocalNetworkServer(opts=self.opts)
         from IPython.display import display
@@ -236,24 +239,30 @@ class NotebookApp(ClientDensityMixin, App):
         # self._density.height = Ny
 
         self._frame = 0
+        kernel = IPython.get_ipython().kernel
         if self.browser_control:
             self._density.on_update(callback=self.update_frame)
             self.update_frame()
-            kernel = IPython.get_ipython().kernel
-            while not interrupted and self._running:
-                # This should not strictly be needed since the
-                # javascript will drive the handlers, but due to
-                # issues with interrupts etc. we can't seem to rely on
-                # being able to catch an interrupt if we return.  So
-                # we do a dummy event loop here.
-                kernel.do_one_iteration()
-                time.sleep(kernel._poll_interval)
+            with NoInterrupt(timeout=self.timeout) as interrupted:
+                while not interrupted and self._running:
+                    # This should not strictly be needed since the
+                    # javascript will drive the handlers, but due to
+                    # issues with interrupts etc. we can't seem to rely on
+                    # being able to catch an interrupt if we return.  So
+                    # we do a dummy event loop here.
+                    kernel.do_one_iteration()
+                    time.sleep(kernel._poll_interval)
         else:
-            while not interrupted and self._running:
-                tic0 = time.time()
-                self.update_frame()
-                toc = time.time()
-                self._msg.value = "{:.2f}fps".format(self._frame / (toc - tic0))
+            with FPS(frames=self.frames, timeout=self.timeout) as fps:
+                for frame in fps:
+                    if not self._running:
+                        break
+                    self.update_frame()
+                    self._msg.value = f"{fps}fps"
+                    for n in range(
+                        int(math.ceil(1 / max(1, fps.fps) / kernel._poll_interval))
+                    ):
+                        kernel.do_one_iteration()
         if self._running:
             self.quit()
 

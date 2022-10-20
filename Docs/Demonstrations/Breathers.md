@@ -5,7 +5,7 @@ jupytext:
     extension: .md
     format_name: myst
     format_version: 0.13
-    jupytext_version: 1.14.0
+    jupytext_version: 1.13.8
 kernelspec:
   display_name: Python 3 (super_hydro)
   language: python
@@ -66,7 +66,7 @@ notebook.run(
     run_server=True,
     network_server=False,
     random_phase=True,
-    browser_control=True,
+    browser_control=False,
 )
 ```
 

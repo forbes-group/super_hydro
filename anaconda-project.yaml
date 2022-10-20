@@ -70,6 +70,7 @@ commands:
 #
 variables:
   CONDA_EXE: conda
+  CONDA_SUBDIR: osx-64
 
 #
 # In the services section, list any services that should be
