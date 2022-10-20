@@ -71,6 +71,10 @@ notebook.run(
 ```
 
 ```{code-cell} ipython3
+%connect_info
+```
+
+```{code-cell} ipython3
 # Does not work on CoLab yet
 from mmf_setup.set_path import hgroot
 from importlib import reload

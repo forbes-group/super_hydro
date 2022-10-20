@@ -167,15 +167,20 @@ class CanvasIPy(ipycanvas.Canvas):
             self.put_image_data(self._rgb_data, 0, 0)
 
     def on_update(self, callback, remove=False):
-        """Register a callback to execute when the browser is ready
-        for an update.
+        """Register a callback to execute when the browser is ready for an update.
 
         Parameters
         ----------
         remove: bool (optional)
             Set to true to remove the callback from the list of callbacks.
         """
-        self._update_handlers.register_callback(callback, remove=remove)
+        if not hasattr(self, "on_image_updated"):
+            raise NotImplementedError(
+                "Need custom version of ipycanvas from "
+                + "https://github.com/mforbes/ipycanvas/tree/image_updated"
+            )
+
+        canvas.on_image_updated(callback, remove=remove)
 
     def update(self):
         self._update_handlers()

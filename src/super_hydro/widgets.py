@@ -6,7 +6,7 @@ use to associate the widget with appropriate parameters in the client.
 import traitlets
 import ipywidgets
 
-from .clients.canvas_widget import Canvas
+from .clients.canvas_widget import Canvas, CanvasIPy
 
 __all__ = [
     "density",
@@ -30,6 +30,7 @@ __all__ = [
     "IntSlider",
     "IntProgress",
     "IntRangeSlider",
+    "Layout",
     "Play",
     "SliderStyle",
     "ColorPicker",
@@ -54,7 +55,8 @@ __all__ = [
     "Image",
     "Video",
     "Audio",
-    "Canvas" "get_descriptions",
+    "Canvas",
+    "get_descriptions",
     "get_interactive_and_special_widgets",
     "get_interactive_widgets",
 ]
@@ -236,9 +238,14 @@ class Audio(ipywidgets.Audio):
     name = traitlets.ObjectName("_").tag(sync=True)
 
 
+class Layout(ipywidgets.Layout):
+    name = traitlets.ObjectName("_").tag(sync=True)
+
+
 ######################################################################
 # Special widgets that should always be included.
-density = Canvas(name="density")
+# density = Canvas(name="density")
+density = CanvasIPy(name="density", layout=Layout(width="100%", height="auto"))
 reset = Button(name="reset", description="Reset", layout=dict(width="5em"))
 reset_tracers = Button(
     name="reset_tracers", description="Reset Tracers", layout=dict(width="8em")
