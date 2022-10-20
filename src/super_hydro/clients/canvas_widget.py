@@ -134,11 +134,6 @@ class CanvasIPy(ipycanvas.Canvas):
     name = traitlets.ObjectName("_").tag(sync=True)
     fps = Int(20, help="Maximum fps for update requests.").tag(sync=True)
 
-    def __init__(self, **kw):
-        super().__init__(**kw)
-        self._update_handlers = CallbackDispatcher()
-        self.on_msg(self._handle_update_request)
-
     @property
     def rgba(self):
         """RGBA bytes array from a colormap.
@@ -181,10 +176,3 @@ class CanvasIPy(ipycanvas.Canvas):
             )
 
         self.on_image_updated(callback, remove=remove)
-
-    def update(self):
-        self._update_handlers()
-
-    def _handle_update_request(self, canvas, content, buffers):
-        if content.get("request", "") == "update":
-            self.update()
