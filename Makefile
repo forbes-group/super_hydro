@@ -15,6 +15,8 @@ CONDA_FLAGS = --prefix $(CONDA_ENVS)/$(ENV)
 
 #RUN = $(CONDA_EXE) run $(CONDA_FLAGS)
 RUN = $(ANACONDA_PROJECT) run
+REFRESH = 
+REFRESH ?= --refresh
 
 ACTIVATE ?= eval "$$(conda shell.bash hook)" && conda activate
 AP_PRE ?= CONDA_EXE=$(CONDA_EXE)
@@ -24,11 +26,11 @@ ACTIVATE_PROJECT ?= $(ACTIVATE) $(ENV_PATH)
 ANACONDA_PROJECT ?= anaconda-project
 
 # We have some build issues on the ARM environment, use Rosetta to emulate the osc-64 platform.
-USE_ARM ?= false
+USE_ARM ?= true
 
 ifneq ($(USE_ARM), true)
 ifeq ($(shell uname -p),arm)
-  CONDA_SUBDIR = osx-64
+  CONDA_SUBDIR=osx-64
 endif
 endif
 
@@ -39,14 +41,32 @@ endif
 USE_CONDA = true
 ######################################################################
 # Default target runs init and then echos commands to activate
-go: init
+go: init-user
 	echo "conda deactivate"
+
+dev: init-dev
+init: init-dev
+shell: init-dev
+	$(AP_PRE) $(ANACONDA_PROJECT) run shell
 
 ######################################################################
 # Installation
-init: Docs/sphinx-source/_static/mathjax
+init-user: Docs/sphinx-source/_static/mathjax
 ifeq ($(USE_CONDA), true)
-	$(AP_PRE) $(ANACONDA_PROJECT) prepare --refresh --env-spec $(ENV)
+	$(AP_PRE) $(ANACONDA_PROJECT) prepare --env-spec $(ENV)
+ifdef CONDA_SUBDIR
+	$(ACTIVATE_PROJECT) && conda config --env --set subdir $(CONDA_SUBDIR)
+endif
+	$(AP_PRE) $(ANACONDA_PROJECT) run init-user
+	$(ACTIVATE_PROJECT) && poetry install -E docs -E tests -E fftw
+else
+	$(PYTHON) -m venv .venv
+	poetry install -E fftw
+endif
+
+init-dev: Docs/sphinx-source/_static/mathjax
+ifeq ($(USE_CONDA), true)
+	$(AP_PRE) $(ANACONDA_PROJECT) prepare $(REFRESH) --env-spec $(ENV)
 ifdef CONDA_SUBDIR
 	$(ACTIVATE_PROJECT) && conda config --env --set subdir $(CONDA_SUBDIR)
 endif
@@ -91,7 +111,7 @@ real-clean: clean
 	-conda config --remove env_dirs $(CONDA_ENVS)
 	find . -type d -name "__pycache__" -exec rm -rf "{}" +
 
-.PHONY: init real-clean clean install uninstall conda-env conda-env-gpu
+.PHONY: go dev shell init-user init-dev real-clean clean install uninstall conda-env conda-env-gpu
 
 ######################################################################
 # Documentation
@@ -210,7 +230,11 @@ Variables:
                      not yet ready for the ARM platform.
 
 Initialization:
-   make init         Initialize the environment and kernel.  On CoCalc we do specific things
+   make [go]         Initialize the environments needed to run the applications.  Does not
+                     install the development tools needed for testing, building documentation
+                     etc.
+   make init-user    Initialize the environment and kernel for users.
+   make init-dev     Initialize the environment and kernel.  On CoCalc we do specific things
                      like install mmf-setup, and activate the environment in ~/.bash_aliases.
                      This is done by `make init` if ANACONDA2020 is defined.
 
