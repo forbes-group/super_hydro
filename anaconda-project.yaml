@@ -101,9 +101,9 @@ downloads: {}
 
 # packages:
 dependencies:
-- python=3.9
-- anaconda-project>=0.10.1
-- poetry
+- python=3.10
+#- anaconda-project>=0.10.1  # Install these at a system level.
+#- poetry
 # Do this until the following issues are fixed
 #- conda-forge::pyfftw<0.13.0
 # https://github.com/pyFFTW/pyFFTW/issues/294
@@ -123,7 +123,7 @@ dependencies:
   # Needed to resolve a pip issue.  Pip sees anaconda-project which appears to depend
   # on the following.  It is installed as ruamel-yaml-conda, but pip expects it in this
   # form.  We install both for now.
-  - ruamel-yaml              
+  - ruamel-yaml
 #  - .
 #  - hg+file:///Users/mforbes/current/research/super_hydro/super_hydro_hg#super_hydro
   
@@ -159,10 +159,10 @@ env_specs:
   super_hydro_arm:
     description: Environment for ARM processors
     variables:
-      CONDA_SUBDIR: osx-64
+      CONDA_SUBDIR: osx-arm
 
   super_hydro_x86:
-    description: Environment for ARM processors
+    description: Rosetta intel environment for ARM processors
     variables:
       CONDA_SUBDIR: osx-64
 
