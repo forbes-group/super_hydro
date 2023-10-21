@@ -662,6 +662,7 @@ def run(block=True, network_server=True, interrupted=False, args=None, kwargs={}
     cls = opts.model.split(".")[-1]
     pkg = "super_hydro"
     opts.Model = getattr(importlib.import_module("." + module, pkg), cls)
+
     if network_server:
         server = NetworkServer(opts=opts)
     else:

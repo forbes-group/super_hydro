@@ -10,17 +10,17 @@ For better performance, however, the explored can be run as a client-server appl
 with the computations being run on a high-performance server (preferably with an Nvidia
 GPU) while you interact with the client on your device.
 
-## Installing [Super_Hydro]
+## Installing [Super_Hydro][]
 
-Although [super_hydro] can be installed directly with [Pip]:
+Although [super_hydro][] can be installed directly with [Pip][]:
 
 ```bash
 python3 -m pip install super_hydro
 ```
 
-it is recommended that you first create a [Conda] environment with any performance
-libraries such as the [FFTW] libraries or the [NVIDIA] [CUDA] toolkit *(only if you have
-a suitable NVIDIA GPU)*:
+it is recommended that you first create a [Conda][] environment with any performance
+libraries such as the [FFTW][] libraries or the [NVIDIA][] [CUDA][] toolkit *(only if
+you have a suitable NVIDIA GPU)*:
 
 ```bash
 conda env create -n super_hydro -f anaconda-project.yaml
@@ -30,11 +30,11 @@ conda activate super_hydro
 python3 -m pip install super_hydro[fftw,gpu]     # Choose your options
 ```
 
-The reason is that [Pip] cannot install the binary dependencies, and there can be subtle
-version issues that [Conda] resolves.
+The reason is that [Pip][] cannot install the binary dependencies, and there can be subtle
+version issues that [Conda][] resolves.
 
 If you want to use the notebook demonstrations, then you should also install the
-`super_hydro` [Jupyter] kernel:
+`super_hydro` [Jupyter][] kernel:
 
 ```bash
 python3 -m ipykernel install --user --name "super_hydro" --display-name "Python 3 (super_hydro)"
@@ -43,7 +43,29 @@ python3 -m ipykernel install --user --name "super_hydro" --display-name "Python 
 **Source**
 
 If you are working from a source distribution, then all of this can be automated with
-[Anaconda Project]:
+[Anaconda Project][].  *(For even more automation, see the `Makefile` which does these
+steps and more when you run `make init` or `make init-gpu`: run `make help` for
+details.)*
+
+First make sure you have the appropriate development tools:
+* [Poetry][]: I install this with [Pipx][] using my system version of python.
+
+    ```bash
+    # These can use the system version of python.
+    pip install --upgrade pipx  # If needed
+    pipx install poetry
+    ```
+
+* [Anaconda Project][]: I install this in by `base` [Miniconda][] environment.
+    *([Condax][] is an option, but I have had [issues on Mac OS
+    X](https://github.com/mariusvniekerk/condax/issues/63).)*
+
+    ```bash
+    conda install anaconda-project
+    ```
+
+* [Git][], `make`, etc.: I recommend installing from your system package manage.
+
 
 ```bash
 git clone https://gitlab.com/coldatoms/super_hydro.git 
@@ -114,10 +136,14 @@ Foundation.
 [Anaconda Project]: <https://github.com/Anaconda-Platform/anaconda-project> "Anaconda Project"
 [CUDA]: <https://developer.nvidia.com/cuda-toolkit> "CUDA Toolkit"
 [Conda]: <https://docs.conda.io> "Conda"
+[Miniconda]: <https://docs.conda.io/en/latest/miniconda.html> "Miniconda"
+[Condax]: <https://mariusvniekerk.github.io/condax/> "Condax"
 [CuPy]: <https://cupy.dev> "CuPy: NumPy/SciPy-compatible Array Library for GPU-accelerated Computing with Python"
 [FFTW]: <https://www.fftw.org> "FFTW: The Fastest Fourier Transform in the West"
 [Jupyter notebook]: <https://jupyter.org> "Jupyter Notebook"
 [NVIDIA]: <https://www.nvidia.com/en-us/> "NVIDIA"
 [Pip]: <https://pip.pypa.io/en/stable/> "Package installer for Python"
+[Pipx]: <https://pypa.github.io/pipx/> "Install and Run Python Applications in Isolated Environments"
+
 [pyFFTW]: <https://github.com/pyFFTW/pyFFTW> "pyFFTW: A pythonic python wrapper around FFTW"
 [super_hydro]: <https://alum.mit.edu/www/mforbes/super_hydro> "Super_Hydro homepage"

@@ -37,10 +37,14 @@ log = _LOGGER.log
 log_task = _LOGGER.log_task
 
 
-class App(object):
+class App:
     server = None
 
-    def __init__(self, opts, width="50%"):
+    def __init__(self, opts, width="50%", **kw):
+        for key in kw:
+            if not hasattr(self, key):
+                raise ValueError(f"Unknown argument {key=}")
+            setattr(self, key, kw[key])
         self.width = width
         self.opts = opts
         self._running = True
@@ -102,6 +106,7 @@ class NotebookApp(ClientDensityMixin, App):
     timeout = 30 * 60
     _fps = None
     _mouse_down = False
+    alternative_widgets = None
 
     def _get_widget(self):
         layout = self.get_layout()
@@ -223,10 +228,11 @@ class NotebookApp(ClientDensityMixin, App):
             w.observe(self.on_value_change, names="value")
 
         # Connect mouse events to control sliders
-        self._w_density.on_mouse_down(self._handle_mouse_down)
-        # self._w_density.on_mouse_up(self._handle_mouse_up)
-        # self._w_density.on_mouse_move(self._handle_mouse_move)
-        # self._w_density.on_mouse_out(self._handle_mouse_out)
+        if hasattr(self._w_density, "on_mouse_down"):
+            self._w_density.on_mouse_down(self._handle_mouse_down)
+            # self._w_density.on_mouse_up(self._handle_mouse_up)
+            # self._w_density.on_mouse_move(self._handle_mouse_move)
+            # self._w_density.on_mouse_out(self._handle_mouse_out)
         return layout
 
     def get_image(self, rgba):
@@ -244,7 +250,11 @@ class NotebookApp(ClientDensityMixin, App):
 
     def get_layout(self):
         """Return the model specified layout."""
-        layout = eval(self.server.get(["layout"])["layout"], widgets.__dict__)
+        env = dict(widgets.__dict__)
+        layout = widgets.update_layout(
+            eval(self.server.get(["layout"])["layout"], env),
+            alternatives=self.alternative_widgets,
+        )
         return layout
 
     def get_tracer_particles(self):
@@ -349,7 +359,9 @@ class NotebookApp(ClientDensityMixin, App):
 _OPTS = None
 
 
-def get_app(run_server=True, network_server=False, notebook=True, **kwargs):
+def get_app(
+    run_server=True, network_server=False, notebook=True, nb_args=None, **kwargs
+):
     NoInterrupt.unregister()
     global _OPTS
     if _OPTS is None:
@@ -357,7 +369,9 @@ def get_app(run_server=True, network_server=False, notebook=True, **kwargs):
             parser = config.get_client_parser()
             _OPTS, _other_opts = parser.parse_known_args(args="")
     if notebook:
-        app = NotebookApp(opts=_OPTS)
+        if nb_args is None:
+            nb_args = {}
+        app = NotebookApp(opts=_OPTS, **nb_args)
     else:
         app = App(opts=_OPTS)
 
@@ -379,7 +393,9 @@ def get_app(run_server=True, network_server=False, notebook=True, **kwargs):
 global _APP
 
 
-def run(run_server=True, network_server=True, browser_control=True, **kwargs):
+def run(
+    run_server=True, network_server=True, browser_control=True, nb_args=None, **kwargs
+):
     """Start the notebook client.
 
     Parameters
@@ -394,6 +410,8 @@ def run(run_server=True, network_server=True, browser_control=True, **kwargs):
        server.
     """
     global _APP
-    _APP = app = get_app(run_server=run_server, network_server=network_server, **kwargs)
+    _APP = app = get_app(
+        run_server=run_server, network_server=network_server, nb_args=nb_args, **kwargs
+    )
     app.browser_control = browser_control
     return app.run()

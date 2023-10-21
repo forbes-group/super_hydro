@@ -245,7 +245,7 @@ class Layout(ipywidgets.Layout):
 ######################################################################
 # Special widgets that should always be included.
 # density = Canvas(name="density")
-density = CanvasIPy(name="density", layout=Layout(width="100%", height="auto"))
+density = CanvasIPy(name="density", layout=Layout(width="50%", height="auto"))
 reset = Button(name="reset", description="Reset", layout=dict(width="5em"))
 reset_tracers = Button(
     name="reset_tracers", description="Reset Tracers", layout=dict(width="8em")
@@ -256,6 +256,14 @@ messages = Label("Messages", name="messages")
 controls = HBox([quit, reset, reset_tracers, fps, messages], name="controls")
 special_widget_names = set(
     ["density", "quit", "reset", "reset_tracers", "fps", "messages", "controls"]
+)
+
+# This dictionary provides alternatives allowing programmatic customization
+alternative_widgets = dict(
+    density=dict(
+        Canvas=Canvas(name="density"),
+        CanvasIPy=CanvasIPy(name="density", layout=Layout(width="100%", height="auto")),
+    )
 )
 
 
@@ -275,9 +283,50 @@ def get_descriptions(layout):
     return descriptions
 
 
-def get_interactive_and_special_widgets(layout):
-    """Return a set of interactive widgets - those with a valid `name`"""
+def update_layout(layout, alternatives=None):
+    """Return a layout with appropriate substitutions.
 
+    Arguments
+    ---------
+    layout : Widget
+        Nested widget structure with the layout.
+    alternatives : dict
+        Dictionary of alternatives.  For example: dict(density='Canvas') vs
+        dict(density='CanvasIPy').  Values must be keys in alternative_widgets or
+        Widgets themselves.
+    """
+    if alternatives is None:
+        return layout
+
+    def walk(root):
+        if not hasattr(root, "children"):
+            return
+
+        children = list(root.children)
+        for n, child in enumerate(children):
+            name = child.name
+            if name in alternatives:
+                if alternatives[name] in alternative_widgets[name]:
+                    children[n] = alternative_widgets[name][alternatives[name]]
+                else:
+                    children[n] = alternatives[name]
+                if hasattr(child, "children"):
+                    children[n].children = child.children
+        root.children = tuple(children)
+        list(map(walk, children))
+
+    walk(layout)
+    return layout
+
+
+def get_interactive_and_special_widgets(layout):
+    """Return a set of interactive widgets - those with a valid `name`.
+
+    Arguments
+    ---------
+    layout : Widget
+        Nested widget structure with the layout.
+    """
     # Walk through layout and gather widgets with names so we can
     # set those default values.
     interactive_widgets = {}

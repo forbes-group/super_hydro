@@ -6,6 +6,52 @@ To Do:
       `module.rst`.
 * [ ] Another interface for tracer particles with `Lxy` and `xy`?
 
+1 Jan 2023
+==========
+* Remove `anaconda-project` and `Poetry` as dependencies: these should be install at the
+  OS level.  Documented this in README.md
+* Added `init-user` target that excludes extras.  Use `make dev` if needed.
+
+20 Dec 2022
+===========
+Trying to work offline on my new Mac.  Prior to leaving, I did a `make init`.  However,
+when running, I hit the following issues/
+* `jupyter notebook` fails due to the SSL issue (this is a rosetta build, but it is
+  trying to access the macport ARM SSL library).  Not sure why, but
+  `envs/super_hydro/lib/libssl.1.1.dylib` is ARM even though everything was installed
+  with x64-86.  Who is doing this?  libcrypto has the same issue.
+  
+  ```bash
+  file envs/super_hydro/lib/* | grep arm
+  ```
+* Trying to run the client fails because flask can't import escape from jinja2:
+  `ImportError: cannot import name 'escape' from 'jinja2'`.
+  
+  ```bash
+  conda list
+  ...
+  flask                     1.1.2                    pypi_0    pypi
+  jinja2                    3.1.2            py39hecd8cb5_0  
+  ```
+  
+  Issue might be that flask is pinned, but jinja2 is not.
+
+19 Nov 2022
+===========
+UI Improvements:
+* IPyWidgets, etc. seem too slow.  Maybe we can improve, but I think we should consider
+  using a JS frontend that can stand alone.  We want some sort of framework, and
+  [React](https://reactjs.org/) looks like it might work.  I can function completely in
+  the browser, or you can use [JSX](https://reactjs.org/docs/introducing-jsx.html) which
+  needs [Node.js](https://nodejs.org/), but only to compile, and one can us
+  [Babel](https://babeljs.io/) to compile on the fly (though this is slow).
+* Consider using [TypeScript](https://www.typescriptlang.org/).  IPyEvents uses this, so
+  use their `setup.py` as a way of seeing how to do this.  [Babel][]
+* Alternatively, consider [WebComponents](https://blog.stackblitz.com/posts/introducing-webcontainers/)
+  for a way to use Node.js in the browser?
+
+[Babel]: <https://babeljs.io/>
+
 19 Oct 2022
 ===========
 The FPS counter is about a factor of 2 off of the sync() value.  Need to check.  Mouse

@@ -47,16 +47,55 @@ commands:
   # Needs to be explicitly called until we can run scripts on prepare
   # https://github.com/Anaconda-Platform/anaconda-project/issues/239
   # 
+  init-user:
+    unix: |
+      poetry install -E fftw
+      python3 -m ipykernel install --user --name "super_hydro" --display-name "Python 3 (super_hydro)"
+      jupyter nbextensions_configurator enable --user
+      #jupyter nbextension enable 
+    windows: |
+      poetry install -E fftw
+      python3 -m ipykernel install --user --name "super_hydro" --display-name "Python 3 (super_hydro)"
+      jupyter nbextensions_configurator enable --user
+      #jupyter nbextension enable 
+    env_spec: super_hydro
   init:
     unix: |
       poetry install -E docs -E tests -E fftw
       python3 -m ipykernel install --user --name "super_hydro" --display-name "Python 3 (super_hydro)"
       jupyter nbextensions_configurator enable --user
       #jupyter nbextension enable 
+    windows: |
+      poetry install -E docs -E tests -E fftw
+      python3 -m ipykernel install --user --name "super_hydro" --display-name "Python 3 (super_hydro)"
+      jupyter nbextensions_configurator enable --user
+      #jupyter nbextension enable 
     env_spec: super_hydro
 
+  init_x86:
+    unix: |
+      poetry install -E docs -E tests -E fftw
+      python3 -m ipykernel install --user --name "super_hydro" --display-name "Python 3 (super_hydro)"
+      jupyter nbextensions_configurator enable --user
+      #jupyter nbextension enable 
+    env_spec: super_hydro_x86
+
+  init_arm:
+    unix: |
+      poetry install -E docs -E tests -E fftw
+      python3 -m ipykernel install --user --name "super_hydro" --display-name "Python 3 (super_hydro)"
+      jupyter nbextensions_configurator enable --user
+      #jupyter nbextension enable 
+    env_spec: super_hydro_arm
+    
   init_gpu:
     unix: |
+      poetry install -E docs -E tests -E fftw -E gpu
+      #pip install --use-feature=in-tree-build -e .[docs,tests,fftw,gpu]
+      python3 -m ipykernel install --user --name "super_hydro_gpu" --display-name "Python 3 (super_hydro_gpu)"
+      jupyter nbextensions_configurator enable --user
+      #jupyter nbextension enable 
+    windows: |
       poetry install -E docs -E tests -E fftw -E gpu
       #pip install --use-feature=in-tree-build -e .[docs,tests,fftw,gpu]
       python3 -m ipykernel install --user --name "super_hydro_gpu" --display-name "Python 3 (super_hydro_gpu)"
@@ -70,7 +109,6 @@ commands:
 #
 variables:
   CONDA_EXE: conda
-  CONDA_SUBDIR: osx-64
 
 #
 # In the services section, list any services that should be

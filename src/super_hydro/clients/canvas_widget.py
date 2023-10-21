@@ -61,7 +61,8 @@ class Canvas(DOMWidget):
 
         # Until we properly install this, display the javascript to
         # load the widget in the notebook.
-        self.on_displayed(self._display_js_callback)
+        # self.on_displayed(self._display_js_callback)
+        self.on_widget_constructed(self._display_js_callback)
 
     def _display_js_callback(self, widget, **kwargs):
         from IPython.display import Javascript, display

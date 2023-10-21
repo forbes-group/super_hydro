@@ -35,6 +35,16 @@ log_task = _LOGGER.log_task
 from .testing import HelloWorld
 
 
+__all__ = [
+    "BEC",
+    "BECVortices",
+    "BECFlow",
+    "BECSoliton",
+    "BECBreather",
+    "PersistentCurrents",
+]
+
+
 class GPEBase(ModelBase, FingerMixin):
     """Helper class for models.
 
@@ -208,7 +218,7 @@ class BEC(GPEBase):
 
         self.t = 0
 
-        self.mu = self.hbar ** 2 / 2.0 / self.m / self.healing_length ** 2
+        self.mu = self.hbar**2 / 2.0 / self.m / self.healing_length**2
         self.n0 = self.mu / self.g
         mu_min = max(0, min(self.mu, self.mu * (1 - self.finger_V0_mu)))
         self.c_s = np.sqrt(self.mu / self.m)
@@ -224,7 +234,7 @@ class BEC(GPEBase):
     def init(self):
         super().init()
         kx, ky = self.kxy
-        self.K = self.hbar ** 2 * (kx ** 2 + ky ** 2) / 2.0 / self.m
+        self.K = self.hbar**2 * (kx**2 + ky**2) / 2.0 / self.m
         self._V_trap = self.get_V_trap()
         self.dt = self.dt_t_scale * self.t_scale
 
@@ -362,7 +372,7 @@ class BECVortices(BEC):
     def init(self):
         self.Omega = 0
         super().init()
-        A = 0.8 ** 2 * np.prod(self.Lxy)
+        A = 0.8**2 * np.prod(self.Lxy)
         self.Omega = self.N_vortex * self.hbar * np.pi / self.m / A
 
     def get_V_trap(self):
@@ -406,7 +416,7 @@ class BECFlow(BEC):
     def init(self):
         super().init()
         kx, ky = self.kxy
-        self.K = self.hbar ** 2 * (kx ** 2 + kx * self.kv + ky ** 2) / 2.0 / self.m
+        self.K = self.hbar**2 * (kx**2 + kx * self.kv + ky**2) / 2.0 / self.m
 
     @property
     def kv(self):
@@ -429,7 +439,7 @@ class BECVortexRing(BECFlow):
     def init(self):
         super().init()
         kx, ky = self.kxy
-        self.K = self.hbar ** 2 * (kx ** 2 + kx * self.kv + ky ** 2) / 2.0 / self.m
+        self.K = self.hbar**2 * (kx**2 + kx * self.kv + ky**2) / 2.0 / self.m
 
     @property
     def kv(self):
@@ -483,7 +493,7 @@ class BECSoliton(BECFlow):
         x, y = self.xy
         v_c = self.v_c
         c_s = np.sqrt(self.g * self.n0 / self.m)
-        length = self.hbar / self.m / c_s / np.sqrt(1 - v_c ** 2)
+        length = self.hbar / self.m / c_s / np.sqrt(1 - v_c**2)
 
         Lx, Ly = self.Lxy
 
@@ -493,7 +503,7 @@ class BECSoliton(BECFlow):
 
         def psi(x):
             return np.sqrt(self.n0) * (
-                1j * v_c + np.sqrt(1 - v_c ** 2) * np.tanh(x / length)
+                1j * v_c + np.sqrt(1 - v_c**2) * np.tanh(x / length)
             )
 
         theta = np.angle(psi(Lx / 2) / psi(-Lx / 2))
@@ -570,10 +580,10 @@ class BECBreather(BEC):
     def get_V_trap(self):
         """Return any static trapping potential."""
         x, y = self.xy
-        r2 = x ** 2 + y ** 2
+        r2 = x**2 + y**2
         Lx, Ly = self.Lxy
         a_HO = self.a_HO * Lx / 2.0
-        mw2 = self.hbar ** 2 / a_HO ** 4 / self.m
+        mw2 = self.hbar**2 / a_HO**4 / self.m
 
         return mw2 * r2 / 2.0
 
@@ -591,6 +601,43 @@ class BECBreather(BEC):
         theta = (np.angle(z) + np.pi) % (2 * np.pi / self.Nshape) - np.pi / self.Nshape
         n = np.where((r * np.exp(1j * theta)).real <= self.R * Lx / 2, self.n0, 0)
         self.data[...] = np.sqrt(n)
+
+
+@implementer(interfaces.IModel)
+class BECRings(BEC):
+    params = dict(BEC.params)  # , V0=0.1, g=1.0, cylinder=False)
+
+    layout = w.VBox(
+        [
+            # w.FloatSlider(
+            #     name="V0", min=0, max=0.5, step=0.01, description=r"bump size"
+            # ),
+            # w.FloatSlider(
+            #     name="N_vortex",
+            #     min=-100,
+            #     max=100,
+            #     step=0.1,
+            #     description=r"Target number of vortices",
+            # ),
+            # w.IntSlider(name="bump_N", min=0, max=100, description=r"Number of bumps"),
+            BEC.layout,
+        ]
+    )
+
+    def init(self):
+        # self.Omega = 0
+        super().init()
+        # A = 0.8**2 * np.prod(self.Lxy)
+        # self.Omega = self.N_vortex * self.hbar * np.pi / self.m / A
+
+    def get_V_trap(self):
+        """Return any static trapping potential."""
+        return 0
+
+    def get_Vext(self):
+        """Return the full external potential."""
+        # Don't use cache
+        return self.get_V_trap() + super().get_Vext()
 
 
 @implementer(interfaces.IModel)
@@ -652,7 +699,7 @@ class PersistentCurrents(BEC):
         r2_ = (2 * x / Lx) ** 2 + (2 * y / Ly) ** 2
         step = (
             1
-            - utils.mstep(r2_ - self.R1 ** 2, self.dR ** 2)
-            + utils.mstep(r2_ - self.R2 ** 2, self.dR ** 2)
+            - utils.mstep(r2_ - self.R1**2, self.dR**2)
+            + utils.mstep(r2_ - self.R2**2, self.dR**2)
         )
         return 100 * self.mu * step
