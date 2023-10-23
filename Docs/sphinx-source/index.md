@@ -17,6 +17,15 @@ Clients
 
 ```{toctree}
 :maxdepth: 3
+:caption: Tutorials
+:hidden:
+:glob:
+
+Tutorials/*
+```
+
+```{toctree}
+:maxdepth: 3
 :caption: System Architecture
 :hidden:
 :glob:

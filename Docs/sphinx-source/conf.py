@@ -12,16 +12,27 @@
 #
 import os.path
 import subprocess
+from sphinx.util.fileutil import copy_asset
+
+import mmf_setup
+
+mmf_setup.set_path()
 
 # import sys
-# sys.path.insert(0, os.path.abspath('../../src/super_hydro'))
-import super_hydro
+# sys.path.insert(0, os.path.abspath('.'))
+
+# https://discourse.jupyter.org/t/debugger-warning-it-seems-that-frozen-modules-are-being-used-python-3-11-0/
+# https://stackoverflow.com/questions/76003473
+os.environ["PYDEVD_DISABLE_FILE_VALIDATION"] = "1"
 
 
 # This is True if we are building on Read the Docs in case we need to customize.
 on_rtd = os.environ.get("READTHEDOCS") == "True"
+on_cocalc = "ANACONDA2020" in os.environ
 
 # -- Project information -----------------------------------------------------
+
+import super_hydro
 
 project = "Super_Hydro"
 copyright = "2021, Michael McNeil Forbes"
@@ -58,7 +69,9 @@ extensions = [
     # "sphinx_thebe",
     # "sphinx_external_toc",
     # "sphinx_comments",  # Hypothes.is comments and annotations
-    "sphinx_panels",
+    "sphinx_design",
+    "sphinx_togglebutton",
+    # "sphinx_panels",
     "sphinx_click",
     #'recommonmark',
     #'IPython.sphinxext.ipython_directive',
@@ -94,10 +107,6 @@ myst_enable_extensions = [
 # https://github.com/mcmtroffaes/sphinxcontrib-bibtex
 # BibTeX files
 bibtex_bibfiles = [
-    # For now, macros.bib must be included in local.bib.  See:
-    # https://github.com/mcmtroffaes/sphinxcontrib-bibtex/issues/261
-    # Separate files can now be used for sphinxcontrib-bibtex>=2.4.0a0 but we will wait
-    # for release before doing this here.
     "macros.bib",
     "local.bib",
 ]
@@ -122,10 +131,9 @@ exclude_patterns = ["_build", "Thumbs.db", ".DS_Store"]
 
 # Cache notebook output to speed generation.
 # https://myst-nb.readthedocs.io/en/latest/use/execute.html
-jupyter_execute_notebooks = "cache"
-# jupyter_execute_notebooks = "off"
-execution_allow_errors = True
-execution_timeout = 30
+nb_execution_mode = "cache"
+nb_execution_allow_errors = True
+nb_execution_timeout = 30
 nbsphinx_timeout = 300  # Time in seconds; use -1 for no timeout
 
 execution_excludepatterns = [
@@ -167,7 +175,7 @@ intersphinx_mapping = {
     "matplotlib [stable]": ("https://matplotlib.org/stable/", None),
     "numpy [stable]": ("https://numpy.org/doc/stable/", None),
     "scipy": ("https://docs.scipy.org/doc/scipy/", None),
-    "sphinx": ("https://www.sphinx-doc.org/en/master/", None),
+    "sphinx": ("https://www.sphinx-doc.org/", None),
 }
 
 # Napoleon settings
@@ -182,6 +190,9 @@ napoleon_use_ivar = False
 napoleon_use_param = True
 napoleon_use_rtype = True
 
+######################################################################
+# Open Graph settings for the sphinxext.opengraph extension
+ogp_site_url = "https://readthedocs.org/projects/super-hydro/"
 
 myst_substitutions = {
     "nsf_logo": """```{image} https://www.nsf.gov/images/logos/NSF_4-Color_bitmap_Logo.png
@@ -190,10 +201,6 @@ myst_substitutions = {
     :target: https://www.nsf.gov/
 ```""",
 }
-
-if not on_rtd:
-    # Use local MathJaX so we can work offline
-    mathjax_path = "mathjax/tex-mml-chtml.js"
 
 math_defs_filename = "_static/math_defs.tex"
 
@@ -229,7 +236,7 @@ def config_inited_handler(app, config):
 
 # Allows us to perform initialization before building the docs.  We use this to install
 # the named kernel so we can keep the name in the notebooks.
-def my_init():
+def my_init(app):
     """Run `anaconda-project run init`, or the equivalent if on RtD.
 
     We must customize this for RtD because we trick RTD into installing everything from
@@ -237,6 +244,7 @@ def my_init():
     run init` as normal, this will create a **whole new conda environment** and install
     the kernel from there.
     """
+    mathjax_offline = False
     if on_rtd:
         print(f"On RTD in directory {os.getcwd()}!")
         subprocess.check_call(
@@ -256,15 +264,54 @@ def my_init():
                 "install",
                 "--user",
                 "--name",
-                "phys-581-2021",
+                "super_hydro",
                 "--display-name",
-                "Python 3 (phys-581-2021)",
+                "Python 3 (super_hydro)",
             ]
         )
+        mathjax_offline = False
     else:
         print("Not On RTD!  Assuming you have run make init.")
+        ROOT = str(Path(__file__).parent.parent.parent)
+        subprocess.check_call(["make", "-C", ROOT, "init"])
+
         # Don't reinstall everything each time or this can get really slow.
         # subprocess.check_call(["anaconda-project", "run", "init"])
+
+    if mathjax_offline:
+        # For this to work, you need to put mathjax js files in Docs/_static/mathjax
+        # Docs/_static/
+        # |-- math_defs.tex
+        # |-- mathjax
+        #     |-- a11y
+        #     |-- adaptors
+        #     |-- core.js
+        #     |-- input
+        #      ...
+        #     |-- sre
+        #      ...
+        #     |-- startup.js
+        #     |-- tex-chtml-full.js
+        #     |-- tex-chtml.js
+        #     |-- tex-mml-chtml.js
+        #     |-- tex-mml-svg.js
+        #     |-- tex-svg-full.js
+        #     |-- tex-svg.js
+        #     `-- ui
+        #
+        # Copied from the following to put static mathjax files in place if offline:
+        # https://gitlab.com/thomaswucher/sphinx-mathjax-offline/-/blob/master/sphinx-mathjax-offline/__init__.py
+
+        ext_dir = os.path.dirname(os.path.abspath(__file__))
+        mathjax_dir = ext_dir + "_static/mathjax"
+        copy_asset(mathjax_dir, os.path.join(app.outdir, "_static", "mathjax"))
+        app.config.mathjax_path = "mathjax/tex-chtml.js"
+        app.config.mathjax_path = "mathjax/tex-svg.js"
+        app.config.mathjax_path = "mathjax/tex-chtml.js?config=TeX-AMS-MML_HTMLorMML"
+
+        # I don't know why this is needed, but if it is not turned off, then
+        # "mathjax_ignore" is added to the top-level class, preventing local rendering.
+        app.config.myst_update_mathjax = False
 
 
 # https://github.com/eventlet/eventlet/issues/670
@@ -276,4 +323,6 @@ def setup(app):
     app.connect("config-inited", config_inited_handler)
     # Ignore .ipynb files
     app.registry.source_suffix.pop(".ipynb", None)
-    my_init()
+    app.add_config_value("on_rtd", on_rtd, "env")
+    app.add_config_value("on_cocalc", on_cocalc, "env")
+    my_init(app)
