@@ -1,5 +1,7 @@
 # Need to specify bash in order for conda activate to work.
 SHELL=/bin/bash
+_SHELL = $(notdir $(SHELL))
+DOCS ?= Docs
 
 PYTHON ?= python3
 
@@ -100,23 +102,30 @@ Docs/sphinx-source/_static/mathjax:
 
 install: Jupyter_Canvas_Widget jupyter-canvas-widget
 
-clean:
+clean: cleandocs
 	-find . -name "__pycache__" -exec $(RM) -r {} +
 	-rm -rf .nox
 	-conda clean -y --all
 
-real-clean: clean
+cleandocs:
+	-$(RM) -r $(DOCS)/_build
+
+realclean: clean
 	cd Docs && make clean 
 	rm -rf .conda
 	-conda config --remove env_dirs $(CONDA_ENVS)
 	find . -type d -name "__pycache__" -exec rm -rf "{}" +
 
-.PHONY: go dev shell init-user init-dev real-clean clean install uninstall conda-env conda-env-gpu
+.PHONY: go dev shell init-user init-dev install uninstall conda-env conda-env-gpu
+.PHONY: cleandocs clean realclean 
 
 ######################################################################
 # Documentation
 
-doc-server:
+requirements.doc.txt: pyproject.toml
+	poetry export -E docs --without-hashes --format=requirements.txt > $@
+
+doc-server: requirements.doc.txt
 	$(RUN) sphinx-autobuild --open-browser \
       --ignore '*/Docs/_build/*'         \
       --watch src                        \
@@ -182,7 +191,7 @@ uninstall:
 	conda deactivate
 
 
-.PHONY: sync real-clean clean install uninstall jupyter-canvas-widget Jupyter_Canvas_Widget conda-env
+.PHONY: sync install uninstall jupyter-canvas-widget Jupyter_Canvas_Widget conda-env
 
 # Default prints a help message
 help:
@@ -243,7 +252,7 @@ Testing:
 
 Maintenance:
    make clean        Call conda clean --all: saves disk space.
-   make real-clean   delete the environments and kernel as well.
+   make realclean    delete the environments and kernel as well.
 
 Documentation:
    make doc-server   Build the html documentation server on http://localhost:8000

@@ -5,7 +5,7 @@ from scipy.interpolate import UnivariateSpline
 
 import pyaudio
 
-from mmfutils.contexts import NoInterrupt
+from .contexts import NoInterrupt
 
 
 class Synthesizer:
@@ -62,6 +62,9 @@ class Synthesizer:
     phis = 2 * np.pi * np.array([0, 0.1, 0.4, 0.6, 0.9, 1.0])
     As = np.array([0, 0, 1, -1, 0, 0])
     smooth = 0.01
+
+    # Timeout in seconds when using as a context.
+    timeout = None
 
     def __init__(self, **kw):
         for key in kw:
@@ -154,11 +157,12 @@ class Synthesizer:
         self.init()
 
         NoInterrupt.unregister()
-        self.interrupted = NoInterrupt().__enter__()
+        self.interrupted = NoInterrupt(timeout=self.timeout).__enter__()
         return self
 
     def __exit__(self, exc_type=None, exc_value=None, traceback=None):
-        self.interrupted.__exit__(exc_type, exc_value, traceback)
+        if hasattr(self.interrupted, "__exit__"):
+            self.interrupted.__exit__(exc_type, exc_value, traceback)
         self.stop()
 
     def stop(self):
@@ -171,4 +175,77 @@ class Synthesizer:
             self.stream = None
 
     def __del__(self):
-        self.stop()
+        self.__exit__()
+
+
+def notebook_synth(timeout=5, **kw):
+    """Run the synthesizer in a Jupyter notebook."""
+    import time
+    from IPython.display import display
+    from ipywidgets import FloatSlider, VBox  # , HTML, Label
+    from .contexts import NoInterrupt
+
+    # from ipyevents import Event
+
+    s = Synthesizer(timeout=timeout, **kw)
+
+    def on_freq(event):
+        if event["type"] == "change":
+            s.pitch = event["owner"].value / s.freq_440_Hz
+
+    freq = FloatSlider(value=328.0, min=110.0, max=880.0, description="Freq. (Hz)")
+    freq.observe(on_freq)
+    # display(VBox([freq, l]), h)
+    display(VBox([freq]))
+
+    s.__enter__()
+    return s
+
+
+def tkinter_synth(timeout=5, **kw):
+    """TkInter version of the synthesizer."""
+    import time
+
+    # from tkinter import *
+    from tkinter import Tk, ttk, N, S, E, W, StringVar
+
+    with Synthesizer(timeout=timeout, **kw) as s:
+
+        def update_freq(freq):
+            s.pitch = float(freq) / s.freq_440_Hz
+
+        root = Tk()
+        root.title("Synthesizer")
+
+        mainframe = ttk.Frame(root, padding="3 3 12 12")
+        mainframe.grid(column=0, row=0, sticky=(N, W, E, S))
+        root.columnconfigure(0, weight=1)
+        root.rowconfigure(0, weight=1)
+
+        freq = StringVar()
+        freq_entry = ttk.Scale(
+            mainframe,
+            length=200,
+            from_=110.0,
+            to=880.0,
+            variable=freq,
+            command=update_freq,
+        )
+        freq_entry.grid(column=2, row=1)
+
+        ttk.Label(mainframe, text="Freq. (Hz)").grid(column=3, row=1, sticky=W)
+        ttk.Label(mainframe, textvariable=freq, width=10).grid(
+            column=1, row=1, sticky=E
+        )
+
+        for child in mainframe.winfo_children():
+            child.grid_configure(padx=5, pady=5)
+
+        freq_entry.focus()
+
+        while not s.interrupted:
+            root.update_idletasks()
+            root.update()
+        root.withdraw()
+        root.destroy()
+        # root.mainloop()

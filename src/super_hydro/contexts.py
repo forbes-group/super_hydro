@@ -485,7 +485,7 @@ class NoInterrupt:
             if not is_main_thread():
                 return
 
-            self._instances.remove(self)
+            self._instances.discard(self)
             if not self._instances:
                 # Only raise an exception if all the instances have been
                 # cleared, otherwise we might still be in a protected
@@ -501,8 +501,10 @@ class NoInterrupt:
             if IPython:
                 kernel = getattr(IPython.get_ipython(), "kernel", None)
                 if kernel:
-                    del kernel.pre_handler_hook
-                    del kernel.post_handler_hook
+                    if hasattr(kernel, "pre_handler_hook"):
+                        delattr(kernel, "pre_handler_hook")
+                    if hasattr(kernel, "post_handler_hook"):
+                        delattr(kernel, "post_handler_hook")
 
     def __bool__(self):
         """Return True if interrupted."""

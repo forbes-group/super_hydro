@@ -5,23 +5,41 @@
 # Required
 version: 2
 
+# Optionally build your docs in additional formats such as PDF
+# formats:
+#   - pdf
+
 # Build documentation in the docs/ directory with Sphinx
 sphinx:
    configuration: Docs/sphinx-source/conf.py
 
-# Optionally build your docs in additional formats such as PDF
-#formats:
-#   - pdf
+######################################################################
+# Option 1: Use mamba
+build:
+  os: ubuntu-22.04
+  tools:
+    # python: "3.11"
+    python: "mambaforge-22.9"
+#  apt_packages:
+#    - libcairo2-dev
+#    - libpango1.0-dev
+#    - ffmpeg
+
+conda:
+  environment: anaconda-project.yaml
+
+# Optional but recommended, declare the Python requirements required
+# to build your documentation
+# See https://docs.readthedocs.io/en/stable/guides/reproducible-builds.html
+# python:
+#    install:
+#    - requirements: docs/requirements.txt
 
 # Optionally set the version of Python and requirements required to build your docs
 python:
-   version: "3.9"
+   version: "3.10"
    install:
-     - method: pip
-       path: .
-       extra_requirements:
-         - docs
-
+    - requirements: requirements.txt
 
 # Needed for now instead
 # https://github.com/readthedocs/readthedocs.org/issues/7554
